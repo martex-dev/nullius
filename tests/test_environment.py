@@ -22,6 +22,7 @@ def test_detect_returns_a_complete_snapshot() -> None:
     assert caps.visibility_tier in set(VisibilityTier)
 
 
+@pytest.mark.invariant
 def test_digest_is_stable_and_sensitive() -> None:
     caps = detect()
     assert caps.digest() == detect().digest()
@@ -67,6 +68,7 @@ def test_doctor_reports_tiers() -> None:
     assert "visibility tier" in result.stdout
 
 
+@pytest.mark.invariant
 def test_doctor_surfaces_warnings_rather_than_hiding_them() -> None:
     """A weak tier must never be silent: the whole point of ADR-0002."""
     caps = Capabilities(
