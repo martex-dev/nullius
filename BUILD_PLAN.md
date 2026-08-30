@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0, M1 complete (CI green on six jobs, SQLite and PostgreSQL). M2 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0, M1, M2 complete (CI green on six jobs, SQLite and PostgreSQL). M3 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -74,7 +74,7 @@ The append-only spine and every entity from `docs/03-data-model.md`.
 
 ---
 
-### M2 · Runtime and LLM layer ⬅ next
+### M2 · Runtime and LLM layer ✅
 - Role contracts (`RoleContract`, `AgentTask`, `AgentResult`) exactly as `docs/02-architecture.md` §2.
 - Task queue + worker loop (`SKIP LOCKED` on Postgres; single-writer transaction on SQLite).
 - `LLMProvider`: `AnthropicProvider`, `MockProvider`, `ReplayProvider`.
@@ -89,7 +89,7 @@ The append-only spine and every entity from `docs/03-data-model.md`.
 
 ---
 
-### M3 · Experiment DSL, compiler, sandbox
+### M3 · Experiment DSL, compiler, sandbox ⬅ next
 - `ExperimentSpec` schema (the registered object).
 - Design linter: single pre-declared primary metric, capacity-matched baselines, grouped splits, seed minimum, power for the stated MDE.
 - Spec → executable plan compiler (scikit-learn, CPU).

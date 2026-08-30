@@ -81,7 +81,15 @@ select = [
   "TID",
 ]
 ignore = [
-  "S101",   # assert: used throughout the test suite
+  "S101",    # assert: used throughout the test suite
+  # InvariantViolation, BudgetExceeded, ReplayCacheMiss, ProviderRefusal read as
+  # what they are. An "Error" suffix would make the most-read exception names in
+  # the project worse, and the base class already ends in Error.
+  "N818",
+  # En dashes and similar are correct typography in prose. The ambiguous-unicode
+  # rules earn their keep in identifiers (RUF001) and comments (RUF003), not in
+  # docstrings.
+  "RUF002",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -92,9 +100,6 @@ ignore = [
 # E501: several RAISE messages must be a single string literal (SQLite has no
 # adjacent-literal concatenation), which pushes those lines past the limit.
 "src/nullius/db/triggers.py" = ["S608", "E501"]
-# InvariantViolation and BudgetExceeded read as what they are. An "Error"
-# suffix would make the two most-read exception names in the project worse.
-"src/nullius/errors.py" = ["N818"]
 
 # ---------------------------------------------------------------- mypy
 [tool.mypy]

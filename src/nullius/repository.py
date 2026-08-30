@@ -47,15 +47,18 @@ from nullius.db.enums import (
     RunStatus,
     Split,
 )
+from nullius.db.rows import entity_row
 from nullius.db.tables import (
     Base,
     Claim,
     CodeBundle,
+    CostEntry,
     Dataset,
     Evidence,
     Forecast,
     Hypothesis,
     Lab,
+    LlmCall,
     Objection,
     Policy,
     Program,
@@ -98,6 +101,10 @@ WRITE_AUTHORITY: dict[str, frozenset[Role]] = {
     "create_claim": frozenset({Role.SYSTEM, Role.ANALYST}),
     "add_evidence": frozenset({Role.SYSTEM, Role.ANALYST}),
     "raise_objection": frozenset({Role.SYSTEM, Role.SKEPTIC, Role.REVIEWER}),
+    # Accounting is a control-plane action, recorded on behalf of whichever
+    # role's task incurred it.
+    "record_cost": frozenset({Role.SYSTEM}),
+    "record_llm_call": frozenset({Role.SYSTEM}),
 }
 """Which roles may perform which operation.
 
@@ -188,16 +195,7 @@ class Repository:
         This is what makes the ledger a faithful projection: the event payload
         is the row itself, so folding the log reconstructs the table exactly.
         """
-        mapper = sa.inspect(type(entity))
-        table = mapper.local_table
-        if not isinstance(table, sa.Table):
-            raise TypeError(
-                f"{type(entity).__name__} is not mapped to a single table and "
-                "cannot be recorded faithfully in the ledger"
-            )
-        row = {column.name: getattr(entity, column.key) for column in mapper.columns}
-        pk = "|".join(str(row[column.name]) for column in table.primary_key.columns)
-        return table.name, pk, row
+        return entity_row(entity)
 
     def _commit_entity(
         self,
@@ -219,7 +217,7 @@ class Repository:
             program_id=program_id,
             actor_task_id=self._task_id,
             policy_id=self._policy_id,
-            payload={"entity": table, "pk": pk, "row": _jsonable(row)},
+            payload={"entity": table, "pk": pk, "row": row},
         )
         return entity
 
@@ -393,7 +391,7 @@ class Repository:
             program_id=hypothesis.program_id,
             actor_task_id=self._task_id,
             policy_id=self._policy_id,
-            payload={"entity": table, "pk": pk, "row": _jsonable(row)},
+            payload={"entity": table, "pk": pk, "row": row},
         )
         return hypothesis
 
@@ -665,7 +663,7 @@ class Repository:
             program_id=program_id,
             actor_task_id=self._task_id,
             policy_id=self._policy_id,
-            payload={"entity": table, "pk": pk, "row": _jsonable(row)},
+            payload={"entity": table, "pk": pk, "row": row},
         )
         return run
 
@@ -828,6 +826,73 @@ class Repository:
             created_at=self._clock.now(),
         )
         return self._commit_entity(objection, event_type="objection.raised", program_id=program_id)
+
+    # --------------------------------------------------------- accounting
+
+    def record_cost(
+        self,
+        *,
+        program_id: uuid.UUID,
+        usd: Decimal,
+        price_table_version: str,
+        task_id: uuid.UUID | None = None,
+        run_id: uuid.UUID | None = None,
+        llm_input_tokens: int = 0,
+        llm_output_tokens: int = 0,
+        llm_cached_tokens: int = 0,
+        cpu_seconds: float = 0.0,
+        storage_mb: float = 0.0,
+    ) -> CostEntry:
+        """Record what something cost.
+
+        Zero-cost entries are recorded too, not skipped: the count of free
+        cache hits is what makes the replay argument checkable, and a budget
+        that cannot be reconstructed from the ledger is not a budget.
+        """
+        self._authorise("record_cost")
+        entry = CostEntry(
+            program_id=program_id,
+            task_id=task_id,
+            run_id=run_id,
+            llm_input_tokens=llm_input_tokens,
+            llm_output_tokens=llm_output_tokens,
+            llm_cached_tokens=llm_cached_tokens,
+            cpu_seconds=cpu_seconds,
+            storage_mb=storage_mb,
+            usd=usd,
+            price_table_version=price_table_version,
+            created_at=self._clock.now(),
+        )
+        return self._commit_entity(entry, event_type="cost.recorded", program_id=program_id)
+
+    def record_llm_call(
+        self,
+        *,
+        cache_key: str,
+        provider: str,
+        model: str,
+        params: dict[str, Any],
+        prompt_hash: str,
+        response_hash: str,
+        cache_hit: bool,
+        task_id: uuid.UUID | None = None,
+        program_id: uuid.UUID | None = None,
+    ) -> LlmCall:
+        """Record one model call, for audit and for replay."""
+        self._authorise("record_llm_call")
+        call = LlmCall(
+            call_id=self._ids.new(),
+            task_id=task_id,
+            cache_key=cache_key,
+            provider=provider,
+            model=model,
+            params=params,
+            prompt_hash=prompt_hash,
+            response_hash=response_hash,
+            cache_hit=cache_hit,
+            created_at=self._clock.now(),
+        )
+        return self._commit_entity(call, event_type="llm.called", program_id=program_id)
 
     # -------------------------------------------------------------- reads
 

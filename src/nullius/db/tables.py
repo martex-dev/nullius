@@ -85,17 +85,29 @@ class UtcDateTime(sa.TypeDecorator[dt.datetime]):
 
 
 class Money(sa.TypeDecorator[Decimal]):
-    """Exact decimal amounts, stored as text.
+    """Exact decimal amounts, stored as text at a fixed scale.
 
-    Costs are money. Binary floating point is the wrong representation for
-    money, and SQLite has no native decimal, so store the exact digits.
+    Costs are money, and binary floating point is the wrong representation for
+    money; SQLite has no native decimal, so the exact digits are stored as
+    text.
+
+    The fixed scale is not cosmetic. ``Decimal("0") == Decimal("0.00")`` is
+    True, so without normalisation SQLAlchemy's change detection sees no
+    difference between a loaded value and an assigned one at a different
+    scale, skips the UPDATE, and leaves the row holding the old digits while
+    the in-memory object holds the new ones — at which point the ledger
+    records a number the database does not have. Quantising on the way in
+    makes representation and equality agree.
     """
 
     impl = sa.String(32)
     cache_ok = True
 
+    #: 1e-8 dollars resolves per-token costs without floating point.
+    SCALE = Decimal("0.00000001")
+
     def process_bind_param(self, value: Decimal | None, dialect: object) -> str | None:
-        return None if value is None else str(Decimal(value))
+        return None if value is None else str(Decimal(value).quantize(self.SCALE))
 
     def process_result_value(self, value: str | None, dialect: object) -> Decimal | None:
         return None if value is None else Decimal(value)
@@ -672,6 +684,42 @@ class Decision(Base):
     outcome: Mapped[str] = mapped_column(sa.String(32))
     dissent: Mapped[dict[str, Any] | None] = mapped_column(sa.JSON)
     created_at: Mapped[dt.datetime]
+
+
+class Task(Base):
+    """One unit of work dispatched to one role.
+
+    ``view`` stores the materialised input the agent was shown, rather than a
+    reference to be recomputed later. An audit asking "what did the Skeptic
+    actually see?" must be answerable after the institution's state has moved
+    on, and a recomputed view answers a different question.
+    """
+
+    __tablename__ = "tasks"
+
+    task_id: Mapped[uuid.UUID] = _uuid_pk()
+    program_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("programs.program_id"), index=True)
+    role: Mapped[Role] = mapped_column(_enum(Role, "role_t"))
+    contract_version: Mapped[str] = mapped_column(sa.String(32))
+    subject_type: Mapped[str] = mapped_column(sa.String(64))
+    subject_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid())
+    status: Mapped[str] = mapped_column(sa.String(20), index=True)
+    allowance_usd: Mapped[Decimal]
+    view: Mapped[dict[str, Any]]
+    result: Mapped[dict[str, Any] | None] = mapped_column(sa.JSON)
+    failure_reason: Mapped[str | None] = mapped_column(sa.Text)
+    calls: Mapped[int] = mapped_column(sa.Integer, default=0)
+    spent_usd: Mapped[Decimal]
+    created_at: Mapped[dt.datetime]
+    claimed_at: Mapped[dt.datetime | None]
+    finished_at: Mapped[dt.datetime | None]
+
+    __table_args__ = (
+        sa.CheckConstraint(
+            "status IN ('pending','running','succeeded','failed','refused_budget')",
+            name="ck_task_status",
+        ),
+    )
 
 
 class CostEntry(Base):
