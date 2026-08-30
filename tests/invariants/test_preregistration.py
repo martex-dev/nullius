@@ -407,9 +407,15 @@ def test_sql_uuid_matches_stored_representation(repo: Repository, scaffold: Scaf
     engine = repo.session.get_bind()
     assert isinstance(engine, sa.Engine)
 
+    # Postgres hands back a native UUID; SQLite hands back text. Normalising
+    # both keeps this test about the *binding* form, which is what raw SQL
+    # actually depends on.
     stored = repo.session.execute(sa.text("SELECT program_id FROM programs LIMIT 1")).scalar_one()
-    assert stored == sql_uuid(engine, scaffold.program_id)
+    assert uuid.UUID(str(stored)) == scaffold.program_id
 
+    # The real guard: a value bound the way sql_uuid produces it must address
+    # the row. If it addressed nothing, every "this is refused" test using raw
+    # SQL would pass without the database refusing anything.
     matched = repo.session.execute(
         sa.text("SELECT count(*) FROM programs WHERE program_id = :p"),
         {"p": sql_uuid(engine, scaffold.program_id)},
