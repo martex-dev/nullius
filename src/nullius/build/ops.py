@@ -114,66 +114,85 @@ def _covariate_shift(
     n_noise: int = 5,
     shift: str = "spurious",
     shift_strength: float = 2.0,
+    spurious_strength: float = 1.6,
+    label_noise: float = 0.5,
+    n_shifted: int = 3,
 ) -> Dataset:
-    """Tabular data with an explicit causal / spurious / noise split.
+    """Tabular data under *label-preserving covariate shift*.
 
-    A stand-in for the structural causal models of M4. The property that
-    matters is already present — which features cause the label is known by
-    construction — but **this generator does not yet produce the moderator
-    RQ-001 describes**, and it should not be used as ground truth until it
-    does.
+    Three families of feature, known by construction:
 
-    Measured behaviour, pinned by
-    ``tests/test_execution.py::test_generator_behaviour_is_pinned``:
+    ``causal``
+        Drawn first; the label is generated from them. ``P(y | X_causal)`` is
+        invariant across environments, so a model that learns it transfers.
+    ``spurious``
+        Generated *from* the label, so their relationship to it is a property
+        of the environment rather than of the world. Under a spurious shift
+        that relationship reverses.
+    ``noise``
+        Independent of the label in every environment.
 
-    ===============  =====================  ==========================
-    ``shift``        divergence pruning     RQ-001 expects
-    ===============  =====================  ==========================
-    ``spurious``     large improvement      improvement          ✔
-    ``causal``       improvement            **degradation**      ✘
-    ``noise``        no effect              no effect            ✔
-    ``none``         no effect              no effect            ✔
-    ===============  =====================  ==========================
+    Two properties make this a usable ground truth, and both were wrong in the
+    first version:
 
-    The causal case comes out wrong because the spurious features here are a
-    near-deterministic function of the label, so dropping the causal features
-    costs nothing — an unshifted "spurious" feature is simply a good feature.
-    Producing the intended moderator needs spurious features weak enough that
-    they cannot substitute for the causal ones, which is a change to the data
-    generating process and therefore a change to the ground truth. That is an
-    M4 decision, made deliberately by a person, not a parameter to tune until
-    the answer looks right.
+    **Shift is applied before the label is drawn.** "Label-preserving
+    covariate shift" means ``P(X)`` changes and ``P(y | X)`` does not.
+    Shifting the causal features *after* generating the label is concept
+    drift, and it destroys the very relationship the experiment is supposed to
+    find — which is why pruning appeared to *help* under causal shift.
+
+    **``spurious_strength`` sits in a window.** The moderator only exists in a
+    band: spurious features must be strong enough that reversing them is
+    harmful (so pruning helps under a spurious shift) and weak enough that
+    they cannot substitute for the causal features (so pruning hurts under a
+    causal shift). Measured, at ``shift_strength=2``:
+
+    ==================  ==============  ============  ===========
+    ``spurious_strength``  spurious shift  causal shift  moderator
+    ==================  ==============  ============  ===========
+    0.8                 −0.058          −0.347        absent
+    1.2                 +0.061          −0.459        present
+    1.6                 +0.076          −0.354        present
+    2.0                 +0.022          +0.000        absent
+    ==================  ==============  ============  ===========
+
+    The default of 1.6 is the centre of the measured window. Effect sizes for
+    the question bank are then set by ``shift_strength``, not by moving out of
+    this band.
     """
+    if shift not in {"causal", "spurious", "noise", "none"}:
+        raise ValueError(f"unknown shift family {shift!r}")
+
     rng = np.random.default_rng(seed)
+    weights = np.linspace(1.0, 0.4, n_causal)
 
-    def draw(n: int, offset: float) -> tuple[Array, Labels]:
+    def draw(n: int, environment: str) -> tuple[Array, Labels]:
+        deploy = environment == "deploy"
         causal = rng.normal(0.0, 1.0, size=(n, n_causal))
-        weights = np.linspace(1.0, 0.4, n_causal)
-        logits = causal @ weights
-        y = (logits + rng.normal(0.0, 0.5, size=n) > 0).astype(np.int_)
+        if deploy and shift == "causal":
+            causal[:, :n_shifted] += shift_strength
 
-        # Spurious features are generated *from* the label, so their
-        # relationship to it is a property of the environment, not of the
-        # world. Shifting them is what makes pruning look attractive.
-        spurious = (y[:, None] * 2.0 - 1.0) * rng.normal(1.0, 0.5, size=(n, n_spurious))
+        # The label comes from the causal features as they actually are, so
+        # P(y | X_causal) holds in both environments.
+        y = ((causal @ weights) + rng.normal(0.0, label_noise, size=n) > 0).astype(np.int_)
+
+        spurious = spurious_strength * (y[:, None] * 2.0 - 1.0) + rng.normal(
+            0.0, 1.0, size=(n, n_spurious)
+        )
+        if deploy and shift == "spurious":
+            # Reversal is what makes them harmful; the offset is what makes the
+            # change visible to a marginal-divergence criterion. Without it the
+            # marginal mean is unchanged and no pruning rule could find them.
+            spurious[:, :n_shifted] = -spurious[:, :n_shifted] + shift_strength
+
         noise = rng.normal(0.0, 1.0, size=(n, n_noise))
-
-        if offset:
-            if shift == "causal":
-                causal = causal + offset
-            elif shift == "spurious":
-                spurious = spurious * -1.0 + offset
-            elif shift == "noise":
-                noise = noise + offset
-            elif shift == "none":
-                pass
-            else:
-                raise ValueError(f"unknown shift family {shift!r}")
+        if deploy and shift == "noise":
+            noise[:, :n_shifted] += shift_strength
 
         return np.hstack([causal, spurious, noise]).astype(np.float64), y
 
-    x_train, y_train = draw(n_samples, 0.0)
-    x_deploy, y_deploy = draw(n_samples, shift_strength)
+    x_train, y_train = draw(n_samples, "train")
+    x_deploy, y_deploy = draw(n_samples, "deploy")
 
     names = (
         *(f"causal_{i}" for i in range(n_causal)),

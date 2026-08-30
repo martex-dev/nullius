@@ -92,6 +92,23 @@ jobs:
       - name: invariant + isolation suites against postgres
         run: uv run pytest -m "invariant or isolation" -v
 
+  ground-truth:
+    name: bank ground truth
+    runs-on: ubuntu-latest
+    # The bank's answers are recomputed from the data generating process on
+    # every push. A change to the DGP that would silently move the ground
+    # truth this project is scored against fails here.
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv sync --all-extras --dev
+      - name: recompute every locked truth
+        run: uv run nullius bank verify
+      - name: report composition
+        run: uv run nullius bank stats
+
   clean-clone:
     name: reproducible from a clean clone
     runs-on: ubuntu-latest

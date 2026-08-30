@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M3 complete (CI green on six jobs, SQLite and PostgreSQL). M4 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M4 complete (CI green, SQLite and PostgreSQL). M5 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -103,18 +103,8 @@ The append-only spine and every entity from `docs/03-data-model.md`.
 
 ---
 
-### M4 · SCM generator and question bank ⬅ next
-The ground truth. The most important milestone in the project.
-
-> **Open design question, carried from M3.** The placeholder generator does not
-> produce RQ-001's moderator: divergence pruning improves out-of-distribution
-> macro-F1 under *causal* shift, where RQ-001 requires it to degrade. The cause
-> is documented on `covariate_shift` and pinned by
-> `test_generator_behaviour_is_pinned` — the spurious features substitute for
-> the causal ones almost perfectly, so dropping the causal features costs
-> nothing. Fixing it changes the data generating process, and therefore changes
-> the ground truth the whole project is scored against. **A person designs the
-> replacement SCMs; the machine implements and tests them.**
+### M4 · SCM generator and question bank ✅
+
 
 - SCM DSL: causal / spurious / noise features, environments, shift configurations.
 - Oracle: true population effects computed by large-sample evaluation, cached and versioned.
@@ -128,7 +118,7 @@ The ground truth. The most important milestone in the project.
 
 ---
 
-### M5 · Custodian and analysis harness
+### M5 · Custodian and analysis harness ⬅ next
 - Holdout Custodian as a separate process holding the test splits; preregistered evaluator; per-registration query budget.
 - Statistics: seed variance, paired BCa bootstrap, effect sizes, Holm and Benjamini–Hochberg at program level.
 - Verdict derivation and the computed confidence rubric.

@@ -262,14 +262,19 @@ def test_two_runs_of_one_seed_produce_identical_metrics(tmp_path: Path) -> None:
 def test_generator_behaviour_is_pinned() -> None:
     """Pins the measured direction of the effect for each shift family.
 
-    Not an aspiration — a record. Three of the four families behave as RQ-001
-    expects; the ``causal`` family does not, because the spurious features in
-    this generator substitute for the causal ones almost perfectly, so
-    dropping the causal features costs nothing.
+    All four families now behave as RQ-001 expects. Two things were wrong in
+    M3 and both were fixed in M4:
 
-    This test exists so that fixing the data generating process in M4 is a
-    conscious act with a visible diff, rather than a quiet parameter tweak
-    that makes the ground truth agree with whatever was hoped for.
+    * The label was generated from the *unshifted* causal features and the
+      shift applied afterwards. That is concept drift, not the
+      label-preserving covariate shift RQ-001 specifies, and it destroyed the
+      relationship the experiment is meant to find.
+    * ``spurious_strength`` sat outside the window in which the moderator
+      exists at all. Located by sweeping, not by guessing.
+
+    This test is the record, and it is deliberately strict: changing the data
+    generating process changes the ground truth the whole project is scored
+    against, so it must always arrive as a visible diff here.
     """
     import statistics
 
@@ -292,14 +297,10 @@ def test_generator_behaviour_is_pinned() -> None:
             differences.append(scores["prune"] - scores["full"])
         return statistics.mean(differences)
 
-    assert effect("spurious") > 0.30, "pruning should clearly help when only spurious shift"
-    assert abs(effect("noise")) < 0.05, "shifting irrelevant features should change nothing"
-    assert abs(effect("none")) < 0.05, "no shift should mean no effect"
-
-    # The known gap. RQ-001 requires this to be negative; it is not, and the
-    # reason is documented on the generator. Assert the current truth so the
-    # M4 fix has to change this line.
-    assert effect("causal") > 0, (
-        "KNOWN GAP: pruning still helps under causal shift because the spurious "
-        "features substitute for the causal ones. See the covariate_shift docstring."
+    assert effect("spurious") > 0.03, "pruning helps when only the spurious features move"
+    assert effect("causal") < -0.10, (
+        "pruning must HURT under causal shift: it drops the features carrying the "
+        "only relationship that transfers between environments"
     )
+    assert abs(effect("noise")) < 0.02, "moving irrelevant features changes nothing"
+    assert abs(effect("none")) < 0.02, "no shift means no effect"

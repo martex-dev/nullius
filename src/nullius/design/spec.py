@@ -170,11 +170,18 @@ class ExperimentSpec(_Frozen):
         Deterministic and part of the registration, so the set of seeds is
         fixed before any of them runs — which is what makes reporting all of
         them checkable rather than trust-based.
+
+        Drawn below :data:`~nullius.util.ids.EXPERIMENT_SEED_CEILING`, so an
+        experiment can never land on a seed the bank's oracle used.
         """
         import numpy as np
 
+        from nullius.util.ids import EXPERIMENT_SEED_CEILING
+
         generator = np.random.default_rng(self.seed_root)
-        return tuple(int(s) for s in generator.integers(0, 2**31 - 1, size=self.n_seeds))
+        return tuple(
+            int(s) for s in generator.integers(0, EXPERIMENT_SEED_CEILING, size=self.n_seeds)
+        )
 
     def arm(self, name: str) -> ArmSpec:
         for arm in self.arms:

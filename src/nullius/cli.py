@@ -85,9 +85,13 @@ def doctor() -> None:
 db_app = typer.Typer(help="Create and inspect the institutional database.", no_args_is_help=True)
 ledger_app = typer.Typer(help="Verify the integrity of the event ledger.", no_args_is_help=True)
 store_app = typer.Typer(help="Verify the content-addressed artifact store.", no_args_is_help=True)
+bank_app = typer.Typer(
+    help="The question bank and its measured ground truth.", no_args_is_help=True
+)
 app.add_typer(db_app, name="db")
 app.add_typer(ledger_app, name="ledger")
 app.add_typer(store_app, name="store")
+app.add_typer(bank_app, name="bank")
 
 DatabaseOption = Annotated[
     Path,
@@ -174,6 +178,82 @@ def store_verify(store: StoreOption = Path("objects")) -> None:
     console.print(f"[red]store CORRUPTED: {len(corrupted)} of {total} artifacts[/red]")
     for digest in corrupted[:10]:
         console.print(f"  [dim]{digest}[/dim]")
+    raise typer.Exit(code=1)
+
+
+LockOption = Annotated[Path, typer.Option("--lock", "-l", help="Path to the truth lock file.")]
+
+
+@bank_app.command("stats")
+def bank_stats(lock: LockOption = Path("bank/truth.lock.json")) -> None:
+    """Show what the bank contains, and how far each truth sits from a boundary."""
+    from collections import Counter
+
+    from nullius.bank import BANK_V1, read_lock
+    from nullius.bank.truth import MIN_BOUNDARY_MARGIN, boundary_margin
+
+    truths = read_lock(lock)
+    table = Table(box=None, padding=(0, 2, 0, 0))
+    for column in ("item", "effect", "std err", "verdict", "margin"):
+        table.add_column(column, justify="right" if column != "verdict" else "left")
+
+    for item in BANK_V1:
+        truth = truths[item.item_id]
+        margin = boundary_margin(truth)
+        colour = "red" if margin < MIN_BOUNDARY_MARGIN else "dim"
+        table.add_row(
+            item.item_id,
+            f"{truth.effect:+.4f}",
+            f"{truth.standard_error:.5f}",
+            truth.verdict.value,
+            f"[{colour}]{margin:.1f} SE[/{colour}]",
+        )
+
+    counts = Counter(t.verdict.value for t in truths.values())
+    total = len(truths)
+    console.print()
+    console.print(table)
+    console.print()
+    for verdict, count in sorted(counts.items()):
+        console.print(f"  [dim]{verdict:14}[/dim] {count:2}  ({count / total:.0%})")
+    console.print()
+    console.print(
+        f"  null fraction [bold]{counts['no_effect'] / total:.0%}[/bold] "
+        "[dim](docs/04 requires at least 45%)[/dim]"
+    )
+    console.print()
+
+
+@bank_app.command("verify")
+def bank_verify(lock: LockOption = Path("bank/truth.lock.json")) -> None:
+    """Recompute every truth from the generating process and compare to the lock.
+
+    Exits non-zero on drift, so a change to the data generating process cannot
+    quietly change what the institution is scored against.
+    """
+    from nullius.bank import validate_bank, verify
+    from nullius.bank.lock import read_lock
+    from nullius.bank.truth import ambiguous
+
+    structure = validate_bank()
+    if not structure.ok:
+        console.print(f"[red]{structure}[/red]")
+        raise typer.Exit(code=1)
+
+    unclear = ambiguous(list(read_lock(lock).values()))
+    if unclear:
+        console.print(
+            f"[red]bank unfit: {unclear} sit within 3 standard errors of a verdict "
+            "boundary, so the oracle cannot decide them either[/red]"
+        )
+        raise typer.Exit(code=1)
+
+    console.print("[dim]recomputing every truth from the generating process…[/dim]")
+    result = verify(lock)
+    if result.ok:
+        console.print(f"[green]{result}[/green]")
+        return
+    console.print(f"[red]{result}[/red]")
     raise typer.Exit(code=1)
 
 

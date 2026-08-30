@@ -15,7 +15,15 @@ from __future__ import annotations
 import uuid
 from typing import Protocol, runtime_checkable
 
-__all__ = ["DeterministicIds", "IdGenerator", "RandomIds"]
+__all__ = ["EXPERIMENT_SEED_CEILING", "DeterministicIds", "IdGenerator", "RandomIds"]
+
+EXPERIMENT_SEED_CEILING = 1_000_000
+"""Experiment seeds are drawn below this; the oracle's begin at it.
+
+Disjoint by construction rather than by luck. If an experiment could draw
+an oracle seed it could reproduce the ground truth sample outright, and
+agreeing with the truth would stop being evidence of having estimated it.
+"""
 
 #: Namespace for derived identifiers. Fixed for all time; changing it would
 #: silently renumber every replayed program.
