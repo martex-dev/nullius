@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0 complete. M1 in progress. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0, M1 complete (CI green on six jobs, SQLite and PostgreSQL). M2 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -57,11 +57,11 @@ Repository, tooling, CI, package skeleton, CLI entry point, licence, ADR log, do
 
 ---
 
-### M1 · Ledger and core model
+### M1 · Ledger and core model ✅
 The append-only spine and every entity from `docs/03-data-model.md`.
 
 - SQLAlchemy models: events, programs, hypotheses, registrations, runs, results, claims, evidence, objections, reviews, positions, decisions, forecasts, policies, costs, sources, datasets, artifacts.
-- Alembic migrations, both backends.
+- ~~Alembic migrations~~ — deferred to the end of M5, see [ADR-0006](docs/adr/0006-defer-alembic-to-m5.md).
 - Hash-chained event ledger + `nullius ledger verify`.
 - Content-addressed artifact store (`objects/<ab>/<sha256>`).
 - Role-scoped repository layer — the only write path.
@@ -74,7 +74,7 @@ The append-only spine and every entity from `docs/03-data-model.md`.
 
 ---
 
-### M2 · Runtime and LLM layer
+### M2 · Runtime and LLM layer ⬅ next
 - Role contracts (`RoleContract`, `AgentTask`, `AgentResult`) exactly as `docs/02-architecture.md` §2.
 - Task queue + worker loop (`SKIP LOCKED` on Postgres; single-writer transaction on SQLite).
 - `LLMProvider`: `AnthropicProvider`, `MockProvider`, `ReplayProvider`.

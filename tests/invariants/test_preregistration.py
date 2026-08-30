@@ -421,3 +421,41 @@ def test_sql_uuid_matches_stored_representation(repo: Repository, scaffold: Scaf
         {"p": sql_uuid(engine, scaffold.program_id)},
     ).scalar_one()
     assert matched == 1, "raw SQL must be able to address a row the ORM wrote"
+
+
+def test_a_role_cannot_revise_its_forecast(repo: Repository, scaffold: Scaffold) -> None:
+    """A forecast that can be revised cannot be scored.
+
+    Found by the property test in test_properties.py: forecasting twice
+    escaped as a raw database IntegrityError rather than a refusal with a
+    reason. The unique constraint was already correct; the repository was not.
+    """
+    hypothesis_id = make_hypothesis(repo, scaffold)
+    registration_id = _register(repo, hypothesis_id)
+
+    skeptic = repo.as_role(Role.SKEPTIC)
+    skeptic.record_forecast(
+        registration_id=registration_id,
+        p_effect_exceeds_mde=0.3,
+        predictive_mean=0.01,
+        predictive_sd=0.02,
+        p_execution_success=0.9,
+    )
+
+    with pytest.raises(InvariantViolation, match="has already forecast"):
+        skeptic.record_forecast(
+            registration_id=registration_id,
+            p_effect_exceeds_mde=0.8,
+            predictive_mean=0.04,
+            predictive_sd=0.01,
+            p_execution_success=0.99,
+        )
+
+    # A different role forecasting the same registration is the normal case.
+    repo.as_role(Role.THEORIST).record_forecast(
+        registration_id=registration_id,
+        p_effect_exceeds_mde=0.7,
+        predictive_mean=0.03,
+        predictive_sd=0.02,
+        p_execution_success=0.95,
+    )

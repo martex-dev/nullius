@@ -462,7 +462,12 @@ class Repository:
         p_execution_success: float,
         program_id: uuid.UUID | None = None,
     ) -> Forecast:
-        """Lock this role's prediction before the experiment runs."""
+        """Lock this role's prediction before the experiment runs.
+
+        One forecast per role per registration, recorded before execution. Both
+        halves matter: a prediction made after seeing results is not a
+        prediction, and a prediction that can be revised is not one either.
+        """
         self._authorise("record_forecast")
         already_run = self._session.scalars(
             sa.select(Run).where(Run.registration_id == registration_id).limit(1)
@@ -471,6 +476,18 @@ class Repository:
             raise InvariantViolation(
                 "a forecast cannot be recorded once a run exists for this "
                 "registration; predictions made after seeing results are not predictions"
+            )
+
+        existing = self._session.scalars(
+            sa.select(Forecast).where(
+                Forecast.registration_id == registration_id,
+                Forecast.role == self.role,
+            )
+        ).one_or_none()
+        if existing is not None:
+            raise InvariantViolation(
+                f"{self.role.value} has already forecast registration {registration_id}; "
+                "a forecast is locked when made, and a revisable forecast cannot be scored"
             )
 
         forecast = Forecast(
@@ -497,6 +514,14 @@ class Repository:
         generator_spec: dict[str, Any] | None = None,
     ) -> Dataset:
         self._authorise("record_dataset")
+        # Content-addressed: identical bytes are the same dataset, so
+        # re-recording is idempotent rather than an error.
+        existing = self._session.scalars(
+            sa.select(Dataset).where(Dataset.content_hash == content_hash)
+        ).one_or_none()
+        if existing is not None:
+            return existing
+
         dataset = Dataset(
             dataset_id=self._ids.new(),
             name=name,
@@ -516,6 +541,12 @@ class Repository:
         passed: bool,
     ) -> CodeBundle:
         self._authorise("record_code_bundle")
+        existing = self._session.scalars(
+            sa.select(CodeBundle).where(CodeBundle.content_hash == content_hash)
+        ).one_or_none()
+        if existing is not None:
+            return existing
+
         bundle = CodeBundle(
             bundle_id=self._ids.new(),
             content_hash=content_hash,
@@ -570,6 +601,22 @@ class Repository:
         if bundle is not None and not bundle.passed:
             raise InvariantViolation(
                 f"code bundle {bundle_id} failed validation and must not be executed"
+            )
+
+        duplicate = self._session.scalars(
+            sa.select(Run).where(
+                Run.registration_id == registration_id,
+                Run.seed == seed,
+                Run.executed_by == self.role,
+                Run.retry_count == retry_count,
+            )
+        ).one_or_none()
+        if duplicate is not None:
+            raise InvariantViolation(
+                f"seed {seed} of registration {registration_id} has already been run by "
+                f"{self.role.value} (attempt {retry_count}); re-running a seed under the "
+                "same identity would let a second measurement replace the first. "
+                "Increment retry_count for a genuine retry."
             )
 
         run = Run(
@@ -651,6 +698,20 @@ class Repository:
                     f"role {self.role.value!r} may not record a holdout metric; "
                     "the Custodian holds the test split"
                 )
+
+        duplicate = self._session.scalars(
+            sa.select(RunResult).where(
+                RunResult.run_id == run_id,
+                RunResult.split == split,
+                RunResult.metric == metric,
+            )
+        ).one_or_none()
+        if duplicate is not None:
+            raise InvariantViolation(
+                f"{metric} on the {split.value} split of run {run_id} is already recorded "
+                f"as {duplicate.value}; a measurement is written once. Recording it again "
+                "would silently replace an observation with another."
+            )
 
         result = RunResult(
             result_id=self._ids.new(),
