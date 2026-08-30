@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0 in progress. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0 complete (CI green, all five jobs). M1 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -47,7 +47,7 @@ This reorders `docs/06-roadmap.md`. The agents are the *easy* part and the least
 
 Dependency order. Each milestone is a PR into `main` with CI green.
 
-### M0 · Foundations
+### M0 · Foundations ✅
 Repository, tooling, CI, package skeleton, CLI entry point, licence, ADR log, docs moved in.
 
 **Acceptance**
