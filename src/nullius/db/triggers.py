@@ -77,7 +77,7 @@ def _sqlite_ddl() -> Iterator[str]:
               AND r.registered_at <= NEW.started_at
         );
     END;
-    """  # noqa: E501 - the message must be one SQLite string literal
+    """
 
     yield f"""
     CREATE TRIGGER IF NOT EXISTS trg_registration_immutable_once_locked
@@ -94,7 +94,7 @@ def _sqlite_ddl() -> Iterator[str]:
            OR NEW.registered_at    IS NOT OLD.registered_at
            OR NEW.locked           IS NOT OLD.locked;
     END;
-    """  # noqa: E501 - the message must be one SQLite string literal
+    """
 
     yield f"""
     CREATE TRIGGER IF NOT EXISTS trg_forecast_before_execution
@@ -105,7 +105,7 @@ def _sqlite_ddl() -> Iterator[str]:
             SELECT 1 FROM runs r WHERE r.registration_id = NEW.registration_id
         );
     END;
-    """  # noqa: E501 - the message must be one SQLite string literal
+    """
 
 
 # --------------------------------------------------------------------------
@@ -114,11 +114,14 @@ def _sqlite_ddl() -> Iterator[str]:
 
 
 def _postgres_ddl() -> Iterator[str]:
+    # RAISE ... USING MESSAGE rather than a format string: psycopg parses '%'
+    # as a parameter placeholder even in DDL, so PL/pgSQL format placeholders
+    # cannot survive the driver.
     yield f"""
     CREATE OR REPLACE FUNCTION nullius_append_only() RETURNS trigger AS $fn$
     BEGIN
-        RAISE EXCEPTION '{_PREFIX}: % is append-only (% refused)',
-            TG_TABLE_NAME, TG_OP;
+        RAISE EXCEPTION USING MESSAGE =
+            '{_PREFIX}: ' || TG_TABLE_NAME || ' is append-only (' || TG_OP || ' refused)';
     END;
     $fn$ LANGUAGE plpgsql;
     """
@@ -141,8 +144,7 @@ def _postgres_ddl() -> Iterator[str]:
               AND r.locked IS TRUE
               AND r.registered_at <= NEW.started_at
         ) THEN
-            RAISE EXCEPTION '{_PREFIX}: a run requires a locked registration '
-                'recorded no later than the run started';
+            RAISE EXCEPTION '{_PREFIX}: a run requires a locked registration recorded no later than the run started';
         END IF;
         RETURN NEW;
     END;
@@ -169,8 +171,7 @@ def _postgres_ddl() -> Iterator[str]:
             OR NEW.registered_at IS DISTINCT FROM OLD.registered_at
             OR NEW.locked        IS DISTINCT FROM OLD.locked
         ) THEN
-            RAISE EXCEPTION '{_PREFIX}: a locked registration is immutable; '
-                'record a new exploratory registration instead';
+            RAISE EXCEPTION '{_PREFIX}: a locked registration is immutable; record a new exploratory registration instead';
         END IF;
         RETURN NEW;
     END;
@@ -190,8 +191,7 @@ def _postgres_ddl() -> Iterator[str]:
         IF EXISTS (
             SELECT 1 FROM runs r WHERE r.registration_id = NEW.registration_id
         ) THEN
-            RAISE EXCEPTION '{_PREFIX}: a forecast cannot be recorded once a '
-                'run exists for this registration';
+            RAISE EXCEPTION '{_PREFIX}: a forecast cannot be recorded once a run exists for this registration';
         END IF;
         RETURN NEW;
     END;

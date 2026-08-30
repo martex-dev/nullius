@@ -89,7 +89,9 @@ ignore = [
 # The invariant DDL is assembled from a fixed, module-private tuple of table
 # names. No user input reaches it, and the whole point of the module is that
 # the statements are literal SQL.
-"src/nullius/db/triggers.py" = ["S608"]
+# E501: several RAISE messages must be a single string literal (SQLite has no
+# adjacent-literal concatenation), which pushes those lines past the limit.
+"src/nullius/db/triggers.py" = ["S608", "E501"]
 # InvariantViolation and BudgetExceeded read as what they are. An "Error"
 # suffix would make the two most-read exception names in the project worse.
 "src/nullius/errors.py" = ["N818"]
