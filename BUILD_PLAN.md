@@ -17,7 +17,7 @@ Recon on the build machine (2026-08-30):
 | OS | Windows 11 Pro, 28 CPUs |
 | Python | 3.12.10 · uv 0.12.7 |
 | Node | 24.18.0 |
-| Git / GitHub | git 2.55 · `gh` authenticated as `MartexHACK` |
+| Git / GitHub | git 2.55 · `gh` authenticated as `martex-dev` |
 | **Docker / Podman** | **absent** |
 | **WSL2** | **absent** |
 | **PostgreSQL** | **absent** |

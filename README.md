@@ -6,7 +6,7 @@
 
 *nullius in verba* · take nobody's word for it
 
-[![CI](https://github.com/MartexHACK/nullius/actions/workflows/ci.yml/badge.svg)](https://github.com/MartexHACK/nullius/actions/workflows/ci.yml)
+[![CI](https://github.com/martex-dev/nullius/actions/workflows/ci.yml/badge.svg)](https://github.com/martex-dev/nullius/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org)
 
@@ -66,7 +66,7 @@ Nothing here claims to work until its acceptance test is green in CI.
 ## Quick start
 
 ```bash
-git clone https://github.com/MartexHACK/nullius
+git clone https://github.com/martex-dev/nullius
 cd nullius
 uv sync
 uv run nullius doctor

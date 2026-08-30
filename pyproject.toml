@@ -9,7 +9,7 @@ description = "An artificial research institution with ground truth. Take nobody
 readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"
-authors = [{ name = "MartexHACK" }]
+authors = [{ name = "martex-dev" }]
 keywords = ["autonomous-research", "multi-agent", "reproducibility", "provenance", "ml-benchmark"]
 classifiers = [
   "Development Status :: 2 - Pre-Alpha",
@@ -42,8 +42,8 @@ postgres = ["psycopg[binary]>=3.2"]
 nullius = "nullius.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/MartexHACK/nullius"
-Documentation = "https://github.com/MartexHACK/nullius/tree/main/docs"
+Homepage = "https://github.com/martex-dev/nullius"
+Documentation = "https://github.com/martex-dev/nullius/tree/main/docs"
 
 [dependency-groups]
 dev = [
