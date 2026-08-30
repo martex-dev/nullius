@@ -1,0 +1,116 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nullius"
+version = "0.0.1"
+description = "An artificial research institution with ground truth. Take nobody's word for it."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+authors = [{ name = "MartexHACK" }]
+keywords = ["autonomous-research", "multi-agent", "reproducibility", "provenance", "ml-benchmark"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+  "pydantic>=2.9",
+  "pydantic-settings>=2.5",
+  "sqlalchemy>=2.0.36",
+  "alembic>=1.14",
+  "typer>=0.15",
+  "rich>=13.9",
+  "numpy>=2.1",
+  "scipy>=1.14",
+  "scikit-learn>=1.5",
+  "pandas>=2.2",
+  "jinja2>=3.1",
+  "psutil>=6.1",
+  "platformdirs>=4.3",
+]
+
+[project.optional-dependencies]
+anthropic = ["anthropic>=0.40"]
+postgres = ["psycopg[binary]>=3.2"]
+
+[project.scripts]
+nullius = "nullius.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/MartexHACK/nullius"
+Documentation = "https://github.com/MartexHACK/nullius/tree/main/docs"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3",
+  "pytest-cov>=6.0",
+  "hypothesis>=6.119",
+  "ruff>=0.8",
+  "mypy>=1.13",
+  "pandas-stubs",
+  "types-psutil",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nullius"]
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E", "F", "W",      # pycodestyle / pyflakes
+  "I",                # isort
+  "N",                # pep8-naming
+  "UP",               # pyupgrade
+  "B",                # bugbear
+  "A",                # builtin shadowing
+  "C4",               # comprehensions
+  "SIM",              # simplify
+  "RUF",
+  "S",                # bandit — this project executes generated code
+  "PTH",              # pathlib
+  "TID",
+]
+ignore = [
+  "S101",   # assert: used throughout the test suite
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "N806"]
+
+# ---------------------------------------------------------------- mypy
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+plugins = ["pydantic.mypy"]
+files = ["src/nullius"]
+
+[[tool.mypy.overrides]]
+module = ["sklearn.*", "scipy.*"]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra --strict-markers --strict-config"
+testpaths = ["tests"]
+markers = [
+  "invariant: proves a scientific invariant cannot be violated through the public API",
+  "isolation: proves a sandbox or role-visibility boundary holds",
+  "live: requires a real LLM API key; skipped by default",
+  "slow: takes more than a few seconds",
+]
+
+[tool.coverage.run]
+source = ["src/nullius"]
+branch = true

@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Nullius runtime state — provenance lives in the ledger, not in git
+objects/            # content-addressed artifact store
+runs/               # experiment working directories
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+.nullius/
+
+# Datasets are vendored deliberately and by hash; nothing lands here by accident
+data/**
+!data/.gitkeep
+!data/**/*.manifest.json
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

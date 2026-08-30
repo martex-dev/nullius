@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Never let a test reach a paid API. Live runs are opt-in and marked.
+  ANTHROPIC_API_KEY: ""
+
+jobs:
+  quality:
+    name: lint + types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv sync --all-extras --dev
+      - name: ruff format
+        run: uv run ruff format --check .
+      - name: ruff lint
+        run: uv run ruff check .
+      - name: mypy (strict)
+        run: uv run mypy
+
+  test:
+    name: test · ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv sync --all-extras --dev
+      - name: pytest
+        run: uv run pytest --cov --cov-report=term-missing -m "not live"
+
+  invariants:
+    name: scientific invariants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv sync --all-extras --dev
+      - name: invariant + isolation suites
+        # These prove that no sequence of public API calls can violate a rule
+        # in docs/03-data-model.md, and that role-visibility boundaries hold.
+        # They are a separate job so a failure here is never mistaken for an
+        # ordinary test failure.
+        run: uv run pytest -m "invariant or isolation" -v
+
+  clean-clone:
+    name: reproducible from a clean clone
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+      - name: no services, no keys, no container runtime
+        run: |
+          uv sync
+          uv run nullius version
+          uv run nullius doctor
