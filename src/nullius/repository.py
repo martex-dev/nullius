@@ -56,6 +56,7 @@ from nullius.db.tables import (
     Dataset,
     Evidence,
     Forecast,
+    HoldoutQuery,
     Hypothesis,
     Lab,
     LlmCall,
@@ -104,6 +105,9 @@ WRITE_AUTHORITY: dict[str, frozenset[Role]] = {
     # Accounting is a control-plane action, recorded on behalf of whichever
     # role's task incurred it.
     "record_cost": frozenset({Role.SYSTEM}),
+    # Only the Custodian looks at the evaluation split, so only the
+    # Custodian can record having looked.
+    "record_holdout_query": frozenset({Role.CUSTODIAN}),
     "record_llm_call": frozenset({Role.SYSTEM}),
 }
 """Which roles may perform which operation.
@@ -864,6 +868,36 @@ class Repository:
             created_at=self._clock.now(),
         )
         return self._commit_entity(entry, event_type="cost.recorded", program_id=program_id)
+
+    def record_holdout_query(
+        self,
+        *,
+        registration_id: uuid.UUID,
+        artifact_hash: str,
+        granted: bool,
+        remaining_budget: int,
+        program_id: uuid.UUID | None = None,
+    ) -> HoldoutQuery:
+        """Record one look at the evaluation split — or one refused look.
+
+        Refusals are recorded too. An attempt to exceed the budget is a fact
+        about the research, and a denied query that left no trace would make
+        the count of looks a lower bound rather than a count.
+        """
+        self._authorise("record_holdout_query")
+        query = HoldoutQuery(
+            query_id=self._ids.new(),
+            registration_id=registration_id,
+            requested_at=self._clock.now(),
+            artifact_hash=artifact_hash,
+            granted=granted,
+            remaining_budget=remaining_budget,
+        )
+        return self._commit_entity(
+            query,
+            event_type="holdout.queried" if granted else "holdout.refused",
+            program_id=program_id,
+        )
 
     def record_llm_call(
         self,

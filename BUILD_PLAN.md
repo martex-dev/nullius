@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M4 complete (CI green, SQLite and PostgreSQL). M5 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M5 complete (CI green, SQLite and PostgreSQL). M6 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -118,7 +118,7 @@ The append-only spine and every entity from `docs/03-data-model.md`.
 
 ---
 
-### M5 · Custodian and analysis harness ⬅ next
+### M5 · Custodian and analysis harness ✅
 - Holdout Custodian as a separate process holding the test splits; preregistered evaluator; per-registration query budget.
 - Statistics: seed variance, paired BCa bootstrap, effect sizes, Holm and Benjamini–Hochberg at program level.
 - Verdict derivation and the computed confidence rubric.
@@ -130,7 +130,7 @@ The append-only spine and every entity from `docs/03-data-model.md`.
 
 ---
 
-### M6 · Research kernel — first end-to-end science
+### M6 · Research kernel — first end-to-end science ⬅ next
 Roles: Theorist, Designer, Analyst, and a rule-based Director. Plus the Registry and the Forecast Ledger.
 
 **Acceptance**
