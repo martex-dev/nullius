@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0 complete (CI green, all five jobs). M1 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0 complete. M1 in progress. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -188,6 +188,7 @@ Code generation (restricted op registry → constrained → free-form, measured 
 - **`main` is always green.** Every milestone lands as a PR with CI passing on Linux and Windows.
 - **Invariants get property tests, not unit tests.** If a rule in `docs/03` can be stated as "no sequence of API calls can produce X", it is tested that way.
 - **No milestone is "done" because the code exists.** It is done when its acceptance criteria are automated and green.
+- **A test that cannot fail is worse than no test.** M1 shipped two tests that passed without exercising anything: one bound a UUID in a form the database does not store (matching zero rows, so the trigger never fired), another attempted `UPDATE` on an empty table (where a row-level trigger never fires). Both now assert their own preconditions. Any test asserting that an operation is *refused* must first prove the operation would otherwise have done something.
 - **Deviations from `docs/` are ADRs**, not silent drift. The design documents are not edited to match the code; the ADR records why they diverged.
 - **The project's own claims follow its own rules.** The benchmark protocol is preregistered with a hash before the ladder is run, and negative results are reported.
 
