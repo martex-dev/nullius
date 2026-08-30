@@ -12,6 +12,7 @@ assertions about hashes are stable.
 from __future__ import annotations
 
 import datetime as dt
+import os
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -43,11 +44,31 @@ def ids() -> DeterministicIds:
 
 
 @pytest.fixture
-def engine(tmp_path: Path) -> sa.Engine:
-    """A real, freshly created database with all invariants installed."""
-    engine = create_engine(tmp_path / "test.sqlite")
+def engine(tmp_path: Path) -> Iterator[sa.Engine]:
+    """A real, freshly created database with all invariants installed.
+
+    Runs against SQLite by default and against PostgreSQL when
+    ``NULLIUS_TEST_DATABASE_URL`` is set, so the invariant suite proves the
+    same rules on both backends rather than only on the convenient one
+    (ADR-0001). The Postgres schema is dropped and rebuilt per test to keep
+    tests independent.
+    """
+    url = os.environ.get("NULLIUS_TEST_DATABASE_URL")
+    if url is None:
+        engine = create_engine(tmp_path / "test.sqlite")
+        create_schema(engine)
+        yield engine
+        return
+
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(sa.text("DROP SCHEMA IF EXISTS public CASCADE"))
+        connection.execute(sa.text("CREATE SCHEMA public"))
     create_schema(engine)
-    return engine
+    try:
+        yield engine
+    finally:
+        engine.dispose()
 
 
 @pytest.fixture

@@ -63,6 +63,35 @@ jobs:
         # ordinary test failure.
         run: uv run pytest -m "invariant or isolation" -v
 
+  postgres:
+    name: invariants on postgres
+    runs-on: ubuntu-latest
+    # ADR-0001 claims the same schema and the same invariants run on both
+    # backends. Untested, that is an assertion. This job makes it a check.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: nullius
+          POSTGRES_DB: nullius_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    env:
+      NULLIUS_TEST_DATABASE_URL: postgresql+psycopg://postgres:nullius@localhost:5432/nullius_test
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv sync --all-extras --dev
+      - name: invariant + isolation suites against postgres
+        run: uv run pytest -m "invariant or isolation" -v
+
   clean-clone:
     name: reproducible from a clean clone
     runs-on: ubuntu-latest

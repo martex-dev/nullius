@@ -153,6 +153,29 @@ def _any_column(repo: Repository, table: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _drop_append_only(raw: sa.Connection, table: str) -> None:
+    """Remove the append-only guard the way a determined editor would.
+
+    Named per dialect rather than skipped on Postgres: the point of these
+    tests is that the hash chain notices tampering even when the trigger
+    that would have prevented it is gone.
+    """
+    if raw.dialect.name == "sqlite":
+        raw.exec_driver_sql(f"DROP TRIGGER trg_{table}_no_update")
+        raw.exec_driver_sql(f"DROP TRIGGER trg_{table}_no_delete")
+    else:
+        raw.exec_driver_sql(f"DROP TRIGGER trg_{table}_append_only ON {table}")
+
+
+def _overwrite_payload(raw: sa.Connection) -> None:
+    """Replace an event payload with different, well-formed JSON."""
+    replacement = '{"entity": "tampered"}'
+    cast = "" if raw.dialect.name == "sqlite" else "::json"
+    raw.exec_driver_sql(
+        f"UPDATE events SET payload = '{replacement}'{cast} WHERE event_type = 'hypothesis.created'"
+    )
+
+
 def test_intact_ledger_verifies(repo: Repository, scaffold: Scaffold) -> None:
     make_hypothesis(repo, scaffold)
     repo.commit()
@@ -170,11 +193,8 @@ def test_altering_a_payload_breaks_the_chain(repo: Repository, scaffold: Scaffol
     # Reach past the append-only trigger the way a determined editor would.
     engine = repo.session.get_bind()
     with engine.connect() as raw:  # type: ignore[union-attr]
-        raw.exec_driver_sql("DROP TRIGGER trg_events_no_update")
-        raw.exec_driver_sql(
-            "UPDATE events SET payload = json_set(payload, '$.entity', 'tampered')"
-            " WHERE event_type = 'hypothesis.created'"
-        )
+        _drop_append_only(raw, "events")
+        _overwrite_payload(raw)
         raw.commit()
 
     repo.session.expire_all()
@@ -191,7 +211,7 @@ def test_deleting_a_trailing_event_is_detected(repo: Repository, scaffold: Scaff
 
     engine = repo.session.get_bind()
     with engine.connect() as raw:  # type: ignore[union-attr]
-        raw.exec_driver_sql("DROP TRIGGER trg_events_no_delete")
+        _drop_append_only(raw, "events")
         raw.exec_driver_sql("DELETE FROM events WHERE seq = 2")
         raw.commit()
 
@@ -210,7 +230,7 @@ def test_reattributing_an_event_to_another_role_breaks_the_chain(
 
     engine = repo.session.get_bind()
     with engine.connect() as raw:  # type: ignore[union-attr]
-        raw.exec_driver_sql("DROP TRIGGER trg_events_no_update")
+        _drop_append_only(raw, "events")
         raw.exec_driver_sql(
             "UPDATE events SET actor_role = 'skeptic' WHERE event_type = 'hypothesis.created'"
         )
@@ -312,17 +332,20 @@ def test_a_full_research_cycle_reconciles(repo: Repository, scaffold: Scaffold) 
 
 def test_a_row_written_without_an_event_is_caught(repo: Repository, scaffold: Scaffold) -> None:
     """The reconciliation must actually be able to fail."""
+    from nullius.db.tables import Dataset
+
     repo.commit()
+    # A Core insert, deliberately bypassing the repository: this is the row
+    # that arrives without an event, which reconciliation must notice.
     repo.session.execute(
-        sa.text(
-            "INSERT INTO datasets (dataset_id, name, version, content_hash, licence,"
-            " created_at) VALUES (:id, 'smuggled', '1', :h, 'CC0', :t)"
-        ),
-        {
-            "id": str(uuid.uuid4()),
-            "h": "f" * 64,
-            "t": repo.clock.now().isoformat(),
-        },
+        sa.insert(Dataset).values(
+            dataset_id=uuid.uuid4(),
+            name="smuggled",
+            version="1",
+            content_hash="f" * 64,
+            licence="CC0",
+            created_at=repo.clock.now(),
+        )
     )
     repo.session.commit()
 
