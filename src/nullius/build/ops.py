@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from itertools import pairwise
 from typing import Any
 
 import numpy as np
@@ -78,7 +79,7 @@ _METRICS: dict[str, Callable[[Labels, Labels, Array | None], float]] = {}
 
 
 def _register(registry: dict[str, Any], name: str) -> Callable[[Any], Any]:
-    def decorate(fn: Any) -> Any:  # noqa: ANN401 - registry plumbing
+    def decorate(fn: Any) -> Any:
         if name in registry:
             raise ValueError(f"{name!r} is already registered")
         registry[name] = fn
@@ -217,9 +218,7 @@ def _divergence_prune(x_train: Array, x_deploy: Array, *, k: int = 3, **_: Any) 
     transductive adaptation, and it is declared here rather than assumed: the
     same computation on *labelled* deployment data would be leakage.
     """
-    divergence = np.abs(x_train.mean(axis=0) - x_deploy.mean(axis=0)) / (
-        x_train.std(axis=0) + 1e-9
-    )
+    divergence = np.abs(x_train.mean(axis=0) - x_deploy.mean(axis=0)) / (x_train.std(axis=0) + 1e-9)
     keep = np.ones(x_train.shape[1], dtype=bool)
     keep[np.argsort(divergence)[-k:]] = False
     return FeatureSelection(keep=keep)
@@ -259,7 +258,9 @@ def _gbm(*, seed: int = 0, n_estimators: int = 60, max_depth: int = 3) -> BaseEs
 
 
 @estimator_op("random_forest")
-def _forest(*, seed: int = 0, n_estimators: int = 100, max_depth: int | None = None) -> BaseEstimator:
+def _forest(
+    *, seed: int = 0, n_estimators: int = 100, max_depth: int | None = None
+) -> BaseEstimator:
     return RandomForestClassifier(
         n_estimators=n_estimators, max_depth=max_depth, random_state=seed, n_jobs=1
     )
@@ -305,7 +306,7 @@ def _ece(y_true: Labels, y_pred: Labels, scores: Array | None = None, bins: int 
         return float("nan")
     edges = np.linspace(0.0, 1.0, bins + 1)
     error = 0.0
-    for low, high in zip(edges[:-1], edges[1:], strict=True):
+    for low, high in pairwise(edges):
         mask = (scores > low) & (scores <= high)
         if not mask.any():
             continue
@@ -337,7 +338,7 @@ def metric(name: str, y_true: Labels, y_pred: Labels, scores: Array | None = Non
     return float(_lookup(_METRICS, name, "metric")(y_true, y_pred, scores))
 
 
-def _lookup(registry: dict[str, Any], name: str, kind: str) -> Any:  # noqa: ANN401
+def _lookup(registry: dict[str, Any], name: str, kind: str) -> Any:
     try:
         return registry[name]
     except KeyError:
