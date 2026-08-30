@@ -4,8 +4,11 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
-build/
-dist/
+# Anchored to the repository root. A bare `build/` also matches
+# src/nullius/build/, which silently excluded that package from git and
+# from the wheel until CI could not import it.
+/build/
+/dist/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
