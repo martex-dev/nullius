@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0, M1, M2 complete (CI green on six jobs, SQLite and PostgreSQL). M3 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M3 complete (CI green on six jobs, SQLite and PostgreSQL). M4 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -89,7 +89,7 @@ The append-only spine and every entity from `docs/03-data-model.md`.
 
 ---
 
-### M3 · Experiment DSL, compiler, sandbox ⬅ next
+### M3 · Experiment DSL, compiler, sandbox ✅
 - `ExperimentSpec` schema (the registered object).
 - Design linter: single pre-declared primary metric, capacity-matched baselines, grouped splits, seed minimum, power for the stated MDE.
 - Spec → executable plan compiler (scikit-learn, CPU).
@@ -103,8 +103,18 @@ The append-only spine and every entity from `docs/03-data-model.md`.
 
 ---
 
-### M4 · SCM generator and question bank
+### M4 · SCM generator and question bank ⬅ next
 The ground truth. The most important milestone in the project.
+
+> **Open design question, carried from M3.** The placeholder generator does not
+> produce RQ-001's moderator: divergence pruning improves out-of-distribution
+> macro-F1 under *causal* shift, where RQ-001 requires it to degrade. The cause
+> is documented on `covariate_shift` and pinned by
+> `test_generator_behaviour_is_pinned` — the spurious features substitute for
+> the causal ones almost perfectly, so dropping the causal features costs
+> nothing. Fixing it changes the data generating process, and therefore changes
+> the ground truth the whole project is scored against. **A person designs the
+> replacement SCMs; the machine implements and tests them.**
 
 - SCM DSL: causal / spurious / noise features, environments, shift configurations.
 - Oracle: true population effects computed by large-sample evaluation, cached and versioned.
