@@ -259,5 +259,10 @@ def validate_bank(items: tuple[BankItem, ...] = BANK_V1) -> BankReport:
             problems.append(
                 f"{item.item_id}: sets seed; seeds come from the registration and the oracle"
             )
+        if item.generator_params.get("leak_strength"):
+            problems.append(
+                f"{item.item_id}: sets leak_strength, which exists only for the defect "
+                "injector. Ground truth measured on leaked data would be measuring the leak."
+            )
 
     return BankReport(problems=tuple(problems))

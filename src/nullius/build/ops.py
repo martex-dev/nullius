@@ -38,6 +38,7 @@ __all__ = [
     "Dataset",
     "estimator",
     "generate",
+    "generator_defaults",
     "metric",
     "registered_estimators",
     "registered_generators",
@@ -117,6 +118,7 @@ def _covariate_shift(
     spurious_strength: float = 1.6,
     label_noise: float = 0.5,
     n_shifted: int = 3,
+    leak_strength: float = 0.0,
 ) -> Dataset:
     """Tabular data under *label-preserving covariate shift*.
 
@@ -159,6 +161,15 @@ def _covariate_shift(
     The default of 1.6 is the centre of the measured window. Effect sizes for
     the question bank are then set by ``shift_strength``, not by moving out of
     this band.
+
+    ``leak_strength`` exists solely for the defect injector
+    (:mod:`nullius.adversarial.defects`) and is the *amplitude* of a
+    label-derived feature planted among the noise columns. Large enough, it
+    dominates every other feature, both arms reach the metric ceiling, and a
+    real effect is flattened into a false null — which is the interesting
+    failure, far more than an inflated training score. No bank item may set
+    it, and :func:`nullius.bank.items.validate_bank` refuses one that does: a
+    ground truth measured on leaked data would be measuring the leak.
     """
     if shift not in {"causal", "spurious", "noise", "none"}:
         raise ValueError(f"unknown shift family {shift!r}")
@@ -188,6 +199,12 @@ def _covariate_shift(
         noise = rng.normal(0.0, 1.0, size=(n, n_noise))
         if deploy and shift == "noise":
             noise[:, :n_shifted] += shift_strength
+
+        if leak_strength > 0.0 and n_noise:
+            # A planted fault, never a research setting. The amplitude is what
+            # matters: large enough and this feature swamps every other, so
+            # every arm scores the same and the comparison measures nothing.
+            noise[:, 0] = (y * 2.0 - 1.0) * leak_strength
 
         return np.hstack([causal, spurious, noise]).astype(np.float64), y
 
@@ -365,6 +382,24 @@ def _lookup(registry: dict[str, Any], name: str, kind: str) -> Any:
             f"no {kind} named {name!r}; the operator registry is closed, and "
             f"available {kind}s are {sorted(registry)}"
         ) from None
+
+
+def generator_defaults(name: str) -> dict[str, Any]:
+    """The default parameters of a generator.
+
+    Read from the signature rather than restated elsewhere. A detector asking
+    "did anything actually shift?" must distinguish an absent parameter, which
+    means *use the default*, from an explicit zero — and hardcoding the
+    defaults in the detector would let the two drift apart silently.
+    """
+    import inspect
+
+    signature = inspect.signature(_lookup(_GENERATORS, name, "generator"))
+    return {
+        parameter.name: parameter.default
+        for parameter in signature.parameters.values()
+        if parameter.default is not inspect.Parameter.empty
+    }
 
 
 def registered_generators() -> tuple[str, ...]:

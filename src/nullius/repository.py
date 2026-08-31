@@ -32,6 +32,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from nullius.db.enums import (
+    CONFIDENCE_ORDER,
     AssertionKind,
     ClaimConfidence,
     ComputedBy,
@@ -43,6 +44,8 @@ from nullius.db.enums import (
     ObjectionType,
     Polarity,
     RegistrationKind,
+    ReplicationOutcome,
+    ReviewDecision,
     Role,
     RunStatus,
     Split,
@@ -62,11 +65,14 @@ from nullius.db.tables import (
     Lab,
     LlmCall,
     Objection,
+    ObjectionResolution,
     Policy,
     Program,
     QueryAudit,
     Registration,
+    Replication,
     ResearchQuestion,
+    Review,
     Run,
     RunResult,
 )
@@ -103,6 +109,10 @@ WRITE_AUTHORITY: dict[str, frozenset[Role]] = {
     "create_claim": frozenset({Role.SYSTEM, Role.ANALYST}),
     "add_evidence": frozenset({Role.SYSTEM, Role.ANALYST}),
     "raise_objection": frozenset({Role.SYSTEM, Role.SKEPTIC, Role.REVIEWER}),
+    "resolve_objection": frozenset({Role.SYSTEM, Role.DIRECTOR, Role.SKEPTIC}),
+    "record_review": frozenset({Role.SYSTEM, Role.REVIEWER}),
+    "record_replication": frozenset({Role.SYSTEM, Role.REPLICATOR}),
+    "promote_claim": frozenset({Role.SYSTEM, Role.DIRECTOR}),
     # Accounting is a control-plane action, recorded on behalf of whichever
     # role's task incurred it.
     "record_cost": frozenset({Role.SYSTEM}),
@@ -835,6 +845,189 @@ class Repository:
         )
         return self._commit_entity(objection, event_type="objection.raised", program_id=program_id)
 
+    def resolve_objection(
+        self,
+        objection_id: uuid.UUID,
+        *,
+        status: ObjectionStatus,
+        resolved_by_registration_id: uuid.UUID | None = None,
+        note: str = "",
+        program_id: uuid.UUID | None = None,
+    ) -> ObjectionResolution:
+        """Settle a standing objection.
+
+        Recorded as its own row rather than by editing the objection, so what
+        was originally said stays exactly as it was said.
+
+        A critical objection may only be settled by naming the registration
+        that settled it — the discriminating test it demanded. Closing one by
+        assertion would make the requirement for a discriminating test
+        decorative.
+        """
+        self._authorise("resolve_objection")
+        objection = self._session.get(Objection, objection_id)
+        if objection is None:
+            raise InvariantViolation(f"no such objection: {objection_id}")
+        if status is ObjectionStatus.OPEN:
+            raise InvariantViolation("resolving an objection means closing it")
+
+        existing = self._session.get(ObjectionResolution, objection_id)
+        if existing is not None:
+            raise InvariantViolation(f"objection {objection_id} is already {existing.status.value}")
+
+        if (
+            objection.severity is ObjectionSeverity.CRITICAL
+            and status in {ObjectionStatus.RESOLVED_UPHELD, ObjectionStatus.RESOLVED_REJECTED}
+            and resolved_by_registration_id is None
+        ):
+            raise InvariantViolation(
+                "a critical objection is settled by running its discriminating test, "
+                "not by declaring it settled; name the registration that resolved it"
+            )
+
+        resolution = ObjectionResolution(
+            objection_id=objection_id,
+            status=status,
+            resolved_by_registration_id=resolved_by_registration_id,
+            resolved_by_role=self.role,
+            note=note,
+            resolved_at=self._clock.now(),
+        )
+        return self._commit_entity(
+            resolution, event_type="objection.resolved", program_id=program_id
+        )
+
+    def record_review(
+        self,
+        *,
+        claim_id: uuid.UUID,
+        decision: ReviewDecision,
+        scores: dict[str, Any],
+        rationale: str,
+        program_id: uuid.UUID | None = None,
+    ) -> Review:
+        """Record a review decision."""
+        self._authorise("record_review")
+        review = Review(
+            review_id=self._ids.new(),
+            claim_id=claim_id,
+            decision=decision,
+            scores=scores,
+            rationale=rationale,
+            reviewed_by_task=self._task_id,
+            created_at=self._clock.now(),
+        )
+        return self._commit_entity(review, event_type="claim.reviewed", program_id=program_id)
+
+    def record_replication(
+        self,
+        *,
+        original_registration_id: uuid.UUID,
+        replication_registration_id: uuid.UUID,
+        outcome: ReplicationOutcome,
+        concordance: dict[str, Any],
+        program_id: uuid.UUID | None = None,
+    ) -> Replication:
+        """Record an independent reproduction attempt and how it came out."""
+        self._authorise("record_replication")
+        if original_registration_id == replication_registration_id:
+            raise InvariantViolation(
+                "a registration cannot replicate itself; a replication is a separate "
+                "registration executed independently"
+            )
+        replication = Replication(
+            replication_id=self._ids.new(),
+            original_registration_id=original_registration_id,
+            replication_registration_id=replication_registration_id,
+            outcome=outcome,
+            concordance=concordance,
+            executed_by=self.role,
+            created_at=self._clock.now(),
+        )
+        return self._commit_entity(
+            replication, event_type="replication.recorded", program_id=program_id
+        )
+
+    def promote_claim(
+        self,
+        claim_id: uuid.UUID,
+        confidence: ClaimConfidence,
+        *,
+        program_id: uuid.UUID | None = None,
+    ) -> Claim:
+        """Raise a claim's confidence, if the ledger permits it.
+
+        The promotion rule from ``docs/03-data-model.md``, enforced rather than
+        documented. Reaching the top level requires an independent
+        replication, no open critical objection, a confirmatory registration
+        and evidence that actually exists. Every one of those is a fact about
+        the ledger, so none of them can be argued into place.
+        """
+        self._authorise("promote_claim")
+        claim = self._session.get(Claim, claim_id)
+        if claim is None:
+            raise InvariantViolation(f"no such claim: {claim_id}")
+
+        evidence = list(
+            self._session.scalars(sa.select(Evidence).where(Evidence.claim_id == claim_id))
+        )
+        if not evidence and confidence is not ClaimConfidence.SPECULATIVE:
+            raise InvariantViolation("a claim with no evidence cannot rise above speculative")
+
+        blocking = self.open_critical_objections(claim_id)
+        if blocking and confidence is not ClaimConfidence.CONTESTED:
+            raise InvariantViolation(
+                f"{len(blocking)} unresolved critical objection(s) bar promotion; "
+                "run the discriminating test or record the override as dissent"
+            )
+
+        if confidence is ClaimConfidence.WELL_SUPPORTED:
+            replications = self._replication_count(claim)
+            if replications < 1:
+                raise InvariantViolation(
+                    "a claim reaches well_supported only after independent "
+                    "reproduction; none is recorded"
+                )
+
+        if CONFIDENCE_ORDER.index(confidence) > CONFIDENCE_ORDER.index(claim.confidence):
+            claim.confidence = confidence
+            claim.computed_at = self._clock.now()
+            self._session.flush()
+
+            table, pk, row = self._describe(claim)
+            self._ledger.append(
+                event_type="claim.promoted",
+                subject_type=table,
+                subject_id=claim.claim_id,
+                actor_role=self.role,
+                program_id=program_id,
+                actor_task_id=self._task_id,
+                policy_id=self._policy_id,
+                payload={"entity": table, "pk": pk, "row": row},
+            )
+        return claim
+
+    def _replication_count(self, claim: Claim) -> int:
+        if claim.hypothesis_id is None:
+            return 0
+        registrations = self._session.scalars(
+            sa.select(Registration.registration_id).where(
+                Registration.hypothesis_id == claim.hypothesis_id
+            )
+        ).all()
+        if not registrations:
+            return 0
+        total = self._session.scalar(
+            sa.select(sa.func.count())
+            .select_from(Replication)
+            .where(
+                Replication.original_registration_id.in_(registrations),
+                Replication.outcome == ReplicationOutcome.REPLICATED,
+                Replication.executed_by == Role.REPLICATOR,
+            )
+        )
+        return int(total or 0)
+
     # --------------------------------------------------------- accounting
 
     def record_cost(
@@ -976,18 +1169,48 @@ class Repository:
         return self._session.get(Registration, registration_id)
 
     def results_for_run(self, run_id: uuid.UUID) -> list[RunResult]:
-        rows = list(self._session.scalars(sa.select(RunResult).where(RunResult.run_id == run_id)))
+        """Results for one run, filtered by what this role may see.
+
+        The Replicator is denied every row produced by a run it did not
+        execute. This is capability, not instruction: the method returns
+        nothing rather than trusting the Replicator not to look
+        (`docs/01-critique.md` A5). Where PostgreSQL row-level security is
+        available it enforces the same rule again at the database
+        (ADR-0001).
+        """
+        query = sa.select(RunResult).where(RunResult.run_id == run_id)
+        if self.role is Role.REPLICATOR:
+            query = query.join(Run, Run.run_id == RunResult.run_id).where(
+                Run.executed_by == Role.REPLICATOR
+            )
+        rows = list(self._session.scalars(query))
         self._audit("results_for_run", "run_results", [str(r.result_id) for r in rows])
         return rows
 
+    def runs_for_registration(self, registration_id: uuid.UUID) -> list[Run]:
+        """Runs for one registration, filtered by what this role may see."""
+        query = sa.select(Run).where(Run.registration_id == registration_id)
+        if self.role is Role.REPLICATOR:
+            query = query.where(Run.executed_by == Role.REPLICATOR)
+        rows = list(self._session.scalars(query))
+        self._audit("runs_for_registration", "runs", [str(r.run_id) for r in rows])
+        return rows
+
     def open_critical_objections(self, target_id: uuid.UUID) -> list[Objection]:
-        """Objections that currently bar promotion to an institutional claim."""
+        """Objections that currently bar promotion to an institutional claim.
+
+        Open means *unresolved*, which is now a fact about whether a
+        resolution row exists rather than a mutable column on the objection.
+        """
+        resolved = sa.select(ObjectionResolution.objection_id).where(
+            ObjectionResolution.status != ObjectionStatus.OPEN
+        )
         rows = list(
             self._session.scalars(
                 sa.select(Objection).where(
                     Objection.target_id == target_id,
                     Objection.severity == ObjectionSeverity.CRITICAL,
-                    Objection.status == ObjectionStatus.OPEN,
+                    Objection.objection_id.not_in(resolved),
                 )
             )
         )

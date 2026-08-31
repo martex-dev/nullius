@@ -19,6 +19,7 @@ from nullius.db.enums import (
     ComputedBy,
     EvidenceKind,
     ObjectionSeverity,
+    ObjectionStatus,
     ObjectionType,
     Polarity,
     Role,
@@ -47,7 +48,12 @@ def populated(repo: Repository, scaffold: Scaffold) -> Repository:
     never fires on an empty table, so testing append-only enforcement against
     empty tables would pass while proving nothing.
     """
-    from nullius.db.tables import CostEntry, ForecastScore, HoldoutQuery, LlmCall
+    from nullius.db.tables import (
+        CostEntry,
+        ForecastScore,
+        HoldoutQuery,
+        LlmCall,
+    )
 
     hypothesis_id = make_hypothesis(repo, scaffold)
     dataset = repo.record_dataset(name="d", version="1", content_hash="a" * 64, licence="CC0")
@@ -80,13 +86,16 @@ def populated(repo: Repository, scaffold: Scaffold) -> Repository:
     repo.record_result(
         run_id=run.run_id, split=Split.DEV, metric="macro_f1", value=0.9, artifact_hash="d" * 64
     )
-    repo.as_role(Role.SKEPTIC).raise_objection(
+    objection = repo.as_role(Role.SKEPTIC).raise_objection(
         target_type="runs",
         target_id=run.run_id,
         objection_type=ObjectionType.SEED_INSTABILITY,
         severity=ObjectionSeverity.MAJOR,
         statement="One seed cannot show variance.",
         discriminating_test={"n_seeds": 5},
+    )
+    repo.as_role(Role.DIRECTOR).resolve_objection(
+        objection.objection_id, status=ObjectionStatus.RESOLVED_UPHELD
     )
     repo.get_hypothesis(hypothesis_id)  # populates query_audit
 

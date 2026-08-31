@@ -655,6 +655,36 @@ class Objection(Base):
     created_at: Mapped[dt.datetime]
 
 
+class ObjectionResolution(Base):
+    """How a standing objection was settled.
+
+    Separate from :class:`Objection` for the same reason
+    :class:`ForecastScore` is separate from :class:`Forecast`: the objection
+    itself must stay append-only. If resolution mutated the objection row,
+    that row would have to be updatable — and an objection whose *statement*
+    can be edited after the fact is not a record of anything.
+
+    A critical objection can only be settled by naming the registration that
+    settled it. Closing one by assertion would make the whole mechanism
+    decorative.
+    """
+
+    __tablename__ = "objection_resolutions"
+
+    objection_id: Mapped[uuid.UUID] = mapped_column(
+        sa.ForeignKey("objections.objection_id"), primary_key=True
+    )
+    status: Mapped[ObjectionStatus] = mapped_column(_enum(ObjectionStatus, "objection_status"))
+    resolved_by_registration_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.ForeignKey("registrations.registration_id")
+    )
+    resolved_by_role: Mapped[Role] = mapped_column(_enum(Role, "role_t"))
+    note: Mapped[str] = mapped_column(sa.Text, default="")
+    resolved_at: Mapped[dt.datetime]
+
+    __table_args__ = (sa.CheckConstraint("status <> 'open'", name="ck_resolution_is_not_open"),)
+
+
 class Review(Base):
     __tablename__ = "reviews"
 
@@ -816,6 +846,7 @@ APPEND_ONLY_TABLES: tuple[str, ...] = (
     "run_results",
     "forecasts",
     "forecast_scores",
+    "objection_resolutions",
     "objections",
     "cost_entries",
     "holdout_queries",

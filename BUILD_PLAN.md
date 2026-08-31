@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M5 complete; M6 complete mock-driven, awaiting the first live run. M7 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M7 complete (M6 and M7 mock-driven; the first live run awaits an API key). M8 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -140,7 +140,7 @@ Roles: Theorist, Designer, Analyst, and a rule-based Director. Plus the Registry
 
 ---
 
-### M7 · Adversarial layer ⬅ next
+### M7 · Adversarial layer ✅
 Skeptic + detector suite, typed objections with mandatory discriminating tests, Replicator with enforced blindness, Reviewer, defect injector.
 
 **Acceptance**
@@ -150,7 +150,7 @@ Skeptic + detector suite, typed objections with mandatory discriminating tests, 
 
 ---
 
-### M8 · Institutional memory
+### M8 · Institutional memory ⬅ next
 Genealogy CTEs, follow-up generation from terminal states, institutional-novelty dedup, cross-item memory.
 
 **Acceptance** — second-generation hypotheses demonstrably derive from first-generation results; a duplicate hypothesis is caught at intake.

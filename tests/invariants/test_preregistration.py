@@ -368,6 +368,7 @@ NON_MUTATING = frozenset(
         "open_critical_objections",
         "results_for_run",
         "rollback",
+        "runs_for_registration",
     }
 )
 
