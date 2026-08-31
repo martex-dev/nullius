@@ -38,24 +38,34 @@ inserting one would be a decision procedure with one option.
 
 from __future__ import annotations
 
+import math
 import uuid
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from nullius.adversarial.detectors import Finding, run_detectors
 from nullius.analysis.confidence import ConfidenceInputs, ConfidenceReport, compute_confidence
 from nullius.analysis.stats import PairedResult, paired_analysis, seed_variance
 from nullius.analysis.verdict import VerdictReport, derive_verdict
 from nullius.bank.items import BankItem
 from nullius.build.compiler import compile_spec
 from nullius.custody.custodian import HoldoutCustodian
-from nullius.db.enums import AssertionKind, EvidenceKind, HypothesisState, Polarity, Role
+from nullius.db.enums import (
+    AssertionKind,
+    EvidenceKind,
+    HypothesisState,
+    Polarity,
+    ReplicationOutcome,
+    Role,
+)
 from nullius.design.linter import LintReport, lint
 from nullius.design.spec import ArmSpec, DatasetSpec, EstimatorSpec, ExperimentSpec, TransformSpec
 from nullius.execute.runner import ExperimentRunner, SeedOutcome
 from nullius.execute.sandbox import SandboxBackend
 from nullius.forecast import score_forecasts
+from nullius.knowledge.memory import recall
 from nullius.llm.providers import LlmProvider
 from nullius.repository import Repository
 from nullius.roles.contracts import contracts_for
@@ -65,9 +75,92 @@ from nullius.runtime.worker import Worker
 from nullius.store.cas import ContentStore
 from nullius.util.ids import seed_for
 
-__all__ = ["KernelOutcome", "Proposal", "ResearchKernel"]
+__all__ = ["FULL_INSTITUTION", "KernelOutcome", "Mechanisms", "Proposal", "ResearchKernel"]
+
+
+@dataclass(frozen=True, slots=True)
+class Mechanisms:
+    """Which parts of the institution are switched on for this pass.
+
+    The benchmark of ``docs/04-evaluation.md`` needs to run the same pipeline
+    with pieces removed, and the only way an ablation means anything is if the
+    arms differ in the named mechanism and in nothing else. So the switches
+    live here, on the one pipeline, rather than in a second implementation
+    that would differ in ways nobody enumerated.
+
+    The defaults are what M6 shipped: registered, custodied, unchallenged.
+    Existing callers therefore keep the behaviour they had.
+    """
+
+    custody: bool = True
+    """Evaluate on a split nothing else has seen.
+
+    Switched off, the verdict is computed from the development split the
+    experiment was free to look at while it was being built. That is not a
+    subtle difference and it is not expected to be a small one.
+    """
+
+    preregistered: bool = True
+    """Whether the design was locked before execution.
+
+    Off, the registration is still written — the ledger has no mode in which
+    it forgets — but the claim is not permitted to claim the credit for it,
+    and :func:`~nullius.analysis.confidence.compute_confidence` caps
+    accordingly.
+    """
+
+    adversary: bool = False
+    """Run the detectors, and let a critical finding block promotion."""
+
+    replication: bool = False
+    """Re-register and re-run the design independently before claiming."""
+
+    memory: bool = False
+    """Show the Theorist what this programme already believes."""
+
+
+FULL_INSTITUTION = Mechanisms(
+    custody=True, preregistered=True, adversary=True, replication=True, memory=True
+)
+
+_DEFAULT = Mechanisms()
 
 FORECASTING_ROLES = (Role.THEORIST, Role.DESIGNER, Role.ANALYST)
+
+
+def _dev_values(outcomes: list[SeedOutcome], arm: str, metric: str) -> list[float]:
+    """One value per seed from the development split, in seed order.
+
+    The same shape :meth:`~nullius.custody.custodian.CustodyResult.arm_values`
+    returns, so the analysis downstream cannot tell which split it was handed —
+    which is the point. Only the arm's switch decides, and it decides in one
+    place.
+    """
+    return [
+        outcome.metrics[arm][metric]
+        for outcome in sorted(outcomes, key=lambda o: o.seed)
+        if arm in outcome.metrics and metric in outcome.metrics[arm]
+    ]
+
+
+def _aggregate(per_arm: dict[str, list[float]], metric: str) -> dict[str, dict[str, float]]:
+    """Seed-wise values reduced to the mean and spread the detectors read.
+
+    ``metric__sd`` is the run-to-run spread the ``seed_instability`` detector
+    looks for; without it that detector silently never fires, which would be a
+    detector that passes by not looking.
+    """
+    aggregated: dict[str, dict[str, float]] = {}
+    for arm, values in per_arm.items():
+        if not values:
+            continue
+        mean = sum(values) / len(values)
+        if len(values) > 1:
+            variance = sum((v - mean) ** 2 for v in values) / (len(values) - 1)
+        else:
+            variance = 0.0
+        aggregated[arm] = {metric: mean, f"{metric}__sd": math.sqrt(variance)}
+    return aggregated
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,6 +180,10 @@ class KernelOutcome:
     claim_id: uuid.UUID | None = None
     note: AnalysisNote | None = None
     usd: Decimal = Decimal(0)
+    findings: tuple[Finding, ...] = ()
+    """What the detectors raised. Empty when no adversary was switched on."""
+    replications: int = 0
+    """Independent reproductions that agreed. Not attempts — agreements."""
     halted: str | None = None
     """Why the lifecycle stopped early, if it did. A halt is a result."""
 
@@ -166,6 +263,7 @@ class ResearchKernel:
         *,
         program_id: uuid.UUID,
         allowance: Decimal = Decimal("0.50"),
+        mechanisms: Mechanisms = _DEFAULT,
     ) -> KernelOutcome:
         """Take one question from proposal to claim.
 
@@ -173,10 +271,12 @@ class ResearchKernel:
         question weighed against nothing is not a choice, and an allocator
         invoked here would be a decision procedure with a single option.
         """
-        proposal = self.propose(item, program_id=program_id, allowance=allowance)
+        proposal = self.propose(
+            item, program_id=program_id, allowance=allowance, mechanisms=mechanisms
+        )
         if not proposal.fundable:
             return proposal.outcome()
-        return self.execute(proposal, allowance=allowance)
+        return self.execute(proposal, allowance=allowance, mechanisms=mechanisms)
 
     # ------------------------------------------------------------- propose
 
@@ -186,6 +286,7 @@ class ResearchKernel:
         *,
         program_id: uuid.UUID,
         allowance: Decimal = Decimal("0.50"),
+        mechanisms: Mechanisms = _DEFAULT,
     ) -> Proposal:
         """Steps 1 to 5: hypothesis, design, lint, registration, locked forecasts.
 
@@ -197,11 +298,24 @@ class ResearchKernel:
         spent = Decimal(0)
 
         # 1 - Theorist -------------------------------------------------------
+        # With memory on, the Theorist sees what the lab already came to
+        # believe. Deliberately its *claims*, not the bank's truth: memory that
+        # could only ever be right would be an oracle wearing a hat. Lab scope
+        # rather than programme scope, because one programme is one question and
+        # memory that could not cross a question would not be memory.
+        view = dict(item.agent_view())
+        if mechanisms.memory:
+            view["established_claims"] = [
+                recollection.as_dict()
+                for recollection in recall(
+                    self._repo.session, program_id=program_id, scope="lab"
+                )
+            ]
         draft, cost = self._ask(
             Role.THEORIST,
             "v1",
             program_id,
-            item.agent_view(),
+            view,
             subject=("research_questions", uuid.uuid4()),
             allowance=allowance,
         )
@@ -302,6 +416,7 @@ class ResearchKernel:
         proposal: Proposal,
         *,
         allowance: Decimal = Decimal("0.50"),
+        mechanisms: Mechanisms = _DEFAULT,
     ) -> KernelOutcome:
         """Steps 6 to 11: run every seed, take custody, analyse, claim, score.
 
@@ -352,22 +467,67 @@ class ResearchKernel:
             )
 
         # 7 - Custody: one look at the evaluation split, covering every seed ---
-        custodian = HoldoutCustodian(self._repo.as_role(Role.CUSTODIAN))
-        custody = custodian.evaluate(
-            registration_id=registration_id,
-            runs=[(o.run_id, compile_spec(spec, seed=o.seed)) for o in completed],
-            program_id=program_id,
-        )
+        holdout_queries = 0
+        if mechanisms.custody:
+            custodian = HoldoutCustodian(self._repo.as_role(Role.CUSTODIAN))
+            custody = custodian.evaluate(
+                registration_id=registration_id,
+                runs=[(o.run_id, compile_spec(spec, seed=o.seed)) for o in completed],
+                program_id=program_id,
+            )
+            baseline = custody.arm_values(spec.baseline_arm, spec.primary_metric)
+            treatment = custody.arm_values(spec.treatment_arm, spec.primary_metric)
+            holdout_queries = custodian.queries_consumed(registration_id)
+        else:
+            # No Custodian means the verdict is read off the development split —
+            # the same numbers the design was free to inspect while it was being
+            # written. Nothing here is cheating; this is simply what an
+            # institution without an evaluation firewall is able to see, and the
+            # benchmark exists to price the difference.
+            baseline = _dev_values(completed, spec.baseline_arm, spec.primary_metric)
+            treatment = _dev_values(completed, spec.treatment_arm, spec.primary_metric)
 
         # 8 - Statistics and verdict, computed by code -------------------------
-        baseline = custody.arm_values(spec.baseline_arm, spec.primary_metric)
-        treatment = custody.arm_values(spec.treatment_arm, spec.primary_metric)
         analysis = paired_analysis(baseline, treatment)
         verdict = derive_verdict(analysis, mde=spec.mde)
         variance = seed_variance(baseline)
         self._repo.as_role(Role.DIRECTOR).advance_hypothesis(
             hypothesis_id, HypothesisState.ANALYZED
         )
+
+        # 8b - The adversary, if this arm has one ------------------------------
+        findings: list[Finding] = []
+        if mechanisms.adversary:
+            findings = run_detectors(
+                spec,
+                _aggregate(
+                    {spec.baseline_arm: baseline, spec.treatment_arm: treatment},
+                    spec.primary_metric,
+                ),
+            )
+            skeptic = self._repo.as_role(Role.SKEPTIC)
+            for finding in findings:
+                skeptic.raise_objection(
+                    target_type="registrations",
+                    target_id=registration_id,
+                    objection_type=finding.objection_type,
+                    severity=finding.severity,
+                    statement=finding.statement,
+                    discriminating_test=finding.discriminating_test,
+                    program_id=program_id,
+                )
+
+        # 8c - Independent replication, if this arm requires one ----------------
+        replications = 0
+        if mechanisms.replication:
+            replications = self._replicate(
+                spec,
+                item=item,
+                hypothesis_id=hypothesis_id,
+                original_registration_id=registration_id,
+                program_id=program_id,
+                original_verdict=verdict,
+            )
 
         # 9 - The Analyst interprets, in words ---------------------------------
         note, cost = self._ask(
@@ -394,9 +554,12 @@ class ResearchKernel:
             analysis=analysis,
             verdict=verdict,
             variance_sd=variance.sd,
-            holdout_queries=custodian.queries_consumed(registration_id),
+            holdout_queries=holdout_queries,
             outcomes=completed,
             note=note if isinstance(note, AnalysisNote) else None,
+            registration_id=registration_id,
+            preregistered=mechanisms.preregistered,
+            replications=replications,
         )
 
         # 11 - Score the forecasts against what happened -----------------------
@@ -422,6 +585,8 @@ class ResearchKernel:
             claim_id=claim_id,
             note=note if isinstance(note, AnalysisNote) else None,
             usd=spent,
+            findings=tuple(findings),
+            replications=replications,
         )
 
     # -------------------------------------------------------------- helpers
@@ -551,6 +716,9 @@ class ResearchKernel:
         holdout_queries: int,
         outcomes: list[SeedOutcome],
         note: AnalysisNote | None,
+        registration_id: uuid.UUID | None = None,
+        preregistered: bool = True,
+        replications: int = 0,
     ) -> tuple[uuid.UUID, ConfidenceReport]:
         """Write the claim, link its evidence, and compute its confidence."""
         analyst = self._repo.as_role(Role.ANALYST)
@@ -575,22 +743,135 @@ class ResearchKernel:
                 program_id=program_id,
             )
 
+        # An objection raised by the detectors targets the registration, because
+        # it is a complaint about the experiment and exists before any claim
+        # does. Both are counted: a critical objection bars promotion wherever
+        # it was filed.
+        blocking = len(self._repo.open_critical_objections(claim.claim_id))
+        if registration_id is not None:
+            blocking += len(self._repo.open_critical_objections(registration_id))
+
         width = abs(analysis.ci_high - analysis.ci_low)
         confidence = compute_confidence(
             ConfidenceInputs(
-                independent_replications=0,  # M7 introduces the Replicator
+                independent_replications=replications,
                 effect_to_interval_ratio=(abs(analysis.difference) / width) if width else 0.0,
                 seed_variance_ratio=(
                     abs(analysis.difference) / variance_sd if variance_sd else 0.0
                 ),
-                open_critical_objections=len(self._repo.open_critical_objections(claim.claim_id)),
-                preregistered=True,
+                open_critical_objections=blocking,
+                preregistered=preregistered,
                 holdout_queries_consumed=holdout_queries,
                 provenance_complete=True,
                 n_seeds=analysis.n_seeds,
             )
         )
         return claim.claim_id, confidence
+
+    def _replicate(
+        self,
+        spec: ExperimentSpec,
+        *,
+        item: BankItem,
+        hypothesis_id: uuid.UUID,
+        original_registration_id: uuid.UUID,
+        program_id: uuid.UUID,
+        original_verdict: VerdictReport,
+    ) -> int:
+        """Re-register the design and run it again, independently.
+
+        Three things make this a replication rather than a rerun.
+
+        **Fresh seeds.** The replication registers the same design with a
+        different ``seed_root``, so it draws different data. Re-executing the
+        identical seeds would test that the code is deterministic, which is
+        already known and is not what replication means.
+
+        **A separate registration.** The ledger refuses a replication whose
+        original and replication registrations are the same row, so the second
+        run is preregistered in its own right and gets its own custody budget.
+        The Designer writes it, because registering a design is the Designer's
+        act and widening that authority to the Replicator would trade a real
+        separation for a cosmetic one. The Replicator's independence is not in
+        who filed the paperwork; it is in executing the runs and being unable
+        to read the original's results while doing so.
+
+        **The Replicator's own hands.** The runs are executed as
+        :attr:`~nullius.db.enums.Role.REPLICATOR`, and that role's read
+        methods are filtered to its own runs. It cannot see the original's
+        results while producing its own, so agreement is not conformity.
+
+        Returns the number of replications that *agreed* — zero or one. A
+        failed replication is recorded just as loudly and returns zero, which
+        leaves the claim short of the top confidence level. That is the
+        mechanism working, not the mechanism failing.
+        """
+        replication_spec = spec.model_copy(
+            update={"seed_root": seed_for(f"replication/{item.item_id}/{original_registration_id}")}
+        )
+        registration = self._repo.as_role(Role.DESIGNER).register(
+            hypothesis_id=hypothesis_id,
+            spec=replication_spec.model_dump(mode="json"),
+            analysis_plan={
+                "test": "paired_bootstrap",
+                "alpha": 0.05,
+                "correction": "holm",
+                "replication_of": str(original_registration_id),
+            },
+            seed_root=replication_spec.seed_root,
+            n_seeds=replication_spec.n_seeds,
+            holdout_query_budget=3,
+            program_id=program_id,
+        )
+
+        replicator = self._repo.as_role(Role.REPLICATOR)
+        runner = ExperimentRunner(replicator, self._backend, self._store, self._workroot)
+        outcomes = runner.run(
+            replication_spec,
+            registration_id=registration.registration_id,
+            bundle_id=self._bundle_id(replication_spec),
+            dataset_id=self._dataset_id(item),
+            program_id=program_id,
+        )
+        completed = [o for o in outcomes if o.ok]
+        if not completed:
+            self._repo.as_role(Role.REPLICATOR).record_replication(
+                original_registration_id=original_registration_id,
+                replication_registration_id=registration.registration_id,
+                outcome=ReplicationOutcome.INCONCLUSIVE,
+                concordance={"reason": "every seed of the replication failed to execute"},
+                program_id=program_id,
+            )
+            return 0
+
+        custody = HoldoutCustodian(self._repo.as_role(Role.CUSTODIAN)).evaluate(
+            registration_id=registration.registration_id,
+            runs=[(o.run_id, compile_spec(replication_spec, seed=o.seed)) for o in completed],
+            program_id=program_id,
+        )
+        analysis = paired_analysis(
+            custody.arm_values(replication_spec.baseline_arm, replication_spec.primary_metric),
+            custody.arm_values(replication_spec.treatment_arm, replication_spec.primary_metric),
+        )
+        verdict = derive_verdict(analysis, mde=replication_spec.mde)
+
+        agreed = verdict.verdict is original_verdict.verdict
+        outcome = (
+            ReplicationOutcome.REPLICATED if agreed else ReplicationOutcome.FAILED_REPLICATION
+        )
+        self._repo.as_role(Role.REPLICATOR).record_replication(
+            original_registration_id=original_registration_id,
+            replication_registration_id=registration.registration_id,
+            outcome=outcome,
+            concordance={
+                "original_verdict": original_verdict.verdict.value,
+                "replication_verdict": verdict.verdict.value,
+                "replication_effect": round(analysis.difference, 6),
+                "seed_root": replication_spec.seed_root,
+            },
+            program_id=program_id,
+        )
+        return 1 if agreed else 0
 
     def _bundle_id(self, spec: ExperimentSpec) -> uuid.UUID:
         bundle = self._repo.as_role(Role.SYSTEM).record_code_bundle(

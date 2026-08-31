@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M9 complete (M6–M9 mock-driven; the first live run awaits an API key). M10 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M9 complete, M10 in progress (M6–M10 mock-driven; the first live run awaits an API key). Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -195,10 +195,26 @@ That work found the container was wrong. Allocation across bank items had been w
 
 ---
 
-### M10 · Benchmark harness ⬅ next
+### M10 · Benchmark harness ◐ runner built; results pending the first full ladder
 Arms B0–B7 from `docs/04-evaluation.md`, matched on model, compute, seeds and data access. Preregistered protocol committed with a hash *before* results are collected.
 
 **Acceptance** — the full ladder runs; verdict accuracy, null accuracy, calibration, FDR, and cost-per-correct-claim reported per arm with bootstrap CIs.
+
+**The protocol went in first, in its own commit.** `benchmark/protocol.lock.json` (`1d4c76d2…`) fixes the arms, the metrics, the bootstrap resample count, alpha, the multiplicity correction, the baseline arm, the map from computed confidence to probability, and the exclusion rules — and it was committed before a single line of the runner existed. The git history is therefore the evidence that the plan predates the results, rather than a docstring claiming it does. `nullius benchmark run` refuses to start if `verify_protocol` fails, so a run against a bank that moved after registration cannot be reported as preregistered.
+
+**One pipeline, not eight.** The arms are switches (`Mechanisms`) that `ResearchKernel` reads — custody, preregistration, adversary, replication, memory. Two institutional arms run the *same* code with different flags. A second implementation for B3 to drift away in is the failure mode this avoids, and the ablation's validity rests entirely on it. Two tests exist purely to prove the switches are connected rather than merely recorded: the same design, same seeds, run with and without the Custodian, must produce *different* measured effects — because the custodied pass is reading a sample the other never saw — and it must consume no holdout budget when custody is off.
+
+**Three code paths, because the ladder declares three.** B0 answers `no_effect` without looking and costs nothing. B1 and B2 ask a model directly with no ledger, registration or execution. B3 upward is the kernel. Giving B1 the institution's machinery would have made it a different arm.
+
+**What the mock decides, stated rather than buried.** Under `MockProvider` there is no such thing as "what the model would say" — only what the runner tells it to say. `DIRECT_MOCK_VERDICT` is `supported`: the documented failure mode of an unstructured agent asked whether an intervention helps. That makes B1 the mirror of B0, and it means B1 and B2's numbers are a property of that constant, not a measurement. B2 receives the identical answer on its second pass, because a mock that improved on revision would be the runner deciding that iteration helps — which is the question B2 was added to ask. Both arms carry `model_dependent`, and no mechanism claim rests on them.
+
+**A defect this milestone found in M8's memory.** `recall()` was programme-scoped. A `Program` is *one* research question, so memory could never cross from one bank item to the next — which would have made B6 and B7 identical by construction and produced an ablation capable only of reporting no difference. Memory is now recalled at **lab** scope, which is the `institution → program` boundary the budget hierarchy already had. Programme scope remains the default, because it is the right answer for a single programme reasoning about itself.
+
+**A second, still open.** The novelty fingerprint covers metric, direction, effect size and statement tokens, but not the *dataset*. The bank is twenty variants of one question across twenty data-generating processes, so "the same question about different data" is indistinguishable from "the same question again". M9 hit the same boundary and resolved it the same way — one programme per question — and that is what the runner does. The underlying gap in `fingerprint()` is recorded here rather than patched, because widening it is a change to what novelty *means* and belongs with a test that says so.
+
+**Why every arm gets its own database.** The ledger refuses to register the same design twice: re-registering would hide that an experiment was run twice. That is correct, and it is also why two arms of an ablation cannot share a store. Two arms are not two runs of one experiment; they are one experiment run by two different institutions.
+
+**Who registers a replication.** The Replicator may not `register` — that authority is the Designer's, and widening it would have traded a real separation for a cosmetic one. A replication is preregistered by the Designer with a *fresh* seed root and executed by the Replicator, whose reads are filtered to its own runs. Re-executing the identical seeds would test that the code is deterministic, which is already known and is not what replication means.
 
 ---
 

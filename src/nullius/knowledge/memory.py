@@ -17,19 +17,28 @@ what capped it, so a memory of a contested claim reads as contested. A summary
 that dropped the caveats would let weak findings harden into background
 assumptions, which is how a research programme quietly becomes a belief
 system.
+
+**Scope.** M8 shipped this programme-scoped, which was wrong for the thing it
+was built to serve. A programme is *one* research question; the benchmark's
+memory arm is about what carries from one question to the next. Programme
+scope therefore made B6 and B7 identical by construction — an ablation that
+could only ever report no difference. The lab is the institution, so
+``scope="lab"`` recalls across every programme the lab has run, and that is
+what the benchmark uses. Programme scope is kept as the default because it is
+the right answer for a single programme reasoning about itself.
 """
 
 from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from nullius.db.enums import CONFIDENCE_ORDER, ClaimConfidence
-from nullius.db.tables import Claim, Hypothesis
+from nullius.db.tables import Claim, Hypothesis, Program
 
 __all__ = ["Recollection", "recall"]
 
@@ -66,19 +75,37 @@ def recall(
     exclude_hypothesis: uuid.UUID | None = None,
     limit: int = 10,
     minimum: ClaimConfidence = MINIMUM_CONFIDENCE,
+    scope: Literal["program", "lab"] = "program",
 ) -> list[Recollection]:
-    """What this programme has established, strongest first.
+    """What the institution has established, strongest first.
 
     ``exclude_hypothesis`` keeps a question from recalling its own answer,
     which would be memory in name only.
+
+    ``scope="lab"`` widens the recall to every programme run by the lab that
+    owns ``program_id``, which is what makes memory carry between research
+    questions rather than only within one.
     """
     threshold = CONFIDENCE_ORDER.index(minimum)
 
     query = (
         sa.select(Claim, Hypothesis)
         .join(Hypothesis, Hypothesis.hypothesis_id == Claim.hypothesis_id)
-        .where(Claim.program_id == program_id)
     )
+    if scope == "lab":
+        siblings = (
+            sa.select(Program.program_id)
+            .where(
+                Program.lab_id
+                == sa.select(Program.lab_id)
+                .where(Program.program_id == program_id)
+                .scalar_subquery()
+            )
+            .scalar_subquery()
+        )
+        query = query.where(Claim.program_id.in_(siblings))
+    else:
+        query = query.where(Claim.program_id == program_id)
     if exclude_hypothesis is not None:
         query = query.where(Claim.hypothesis_id != exclude_hypothesis)
 

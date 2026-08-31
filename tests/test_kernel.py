@@ -11,9 +11,20 @@ import pytest
 import sqlalchemy as sa
 
 from nullius.bank.items import BANK_V1, BankItem
-from nullius.db.tables import Claim, Evidence, Forecast, ForecastScore, Registration, Run, RunResult
+from nullius.db.base import create_engine, create_schema, session_factory
+from nullius.db.enums import CONFIDENCE_ORDER, Role
+from nullius.db.tables import (
+    Claim,
+    Evidence,
+    Forecast,
+    ForecastScore,
+    HoldoutQuery,
+    Registration,
+    Run,
+    RunResult,
+)
 from nullius.execute.sandbox import SubprocessSandbox
-from nullius.kernel import ResearchKernel
+from nullius.kernel import Mechanisms, ResearchKernel
 from nullius.ledger.rebuild import reconciliation
 from nullius.llm.providers import MockProvider
 from nullius.llm.types import LlmRequest
@@ -468,3 +479,89 @@ def test_a_seed_root_stays_below_the_oracle_range() -> None:
 
     for item in BANK_V1:
         assert 0 <= seed_for(item.item_id) < EXPERIMENT_SEED_CEILING
+
+
+# ---------------------------------------------------------------------------
+# M10 — the switches the benchmark ablates over must actually switch something
+# ---------------------------------------------------------------------------
+
+
+def _isolated_pass(where: Path, *, mechanisms: Mechanisms) -> tuple[Any, Repository]:
+    """Run one item in a database of its own, under the given switches.
+
+    A database each because the ledger refuses to register the same design
+    twice — re-registering would hide that an experiment was run twice, which
+    is exactly right and is also why the benchmark gives every arm its own
+    store. Two arms of an ablation are not two runs of one experiment; they are
+    one experiment run by two different institutions.
+    """
+    engine = create_engine(where)
+    create_schema(engine)
+    session = session_factory(engine)()
+    repo = Repository(session, Role.SYSTEM)
+    lab = repo.create_lab("Test Lab", "Investigate whether structure helps.")
+    policy = repo.create_policy("v0.1", {"min_seeds": 5}, "Baseline policy.")
+    rq = repo.create_research_question(ITEM.question, domain="tabular-ml")
+    program = repo.create_program(
+        rq_id=rq.rq_id,
+        lab_id=lab.lab_id,
+        policy_id=policy.policy_id,
+        budget_usd=Decimal("25.00"),
+        config_hash="0" * 64,
+        capability_digest="1" * 64,
+    )
+    kernel = ResearchKernel(
+        repo,
+        MockProvider(_responder()),
+        SubprocessSandbox(),
+        ContentStore(where.parent / f"{where.stem}-objects"),
+        where.parent / f"{where.stem}-runs",
+        mock=True,
+    )
+    outcome = kernel.run_item(ITEM, program_id=program.program_id, mechanisms=mechanisms)
+    repo.commit()
+    return outcome, repo
+
+
+@pytest.mark.slow
+def test_switching_off_custody_changes_which_numbers_the_verdict_is_computed_from(
+    tmp_path: Path,
+) -> None:
+    """B3 against B4, at the level where the difference has to be real.
+
+    Both passes run the identical design on the identical seeds. If the
+    Custodian switch were cosmetic — a flag recorded and never read — both
+    would compute the same effect from the same numbers, every benchmark column
+    would agree, and the agreement would have nothing to do with institutions.
+    So the assertion is that the measured effects *differ*: the custodied pass
+    is reading a sample the uncustodied pass never saw.
+    """
+    custodied, _ = _isolated_pass(tmp_path / "custodied.sqlite", mechanisms=Mechanisms())
+    uncustodied, repo = _isolated_pass(
+        tmp_path / "uncustodied.sqlite", mechanisms=Mechanisms(custody=False)
+    )
+
+    assert custodied.analysis is not None
+    assert uncustodied.analysis is not None
+    assert custodied.analysis.difference != uncustodied.analysis.difference
+
+    # And the uncustodied pass genuinely spent no holdout budget, rather than
+    # spending it and then discarding the answer.
+    spent = repo.session.scalar(sa.select(sa.func.count()).select_from(HoldoutQuery))
+    assert spent == 0
+
+
+@pytest.mark.slow
+def test_preregistration_is_a_switch_the_confidence_rubric_reads(tmp_path: Path) -> None:
+    """The same evidence, claimed with and without a lock, is not equally strong."""
+    locked, _ = _isolated_pass(tmp_path / "locked.sqlite", mechanisms=Mechanisms())
+    unlocked, _ = _isolated_pass(
+        tmp_path / "unlocked.sqlite", mechanisms=Mechanisms(preregistered=False)
+    )
+
+    assert locked.confidence is not None
+    assert unlocked.confidence is not None
+    assert CONFIDENCE_ORDER.index(unlocked.confidence.confidence) < CONFIDENCE_ORDER.index(
+        locked.confidence.confidence
+    )
+    assert any("not registered" in reason for reason in unlocked.confidence.capped_by)

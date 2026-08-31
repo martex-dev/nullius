@@ -1,0 +1,451 @@
+"""Scoring the ladder against the plan that was hashed before it ran.
+
+Every number in this file was specified in :mod:`~nullius.benchmark.protocol`
+and committed in an earlier change. The bootstrap resample count, the alpha,
+the multiplicity correction, the baseline arm, and the map from a computed
+confidence level to a probability are all read from the registered protocol
+rather than chosen here. That is the only reason the results mean anything:
+none of these knobs could be turned after the numbers were visible, because
+turning one would change a hash that is in the git history.
+
+**The pairing.** Arms are compared item by item. Every arm answers all twenty
+bank questions, so the difference between two arms on item *n* is a paired
+observation, and the bootstrap resamples *items* rather than answers. The
+population being generalised to is "questions like these", which is the only
+population twenty synthetic items can speak for and is stated as such.
+
+**What a confidence level means numerically.** The institution computes an
+ordinal — ``contested`` through ``well_supported`` — and Brier and calibration
+need a number. The protocol fixes that translation, deliberately unflatteringly:
+the top level is 0.90, so a confident error is punished hard.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from dataclasses import dataclass
+from decimal import Decimal
+from itertools import pairwise
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from nullius.analysis.multiple import Correction, correct
+from nullius.benchmark.protocol import Protocol
+from nullius.benchmark.runner import AS_IF_MODEL, ArmOutcome, ArmRun
+from nullius.util.canonical import canonical_json
+
+__all__ = [
+    "DEFAULT_RESULTS_PATH",
+    "ECE_BINS",
+    "ArmMetrics",
+    "Comparison",
+    "LadderReport",
+    "compare_to_baseline",
+    "score_arm",
+    "score_ladder",
+    "write_results",
+]
+
+ECE_BINS = 5
+"""Bins for expected calibration error.
+
+Five because the confidence rubric has five levels, so each bin holds one
+level and the binning adds no choice of its own. A finer grid over twenty
+items would report the bin edges rather than the calibration.
+"""
+
+
+def _brier(probabilities: Sequence[float], outcomes: Sequence[bool]) -> float:
+    """Mean squared error of the stated probability against what happened."""
+    if not probabilities:
+        return float("nan")
+    paired = zip(probabilities, outcomes, strict=True)
+    return float(np.mean([(p - (1.0 if hit else 0.0)) ** 2 for p, hit in paired]))
+
+
+def _ece(probabilities: Sequence[float], outcomes: Sequence[bool]) -> float:
+    """Gap between stated confidence and realised accuracy, weighted by bin size.
+
+    An arm that says 0.90 and is right 90% of the time scores zero however
+    often it is wrong, which is the point: this measures honesty about
+    uncertainty, not accuracy. Accuracy is already the primary metric.
+    """
+    if not probabilities:
+        return float("nan")
+    values = np.asarray(probabilities, dtype=np.float64)
+    hits = np.asarray([1.0 if o else 0.0 for o in outcomes], dtype=np.float64)
+    edges = np.linspace(0.0, 1.0, ECE_BINS + 1)
+    total = 0.0
+    for low, high in pairwise(edges):
+        # Half-open bins, with the top bin closed so p == 1.0 is not dropped.
+        inside = (values >= low) & ((values < high) | (high >= 1.0) & (values <= high))
+        if not inside.any():
+            continue
+        weight = float(inside.sum()) / len(values)
+        total += weight * abs(float(values[inside].mean()) - float(hits[inside].mean()))
+    return total
+
+
+@dataclass(frozen=True, slots=True)
+class ArmMetrics:
+    """One arm, scored on every metric the protocol named.
+
+    All seven are reported for every arm, always. The protocol's third
+    exclusion rule says there is no condition under which a result is
+    withheld, and the simplest way to keep that promise is to have no code
+    path that can drop one.
+    """
+
+    arm_id: str
+    label: str
+    model_dependent: bool
+    n_items: int
+    n_correct: int
+    n_halted: int
+    verdict_accuracy: float
+    null_accuracy: float
+    brier: float
+    expected_calibration_error: float
+    false_discovery_rate: float
+    usd_total: Decimal
+    usd_per_correct_claim: float
+    effect_size_error: float
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "arm_id": self.arm_id,
+            "label": self.label,
+            "model_dependent": self.model_dependent,
+            "n_items": self.n_items,
+            "n_correct": self.n_correct,
+            "n_halted": self.n_halted,
+            "verdict_accuracy": round(self.verdict_accuracy, 6),
+            "null_accuracy": round(self.null_accuracy, 6),
+            "brier": round(self.brier, 6),
+            "expected_calibration_error": round(self.expected_calibration_error, 6),
+            "false_discovery_rate": round(self.false_discovery_rate, 6),
+            "usd_total": str(self.usd_total),
+            "usd_per_correct_claim": round(self.usd_per_correct_claim, 8),
+            "effect_size_error": round(self.effect_size_error, 6),
+        }
+
+    def __str__(self) -> str:
+        flag = " [model-dependent]" if self.model_dependent else ""
+        return (
+            f"{self.arm_id} accuracy {self.verdict_accuracy:.2f} "
+            f"null {self.null_accuracy:.2f} brier {self.brier:.3f} "
+            f"fdr {self.false_discovery_rate:.2f} "
+            f"${self.usd_per_correct_claim:.4f}/correct{flag}"
+        )
+
+
+def _accuracy(outcomes: Sequence[ArmOutcome]) -> float:
+    return sum(o.correct for o in outcomes) / len(outcomes) if outcomes else float("nan")
+
+
+def score_arm(run: ArmRun, protocol: Protocol) -> ArmMetrics:
+    """Score one arm on the seven registered metrics."""
+    outcomes = run.outcomes
+    nulls = [o for o in outcomes if o.is_null_item]
+    discoveries = [o for o in outcomes if o.claimed_an_effect]
+    probabilities = [protocol.confidence_as_probability[o.confidence.value] for o in outcomes]
+    correct = [o.correct for o in outcomes]
+
+    usd_total = sum((o.usd for o in outcomes), Decimal(0))
+    n_correct = sum(correct)
+
+    return ArmMetrics(
+        arm_id=run.arm.arm_id,
+        label=run.arm.label,
+        model_dependent=run.arm.model_dependent,
+        n_items=len(outcomes),
+        n_correct=n_correct,
+        n_halted=sum(1 for o in outcomes if o.halted is not None),
+        verdict_accuracy=_accuracy(outcomes),
+        null_accuracy=_accuracy(nulls),
+        brier=_brier(probabilities, correct),
+        expected_calibration_error=_ece(probabilities, correct),
+        # No discoveries means no false ones. Reported as zero rather than as
+        # nan, because "claimed nothing" genuinely has a false discovery rate
+        # of zero — and the accuracy column is where that abstinence is paid for.
+        false_discovery_rate=(
+            sum(o.false_discovery for o in discoveries) / len(discoveries) if discoveries else 0.0
+        ),
+        usd_total=usd_total,
+        # An arm with no correct claims has an undefined cost per correct
+        # claim, not an infinite one, and is reported as undefined.
+        usd_per_correct_claim=(float(usd_total) / n_correct if n_correct else float("nan")),
+        effect_size_error=(
+            float(np.mean([abs(o.realised_effect - o.true_effect) for o in outcomes]))
+            if outcomes
+            else float("nan")
+        ),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class Comparison:
+    """One arm against the baseline, paired over items."""
+
+    arm_id: str
+    baseline_arm_id: str
+    metric: str
+    difference: float
+    ci_low: float
+    ci_high: float
+    p_value: float
+    resamples: int
+    model_dependent: bool
+    """True if either side of this comparison is dominated by the model."""
+
+    @property
+    def separates(self) -> bool:
+        """Whether the interval excludes no difference at all."""
+        return self.ci_low > 0.0 or self.ci_high < 0.0
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "arm_id": self.arm_id,
+            "baseline_arm_id": self.baseline_arm_id,
+            "metric": self.metric,
+            "difference": round(self.difference, 6),
+            "ci_low": round(self.ci_low, 6),
+            "ci_high": round(self.ci_high, 6),
+            "p_value": round(self.p_value, 6),
+            "resamples": self.resamples,
+            "separates": self.separates,
+            "model_dependent": self.model_dependent,
+        }
+
+    def __str__(self) -> str:
+        return (
+            f"{self.arm_id} - {self.baseline_arm_id}: {self.difference:+.3f} "
+            f"[{self.ci_low:+.3f}, {self.ci_high:+.3f}] p={self.p_value:.4f}"
+        )
+
+
+def _paired_bootstrap(
+    treatment: Sequence[bool],
+    baseline: Sequence[bool],
+    *,
+    resamples: int,
+    alpha: float,
+    seed: int,
+) -> tuple[float, float, float, float]:
+    """Difference in accuracy, its percentile interval, and a two-sided p.
+
+    Percentile rather than BCa. ``paired_analysis`` uses BCa above ten samples
+    and the bank has twenty items, so BCa would be available — but the
+    acceleration term is estimated by jackknife over a 0/1 vector, where
+    leaving one item out moves the statistic in steps of 1/20 and the estimate
+    is dominated by that granularity rather than by the skew it is meant to
+    correct. The protocol therefore registered ``percentile bootstrap over
+    items``, and this is that.
+    """
+    a = np.asarray([1.0 if x else 0.0 for x in treatment], dtype=np.float64)
+    b = np.asarray([1.0 if x else 0.0 for x in baseline], dtype=np.float64)
+    if a.size != b.size:
+        raise ValueError("a paired comparison needs both arms to answer the same items")
+    if a.size == 0:
+        return float("nan"), float("nan"), float("nan"), float("nan")
+
+    observed = float(a.mean() - b.mean())
+    rng = np.random.default_rng(seed)
+    # One index draw per resample, applied to *both* arms: that is what makes
+    # the comparison paired. Resampling each arm independently would compare
+    # two different bootstrap worlds.
+    picks = rng.integers(0, a.size, size=(resamples, a.size))
+    differences = a[picks].mean(axis=1) - b[picks].mean(axis=1)
+
+    low = float(np.percentile(differences, 100.0 * alpha / 2.0))
+    high = float(np.percentile(differences, 100.0 * (1.0 - alpha / 2.0)))
+
+    # Two-sided bootstrap p: how much of the resampled distribution sits on the
+    # far side of no difference, doubled. Floored at one resample rather than
+    # reported as exactly zero, since 2000 resamples cannot evidence p < 1/2000.
+    below = float(np.mean(differences <= 0.0))
+    above = float(np.mean(differences >= 0.0))
+    p_value = min(1.0, 2.0 * max(min(below, above), 1.0 / resamples))
+    return observed, low, high, p_value
+
+
+def compare_to_baseline(
+    runs: Sequence[ArmRun],
+    protocol: Protocol,
+    *,
+    seed: int = 0,
+) -> tuple[list[Comparison], Correction]:
+    """Every arm against the registered baseline, corrected for multiplicity.
+
+    The baseline and the correction method are read from the protocol, not
+    chosen here. Seven comparisons against one baseline on one metric is a
+    family, and reporting seven uncorrected intervals would mean expecting one
+    spurious result and presenting it as a finding.
+    """
+    baseline_id = str(protocol.statistics["baseline_arm"])
+    resamples = int(protocol.statistics["resamples"])
+    alpha = float(protocol.statistics["alpha"])
+    method = str(protocol.statistics["multiplicity"]).replace("-", "_")
+
+    by_id = {run.arm.arm_id: run for run in runs}
+    if baseline_id not in by_id:
+        raise ValueError(
+            f"the protocol names {baseline_id} as the baseline, and this run "
+            f"does not include it; a comparison against a missing arm is not a "
+            f"comparison"
+        )
+    base_run = by_id[baseline_id]
+    ordered = {o.item_id: o for o in base_run.outcomes}
+
+    comparisons: list[Comparison] = []
+    for index, run in enumerate(runs):
+        if run.arm.arm_id == baseline_id:
+            continue
+        theirs = {o.item_id: o for o in run.outcomes}
+        shared = [item_id for item_id in ordered if item_id in theirs]
+        difference, low, high, p_value = _paired_bootstrap(
+            [theirs[i].correct for i in shared],
+            [ordered[i].correct for i in shared],
+            resamples=resamples,
+            alpha=alpha,
+            # Per-arm seeds, derived from position so the whole report is
+            # reproducible from one integer.
+            seed=seed + index,
+        )
+        comparisons.append(
+            Comparison(
+                arm_id=run.arm.arm_id,
+                baseline_arm_id=baseline_id,
+                metric=protocol.primary_metric,
+                difference=difference,
+                ci_low=low,
+                ci_high=high,
+                p_value=p_value,
+                resamples=resamples,
+                model_dependent=run.arm.model_dependent or base_run.arm.model_dependent,
+            )
+        )
+
+    correction = correct([c.p_value for c in comparisons], method=method, alpha=alpha)
+    return comparisons, correction
+
+
+@dataclass(frozen=True, slots=True)
+class LadderReport:
+    """The whole benchmark: every arm scored, compared, and adjudicated."""
+
+    protocol_hash: str
+    primary_metric: str
+    prediction: str
+    metrics: tuple[ArmMetrics, ...]
+    comparisons: tuple[Comparison, ...]
+    correction: Correction
+    prediction_upheld: bool | None
+    prediction_reason: str
+
+    def metrics_for(self, arm_id: str) -> ArmMetrics:
+        for row in self.metrics:
+            if row.arm_id == arm_id:
+                return row
+        raise KeyError(f"no arm {arm_id!r} in this report")
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "protocol_hash": self.protocol_hash,
+            "primary_metric": self.primary_metric,
+            "prediction": self.prediction,
+            "prediction_upheld": self.prediction_upheld,
+            "prediction_reason": self.prediction_reason,
+            "metrics": [m.as_dict() for m in self.metrics],
+            "comparisons": [c.as_dict() for c in self.comparisons],
+            "correction": self.correction.as_dict(),
+        }
+
+
+def _adjudicate(metrics: Sequence[ArmMetrics]) -> tuple[bool | None, str]:
+    """Was the registered prediction right?
+
+    The prediction, fixed before any of this ran: *B4 captures most of the gain
+    over B3* — adding preregistration and the Custodian to a role-decomposed
+    pipeline buys more accuracy than the Skeptic, replication, review and
+    memory buy on top of it.
+
+    Made arithmetic so that it cannot be argued about afterwards. Let
+    ``mechanism = B4 - B3`` and ``agents = B6 - B4``. The prediction holds when
+    ``mechanism > agents``. Both are reported whichever way it falls, and a
+    negative ``mechanism`` — custody making the institution look *worse* on
+    accuracy, which is a live possibility since B3 is scored on the split it
+    tuned on — refutes the prediction rather than being explained.
+    """
+    by_id = {m.arm_id: m for m in metrics}
+    missing = [arm for arm in ("B3", "B4", "B6") if arm not in by_id]
+    if missing:
+        return None, f"not adjudicable: this run omitted {', '.join(missing)}"
+
+    mechanism = by_id["B4"].verdict_accuracy - by_id["B3"].verdict_accuracy
+    agents = by_id["B6"].verdict_accuracy - by_id["B4"].verdict_accuracy
+    upheld = mechanism > agents
+    return upheld, (
+        f"mechanism (B4-B3) = {mechanism:+.4f}; "
+        f"everything else (B6-B4) = {agents:+.4f}; "
+        f"prediction {'upheld' if upheld else 'refuted'}"
+    )
+
+
+def score_ladder(
+    runs: Sequence[ArmRun],
+    protocol: Protocol,
+    *,
+    seed: int = 0,
+) -> LadderReport:
+    """Score every arm and settle the registered prediction."""
+    metrics = tuple(score_arm(run, protocol) for run in runs)
+    comparisons, correction = compare_to_baseline(runs, protocol, seed=seed)
+    upheld, reason = _adjudicate(metrics)
+    return LadderReport(
+        protocol_hash=protocol.protocol_hash,
+        primary_metric=protocol.primary_metric,
+        prediction=protocol.prediction,
+        metrics=metrics,
+        comparisons=tuple(comparisons),
+        correction=correction,
+        prediction_upheld=upheld,
+        prediction_reason=reason,
+    )
+
+
+DEFAULT_RESULTS_PATH = Path("benchmark/results.lock.json")
+
+
+def write_results(
+    report: LadderReport,
+    runs: Sequence[ArmRun],
+    path: Path = DEFAULT_RESULTS_PATH,
+    *,
+    provider: str,
+) -> Path:
+    """Write the results, stamped with the protocol they were scored against.
+
+    Unlike :func:`~nullius.benchmark.protocol.write_protocol`, this *does*
+    overwrite. A protocol may be registered once; results may be re-measured as
+    often as anyone likes, and refusing to overwrite them would only encourage
+    keeping the run that came out best. The protocol hash travels with them, so
+    a results file scored against an edited plan is detectable rather than
+    merely discouraged.
+
+    ``provider`` is recorded because it decides how much of this is a
+    measurement. Under ``mock`` the model-dependent arms describe the mock, and
+    a reader should not have to infer that from the absence of an API key.
+    """
+    payload = {
+        "version": 1,
+        "provider": provider,
+        "as_if_model": AS_IF_MODEL,
+        "report": report.as_dict(),
+        "per_item": [run.as_dict() for run in runs],
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(canonical_json(payload) + "\n", encoding="utf-8")
+    return path

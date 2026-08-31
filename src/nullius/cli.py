@@ -694,5 +694,90 @@ def benchmark_verify(protocol: ProtocolOption = Path("benchmark/protocol.lock.js
     raise typer.Exit(code=1)
 
 
+@benchmark_app.command("run")
+def benchmark_run(
+    workdir: Annotated[
+        Path, typer.Option(help="Where each arm's database and run tree are written.")
+    ] = Path(".nullius/benchmark"),
+    results: Annotated[Path, typer.Option(help="Where to write the results lock.")] = Path(
+        "benchmark/results.lock.json"
+    ),
+    protocol: ProtocolOption = Path("benchmark/protocol.lock.json"),
+    seed: Annotated[
+        int, typer.Option(help="Bootstrap seed. The whole report is a function of it.")
+    ] = 0,
+) -> None:
+    """Run the full B0-B7 ladder and score it against the registered protocol.
+
+    Refuses to run if the protocol does not verify. A result measured against a
+    plan that moved after registration is not a preregistered result, and
+    producing one anyway would waste the only thing this benchmark has.
+    """
+    from nullius.benchmark.metrics import score_ladder, write_results
+    from nullius.benchmark.protocol import read_protocol, verify_protocol
+    from nullius.benchmark.runner import run_ladder
+
+    verification = verify_protocol(protocol)
+    if not verification.ok:
+        console.print(f"[red]{verification}[/red]")
+        raise typer.Exit(code=1)
+
+    registered = read_protocol(protocol)
+    console.print()
+    console.print(f"  protocol [bold]{registered.protocol_hash[:16]}[/bold] verified")
+    console.print(f"  [dim]prediction:[/dim] {registered.prediction}")
+    console.print()
+
+    runs = run_ladder(root=workdir)
+    report = score_ladder(runs, registered, seed=seed)
+    path = write_results(report, runs, results, provider="mock")
+
+    table = Table(box=None, padding=(0, 2, 0, 0))
+    for column in ("arm", "acc", "null", "brier", "ece", "fdr", "$/correct", "halted"):
+        table.add_column(column)
+    for row in report.metrics:
+        marker = " *" if row.model_dependent else ""
+        per_correct = (
+            "[dim]none[/dim]" if row.n_correct == 0 else f"{row.usd_per_correct_claim:.5f}"
+        )
+        table.add_row(
+            f"{row.arm_id}{marker}",
+            f"{row.verdict_accuracy:.2f}",
+            f"{row.null_accuracy:.2f}",
+            f"{row.brier:.3f}",
+            f"{row.expected_calibration_error:.3f}",
+            f"{row.false_discovery_rate:.2f}",
+            per_correct,
+            str(row.n_halted),
+        )
+    console.print(table)
+    console.print()
+
+    for comparison in report.comparisons:
+        flag = " [dim](model-dependent)[/dim]" if comparison.model_dependent else ""
+        console.print(f"  {comparison}{flag}")
+    console.print()
+    console.print(
+        f"  [dim]{report.correction.method}, alpha {report.correction.alpha}: "
+        f"{report.correction.n_rejected} of {len(report.comparisons)} survive[/dim]"
+    )
+    console.print()
+
+    if report.prediction_upheld is None:
+        console.print(f"  [yellow]{report.prediction_reason}[/yellow]")
+    elif report.prediction_upheld:
+        console.print(f"  [green]PREDICTION UPHELD[/green]  {report.prediction_reason}")
+    else:
+        console.print(f"  [red]PREDICTION REFUTED[/red]  {report.prediction_reason}")
+    console.print()
+    console.print(f"  written to [bold]{path}[/bold]")
+    console.print()
+    console.print(
+        "  [dim]* behaviour dominated by the language model; this run used a mock "
+        "provider, so these arms describe the mock and not a model.[/dim]"
+    )
+    console.print()
+
+
 if __name__ == "__main__":  # pragma: no cover
     app()

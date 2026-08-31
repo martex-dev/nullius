@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 
 import pytest
 
@@ -461,3 +462,82 @@ def test_memory_carries_the_confidence_with_the_claim(repo: Repository, scaffold
 
     remembered = recall(repo.session, program_id=scaffold.program_id)
     assert remembered[0].as_dict()["confidence"] == "suggestive"
+
+
+def test_memory_does_not_cross_programmes_by_default(repo: Repository, scaffold: Scaffold) -> None:
+    """A programme reasoning about itself sees only its own findings."""
+    hypothesis_id = _hypothesis(repo, scaffold, PRUNING)
+    claim = repo.as_role(Role.ANALYST).create_claim(
+        program_id=scaffold.program_id,
+        statement="Pruning helps under this shift.",
+        kind=AssertionKind.INFERRED_CLAIM,
+        hypothesis_id=hypothesis_id,
+    )
+    repo.session.get(type(claim), claim.claim_id).confidence = ClaimConfidence.SUPPORTED
+    repo.session.flush()
+
+    sibling = repo.create_program(
+        rq_id=scaffold.rq_id,
+        lab_id=scaffold.lab_id,
+        policy_id=scaffold.policy_id,
+        budget_usd=Decimal("25.00"),
+        config_hash="0" * 64,
+        capability_digest="1" * 64,
+    )
+    assert recall(repo.session, program_id=sibling.program_id) == []
+
+
+def test_memory_crosses_programmes_within_a_lab_when_asked(
+    repo: Repository, scaffold: Scaffold
+) -> None:
+    """The scope the benchmark's memory arm depends on.
+
+    A ``Program`` is one research question. Memory that could not cross from
+    one question to the next would make B6 and B7 identical by construction,
+    and the ablation could only ever report no difference — a fact about the
+    harness dressed as a finding about memory.
+    """
+    hypothesis_id = _hypothesis(repo, scaffold, PRUNING)
+    claim = repo.as_role(Role.ANALYST).create_claim(
+        program_id=scaffold.program_id,
+        statement="Pruning helps under this shift.",
+        kind=AssertionKind.INFERRED_CLAIM,
+        hypothesis_id=hypothesis_id,
+    )
+    repo.session.get(type(claim), claim.claim_id).confidence = ClaimConfidence.SUPPORTED
+    repo.session.flush()
+
+    sibling = repo.create_program(
+        rq_id=scaffold.rq_id,
+        lab_id=scaffold.lab_id,
+        policy_id=scaffold.policy_id,
+        budget_usd=Decimal("25.00"),
+        config_hash="0" * 64,
+        capability_digest="1" * 64,
+    )
+    remembered = recall(repo.session, program_id=sibling.program_id, scope="lab")
+    assert [r.claim_id for r in remembered] == [claim.claim_id]
+
+
+def test_lab_scoped_memory_stops_at_the_lab_boundary(repo: Repository, scaffold: Scaffold) -> None:
+    """One institution's findings are not another's background assumptions."""
+    hypothesis_id = _hypothesis(repo, scaffold, PRUNING)
+    claim = repo.as_role(Role.ANALYST).create_claim(
+        program_id=scaffold.program_id,
+        statement="Pruning helps under this shift.",
+        kind=AssertionKind.INFERRED_CLAIM,
+        hypothesis_id=hypothesis_id,
+    )
+    repo.session.get(type(claim), claim.claim_id).confidence = ClaimConfidence.SUPPORTED
+    repo.session.flush()
+
+    other_lab = repo.create_lab("Rival Lab", "Independently curious.")
+    elsewhere = repo.create_program(
+        rq_id=scaffold.rq_id,
+        lab_id=other_lab.lab_id,
+        policy_id=scaffold.policy_id,
+        budget_usd=Decimal("25.00"),
+        config_hash="0" * 64,
+        capability_digest="1" * 64,
+    )
+    assert recall(repo.session, program_id=elsewhere.program_id, scope="lab") == []
