@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M9 complete, M10 in progress (M6–M10 mock-driven; the first live run awaits an API key). Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M10 complete (M6–M10 mock-driven; the first live run awaits an API key). M11 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -195,7 +195,7 @@ That work found the container was wrong. Allocation across bank items had been w
 
 ---
 
-### M10 · Benchmark harness ◐ runner built; results pending the first full ladder
+### M10 · Benchmark harness ✅ (mock-driven; underpowered, and says so)
 Arms B0–B7 from `docs/04-evaluation.md`, matched on model, compute, seeds and data access. Preregistered protocol committed with a hash *before* results are collected.
 
 **Acceptance** — the full ladder runs; verdict accuracy, null accuracy, calibration, FDR, and cost-per-correct-claim reported per arm with bootstrap CIs.
@@ -216,9 +216,40 @@ Arms B0–B7 from `docs/04-evaluation.md`, matched on model, compute, seeds and 
 
 **Who registers a replication.** The Replicator may not `register` — that authority is the Designer's, and widening it would have traded a real separation for a cosmetic one. A replication is preregistered by the Designer with a *fresh* seed root and executed by the Replicator, whose reads are filtered to its own runs. Re-executing the identical seeds would test that the code is deterministic, which is already known and is not what replication means.
 
+**The ladder ran. `benchmark/results.lock.json`, protocol `1d4c76d2…`, mock provider.**
+
+| arm | | acc | null | brier | ece | fdr | $/correct |
+|---|---|---|---|---|---|---|---|
+| B0 | oracle-null | 0.45 | 1.00 | 0.250 | 0.050 | 0.00 | 0.00000 |
+| B1 * | single-shot | 0.20 | 0.00 | 0.200 | 0.200 | 0.45 | 0.00269 |
+| B2 * | + loop | 0.20 | 0.00 | 0.200 | 0.200 | 0.45 | 0.00761 |
+| B3 | multi-role | 0.90 | 0.89 | 0.283 | 0.417 | 0.00 | 0.00722 |
+| B4 | + prereg + custodian | **0.95** | 0.89 | 0.242 | 0.420 | 0.00 | 0.00683 |
+| B5 | + Skeptic | 0.95 | 0.89 | 0.302 | 0.467 | 0.00 | 0.00683 |
+| B6 | full institution | 0.90 | 0.89 | 0.316 | 0.415 | 0.00 | 0.00732 |
+| B7 | full − memory | 0.95 | 1.00 | 0.311 | 0.472 | 0.00 | 0.00693 |
+
+`*` model-dependent; this run used a mock provider, so B1 and B2 describe the mock.
+
+**The one result that survives its own interval.** B4 − B0 = **+0.50, CI [+0.25, +0.75], p = 0.002**. The institution decisively beats a free constant that answers `no_effect` without looking. Nothing else on the ladder separates.
+
+**The registered prediction is upheld, and the margin is one item.** Mechanism (B4 − B3) = +0.05, CI **[+0.000, +0.150]**, p = 0.73. Everything else (B6 − B4) = −0.05, CI **[−0.150, +0.000]**, p = 0.70. Both span zero. The primary metric moves in steps of 1/20 = 0.05, so the verdict rests on a single item in each direction. **Reported as upheld because that is what the registered rule returns, and reported as uninformative because that is what the arithmetic says.** The rule was committed before the numbers and has not been touched since; what changed is that its intervals are now printed beside it.
+
+**Three flaws in the preregistered protocol, found only by running it.** None is patched, because the protocol is hashed and editing it is the one move preregistration exists to prevent. Each belongs to a v2 registered as a change.
+
+1. **The adjudication rule is too weak.** `mechanism > agents` compares two point estimates and requires neither to separate from zero. On twenty items it can return "upheld" for noise, and on this run it did. A v2 should require the mechanism contrast to exclude zero.
+2. **The registered baseline is model-dependent.** The protocol names B1 as the baseline arm, and B1 is `model_dependent`. So *every* comparison in the registered family inherits the flag, and under a mock provider the entire baseline table is uninterpretable for mechanism — which is why the honest contrast above is against B0, not B1. Fixing this means a different baseline, which means a different protocol.
+3. **The confidence-to-probability map grades the wrong thing.** `CONFIDENCE_AS_PROBABILITY` translates a rubric that measures *evidence for an effect* into a probability read as *the answer is correct*. B4 was right on 19 of 20 items while stating 0.40–0.75, because a correct `no_effect` answer has weak evidence for an effect by construction. The institutional arms therefore score ECE ≈ 0.42 — **systematic underconfidence, and an artefact of the mapping rather than a property of the institution.** The Brier and ECE columns above measure the translation as much as the calibration.
+
+**Mechanisms that contributed nothing measurable.** B5 − B4 = exactly 0.000: the Skeptic's detectors raised no finding that changed any verdict. B6 − B7 = −0.05, CI [−0.150, +0.000]: memory did not help and if anything cost an item. Neither is evidence of absence at this power — twenty items cannot resolve below one item — but neither may be reported as a benefit.
+
+**Where the accuracy actually comes from.** B3, with role decomposition alone and no preregistration and no Custodian, already reaches 0.90. Everything the institution adds above that moves between zero and one item. On this bank, at this power, **the decomposition is doing the work and the institutional machinery is not yet earning its cost** — B4 is cheaper per correct claim than B3 ($0.00683 vs $0.00722), but only because it got one more item right.
+
+**The honest summary.** The ladder demonstrates that the harness works, that the arms differ in the mechanism named and nothing else, and that the whole thing beats a do-nothing floor. It does **not** demonstrate that structure beats agents, because the bank is too small and the provider is a mock. Sharpening it needs a harder bank with items near the verdict boundary, more items, and a live model — which is what M10's results make the case for, rather than something the milestone can assert.
+
 ---
 
-### M11 · Observability
+### M11 · Observability ⬅ next
 Static HTML report generator, then the FastAPI + HTMX dashboard: overview, hypothesis explorer, run monitor, genealogy graph, agent timeline, claim view.
 
 **Acceptance** — a person answers "why does the system believe C-014?" in three clicks.

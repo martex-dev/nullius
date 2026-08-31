@@ -22,6 +22,7 @@ the top level is 0.90, so a confident error is punished hard.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
@@ -32,17 +33,21 @@ from typing import Any
 import numpy as np
 
 from nullius.analysis.multiple import Correction, correct
-from nullius.benchmark.protocol import Protocol
+from nullius.benchmark.arms import arm_named
+from nullius.benchmark.protocol import Protocol, read_protocol
 from nullius.benchmark.runner import AS_IF_MODEL, ArmOutcome, ArmRun
+from nullius.db.enums import ClaimConfidence, Verdict
 from nullius.util.canonical import canonical_json
 
 __all__ = [
     "DEFAULT_RESULTS_PATH",
     "ECE_BINS",
+    "PREDICTION_CONTRASTS",
     "ArmMetrics",
     "Comparison",
     "LadderReport",
     "compare_to_baseline",
+    "read_results",
     "score_arm",
     "score_ladder",
     "write_results",
@@ -332,6 +337,30 @@ def compare_to_baseline(
     return comparisons, correction
 
 
+PREDICTION_CONTRASTS = (("B4", "B3"), ("B6", "B4"), ("B6", "B7"))
+"""The contrasts the registered prediction is actually about.
+
+Added after the first full ladder, and worth being precise about why, because
+"we added a statistic once we saw the numbers" is normally the confession at
+the centre of a bad result.
+
+These are not new hypotheses. The protocol registered a prediction whose two
+terms are exactly ``B4 - B3`` and ``B6 - B4``, and registered an adjudication
+that compares them. What the protocol did *not* register was any requirement
+that either term be distinguishable from zero — so the rule returns "upheld"
+for a one-item difference in each direction, on a twenty-item bank whose
+metric cannot resolve below one item. The first run duly returned "upheld" on
+exactly that margin.
+
+Reporting the point estimates without their intervals would let a coin flip
+read as a confirmed prediction. So the intervals are computed and reported.
+The verdict itself is left exactly as the registered rule produces it, wrong
+or right; the interval sits beside it. ``B6 - B7`` is included because it is
+the memory ablation, which the ladder exists to measure and which the
+baseline family never compares.
+"""
+
+
 @dataclass(frozen=True, slots=True)
 class LadderReport:
     """The whole benchmark: every arm scored, compared, and adjudicated."""
@@ -344,6 +373,9 @@ class LadderReport:
     correction: Correction
     prediction_upheld: bool | None
     prediction_reason: str
+    prediction_contrasts: tuple[Comparison, ...] = ()
+    """Intervals for the contrasts the prediction is made of. See
+    :data:`PREDICTION_CONTRASTS`."""
 
     def metrics_for(self, arm_id: str) -> ArmMetrics:
         for row in self.metrics:
@@ -360,6 +392,7 @@ class LadderReport:
             "prediction_reason": self.prediction_reason,
             "metrics": [m.as_dict() for m in self.metrics],
             "comparisons": [c.as_dict() for c in self.comparisons],
+            "prediction_contrasts": [c.as_dict() for c in self.prediction_contrasts],
             "correction": self.correction.as_dict(),
         }
 
@@ -394,6 +427,42 @@ def _adjudicate(metrics: Sequence[ArmMetrics]) -> tuple[bool | None, str]:
     )
 
 
+def _contrast(
+    runs: Sequence[ArmRun],
+    treatment_id: str,
+    baseline_id: str,
+    protocol: Protocol,
+    *,
+    seed: int,
+) -> Comparison | None:
+    """One paired arm-against-arm interval, or None if either arm is missing."""
+    by_id = {run.arm.arm_id: run for run in runs}
+    if treatment_id not in by_id or baseline_id not in by_id:
+        return None
+    treatment, baseline = by_id[treatment_id], by_id[baseline_id]
+    theirs = {o.item_id: o for o in treatment.outcomes}
+    ours = {o.item_id: o for o in baseline.outcomes}
+    shared = [i for i in ours if i in theirs]
+    difference, low, high, p_value = _paired_bootstrap(
+        [theirs[i].correct for i in shared],
+        [ours[i].correct for i in shared],
+        resamples=int(protocol.statistics["resamples"]),
+        alpha=float(protocol.statistics["alpha"]),
+        seed=seed,
+    )
+    return Comparison(
+        arm_id=treatment_id,
+        baseline_arm_id=baseline_id,
+        metric=protocol.primary_metric,
+        difference=difference,
+        ci_low=low,
+        ci_high=high,
+        p_value=p_value,
+        resamples=int(protocol.statistics["resamples"]),
+        model_dependent=treatment.arm.model_dependent or baseline.arm.model_dependent,
+    )
+
+
 def score_ladder(
     runs: Sequence[ArmRun],
     protocol: Protocol,
@@ -404,6 +473,12 @@ def score_ladder(
     metrics = tuple(score_arm(run, protocol) for run in runs)
     comparisons, correction = compare_to_baseline(runs, protocol, seed=seed)
     upheld, reason = _adjudicate(metrics)
+    contrasts = tuple(
+        found
+        for offset, (treatment, baseline) in enumerate(PREDICTION_CONTRASTS)
+        if (found := _contrast(runs, treatment, baseline, protocol, seed=seed + 100 + offset))
+        is not None
+    )
     return LadderReport(
         protocol_hash=protocol.protocol_hash,
         primary_metric=protocol.primary_metric,
@@ -413,6 +488,7 @@ def score_ladder(
         correction=correction,
         prediction_upheld=upheld,
         prediction_reason=reason,
+        prediction_contrasts=contrasts,
     )
 
 
@@ -449,3 +525,49 @@ def write_results(
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(canonical_json(payload) + "\n", encoding="utf-8")
     return path
+
+
+def read_results(path: Path = DEFAULT_RESULTS_PATH) -> tuple[LadderReport, list[ArmRun]]:
+    """Reconstruct the per-item outcomes, and re-score them from scratch.
+
+    The report is *recomputed* rather than read back, so the stored summary is
+    checkable against the stored outcomes rather than taken on trust. It also
+    means the scoring can be re-derived, argued with, and corrected without
+    re-running thirty-five minutes of science — which is the difference between
+    a results file and a screenshot.
+    """
+    body = json.loads(path.read_text(encoding="utf-8"))
+    runs = [
+        ArmRun(
+            arm=arm_named(entry["arm"]["arm_id"]),
+            outcomes=tuple(
+                ArmOutcome(
+                    arm_id=row["arm_id"],
+                    item_id=row["item_id"],
+                    verdict=Verdict(row["verdict"]),
+                    truth_verdict=Verdict(row["truth_verdict"]),
+                    true_effect=row["true_effect"],
+                    realised_effect=row["realised_effect"],
+                    boundary_margin=row["boundary_margin"],
+                    confidence=ClaimConfidence(row["confidence"]),
+                    usd=Decimal(row["usd"]),
+                    n_seeds=row["n_seeds"],
+                    replications=row["replications"],
+                    findings=row["findings"],
+                    halted=row["halted"],
+                )
+                for row in entry["outcomes"]
+            ),
+        )
+        for entry in body["per_item"]
+    ]
+    stored_hash = str(body["report"]["protocol_hash"])
+    protocol = read_protocol()
+    if protocol.protocol_hash != stored_hash:
+        raise ValueError(
+            f"these results were scored against protocol {stored_hash[:16]}, and the "
+            f"registered protocol is now {protocol.protocol_hash[:16]}. Re-scoring them "
+            "under a different plan would be exactly the substitution preregistration "
+            "exists to prevent."
+        )
+    return score_ladder(runs, protocol), runs

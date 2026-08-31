@@ -769,6 +769,23 @@ def benchmark_run(
         console.print(f"  [green]PREDICTION UPHELD[/green]  {report.prediction_reason}")
     else:
         console.print(f"  [red]PREDICTION REFUTED[/red]  {report.prediction_reason}")
+
+    # The verdict above is whatever the registered rule produces. The intervals
+    # below say whether it could have produced anything else. A rule that
+    # compares two point estimates on a twenty-item bank can return "upheld"
+    # for a one-item difference, and printing the verdict alone would let that
+    # read as a confirmed prediction.
+    if report.prediction_contrasts:
+        console.print()
+        console.print("  [dim]the contrasts that verdict is made of:[/dim]")
+        for contrast in report.prediction_contrasts:
+            spans = contrast.ci_low <= 0 <= contrast.ci_high
+            note = (
+                "[yellow]interval spans zero[/yellow]"
+                if spans
+                else "[green]interval excludes zero[/green]"
+            )
+            console.print(f"    {contrast}  {note}")
     console.print()
     console.print(f"  written to [bold]{path}[/bold]")
     console.print()

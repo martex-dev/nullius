@@ -307,9 +307,7 @@ class ResearchKernel:
         if mechanisms.memory:
             view["established_claims"] = [
                 recollection.as_dict()
-                for recollection in recall(
-                    self._repo.session, program_id=program_id, scope="lab"
-                )
+                for recollection in recall(self._repo.session, program_id=program_id, scope="lab")
             ]
         draft, cost = self._ask(
             Role.THEORIST,
@@ -856,9 +854,7 @@ class ResearchKernel:
         verdict = derive_verdict(analysis, mde=replication_spec.mde)
 
         agreed = verdict.verdict is original_verdict.verdict
-        outcome = (
-            ReplicationOutcome.REPLICATED if agreed else ReplicationOutcome.FAILED_REPLICATION
-        )
+        outcome = ReplicationOutcome.REPLICATED if agreed else ReplicationOutcome.FAILED_REPLICATION
         self._repo.as_role(Role.REPLICATOR).record_replication(
             original_registration_id=original_registration_id,
             replication_registration_id=registration.registration_id,

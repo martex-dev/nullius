@@ -88,9 +88,8 @@ def recall(
     """
     threshold = CONFIDENCE_ORDER.index(minimum)
 
-    query = (
-        sa.select(Claim, Hypothesis)
-        .join(Hypothesis, Hypothesis.hypothesis_id == Claim.hypothesis_id)
+    query = sa.select(Claim, Hypothesis).join(
+        Hypothesis, Hypothesis.hypothesis_id == Claim.hypothesis_id
     )
     if scope == "lab":
         siblings = (

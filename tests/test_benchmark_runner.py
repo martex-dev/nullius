@@ -8,8 +8,10 @@ experiment and look exactly like a result.
 
 from __future__ import annotations
 
+import json
 import math
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
@@ -18,6 +20,7 @@ from nullius.benchmark.metrics import (
     _adjudicate,
     _paired_bootstrap,
     compare_to_baseline,
+    read_results,
     score_arm,
 )
 from nullius.benchmark.protocol import read_protocol
@@ -219,3 +222,49 @@ def test_an_incomplete_ladder_is_not_adjudicated_at_all() -> None:
     upheld, reason = _adjudicate([score_arm(ArmRun(arm_named("B4"), (outcome(),)), PROTOCOL)])
     assert upheld is None
     assert "not adjudicable" in reason
+
+
+# ----------------------------------------------------------- the results file
+
+
+def test_the_committed_results_rescore_to_the_summary_they_ship_with() -> None:
+    """The stored summary must be derivable from the stored outcomes.
+
+    A results file whose headline numbers cannot be recomputed from its own
+    per-item rows is a screenshot, not a record. Re-scoring here is what makes
+    the ladder's conclusions arguable without re-running the science.
+    """
+    report, runs = read_results()
+    assert report.protocol_hash == PROTOCOL.protocol_hash
+    assert len(runs) == len(LADDER)
+    assert {run.arm.arm_id for run in runs} == {arm.arm_id for arm in LADDER}
+    for run in runs:
+        assert len(run.outcomes) == PROTOCOL.bank["n_items"]
+
+
+def test_the_registered_prediction_is_reported_with_its_intervals() -> None:
+    """The verdict alone can be produced by a one-item difference.
+
+    On a twenty-item bank the primary metric moves in steps of 0.05, and the
+    registered adjudication compares two point estimates without requiring
+    either to separate from zero. So the intervals travel with the verdict, or
+    a coin flip reads as a confirmed prediction.
+    """
+    report, _ = read_results()
+    contrasts = {(c.arm_id, c.baseline_arm_id): c for c in report.prediction_contrasts}
+    assert ("B4", "B3") in contrasts
+    assert ("B6", "B4") in contrasts
+    for contrast in report.prediction_contrasts:
+        assert contrast.ci_low <= contrast.difference <= contrast.ci_high
+
+
+def test_results_scored_against_a_different_protocol_are_refused(tmp_path: Path) -> None:
+    """Re-scoring under a plan the run did not use is the substitution
+    preregistration exists to prevent."""
+    body = json.loads(Path("benchmark/results.lock.json").read_text(encoding="utf-8"))
+    body["report"]["protocol_hash"] = "0" * 64
+    tampered = tmp_path / "results.lock.json"
+    tampered.write_text(json.dumps(body), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="preregistration exists to prevent"):
+        read_results(tampered)
