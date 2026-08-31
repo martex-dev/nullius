@@ -384,3 +384,87 @@ def test_the_bank_item_view_is_all_the_theorist_receives() -> None:
 def test_a_bank_item_is_addressable_by_id() -> None:
     assert isinstance(ITEM, BankItem)
     assert ITEM.item_id == "B01"
+
+
+# ---------------------------------------------------------------------------
+# Seed roots survive a restart
+# ---------------------------------------------------------------------------
+
+
+def test_a_seed_root_is_stable_across_processes() -> None:
+    """A preregistered seed must not depend on how the interpreter started.
+
+    Run in subprocesses with deliberately different ``PYTHONHASHSEED`` values,
+    because that is the only way to catch the failure this pins: Python
+    randomises string hashing per process, so ``hash(item_id)`` agrees with
+    itself all day within one test run and disagrees between them. The bug it
+    caused was silent — the same bank item registered a different seed root on
+    every run, which changed ``spec_hash`` and flipped the verdict of any item
+    whose true effect sat near a boundary.
+    """
+    import os
+    import subprocess
+    import sys
+
+    script = (
+        "from nullius.bank.items import BANK_V1\n"
+        "from nullius.util.ids import seed_for\n"
+        "print(','.join(str(seed_for(i.item_id)) for i in BANK_V1))\n"
+    )
+
+    seen = set()
+    for hash_seed in ("0", "1", "12345"):
+        env = {**os.environ, "PYTHONHASHSEED": hash_seed}
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=True,
+        )
+        seen.add(result.stdout.strip())
+
+    assert len(seen) == 1, f"seed roots differ between interpreters: {seen}"
+
+
+def test_the_unstable_derivation_really_was_unstable() -> None:
+    """Proof that the test above is testing something.
+
+    Without this, "the seeds agreed across three processes" is equally
+    consistent with the harness having failed to vary anything. ``hash`` of a
+    string is what the kernel used to call, and it disagrees with itself
+    between interpreters started with different hash seeds.
+    """
+    import os
+    import subprocess
+    import sys
+
+    script = "print(hash('B01'))\n"
+
+    seen = set()
+    for hash_seed in ("0", "1", "12345"):
+        env = {**os.environ, "PYTHONHASHSEED": hash_seed}
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=True,
+        )
+        seen.add(result.stdout.strip())
+
+    assert len(seen) > 1, "PYTHONHASHSEED is not varying, so the stability test proves nothing"
+
+
+def test_a_seed_root_stays_below_the_oracle_range() -> None:
+    """Experiments may not draw a seed the oracle used.
+
+    ``docs/04`` makes this disjointness load-bearing: an experiment that could
+    land on an oracle seed could reproduce the ground truth sample outright,
+    and agreeing with the truth would stop being evidence of having estimated
+    it.
+    """
+    from nullius.util.ids import EXPERIMENT_SEED_CEILING, seed_for
+
+    for item in BANK_V1:
+        assert 0 <= seed_for(item.item_id) < EXPERIMENT_SEED_CEILING

@@ -23,7 +23,7 @@ the record a critic needs.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
@@ -247,6 +247,56 @@ class Allocator:
                 outcome="shelved",
             )
         return allocation
+
+    def record(
+        self,
+        allocation: Allocation,
+        *,
+        owner: Mapping[uuid.UUID, uuid.UUID],
+    ) -> None:
+        """Write an allocation whose candidates span several programmes.
+
+        A :class:`~nullius.db.tables.Decision` names the programme it belongs
+        to, so a single round-wide allocation is recorded programme by
+        programme — each row against the one whose work it concerns. ``owner``
+        maps a candidate's subject to that programme.
+
+        A candidate with no owner is skipped rather than filed somewhere
+        plausible. Guessing which programme a decision belongs to would put a
+        wrong foreign key in the one table whose purpose is to say who decided
+        what about whom.
+        """
+        context = allocation.as_inputs()
+        director = self.repo.as_role(Role.DIRECTOR)
+
+        for candidate in allocation.funded:
+            program_id = owner.get(candidate.subject_id)
+            if program_id is None:
+                continue
+            director.record_decision(
+                program_id=program_id,
+                policy_id=self.policy_id,
+                kind="fund",
+                subject_id=candidate.subject_id,
+                inputs={"candidate": candidate.as_dict(), "allocation": context},
+                outcome="funded",
+            )
+        for candidate, reason in allocation.shelved:
+            program_id = owner.get(candidate.subject_id)
+            if program_id is None:
+                continue
+            director.record_decision(
+                program_id=program_id,
+                policy_id=self.policy_id,
+                kind="shelve",
+                subject_id=candidate.subject_id,
+                inputs={
+                    "candidate": candidate.as_dict(),
+                    "allocation": context,
+                    "reason": reason,
+                },
+                outcome="shelved",
+            )
 
     def summary(self, program_id: uuid.UUID) -> dict[str, Any]:
         """What this programme has decided so far, by outcome."""

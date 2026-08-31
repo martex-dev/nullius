@@ -48,3 +48,4 @@ data/**
 .idea/
 .DS_Store
 Thumbs.db
+.nullius-round/

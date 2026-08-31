@@ -164,21 +164,29 @@ Forecast-derived EIG, the `AllocationPolicy` interface with random / round-robin
 
 **The result, and it is the second kind.** Measured over the twenty-item bank at a $0.03 budget, 400 paired bootstrap resamples over items ([ADR-0007](docs/adr/0007-allocation-measured-on-fixed-outcomes.md) for why the comparison holds the science fixed and varies only selection):
 
-| policy | funded | correct | $/correct |
-|---|---|---|---|
-| `random/v1` | 4 | 3 | $0.0086 |
-| `round-robin/v1` | 4 | 4 | $0.0064 |
-| `cheapest-first/v1` | 4 | 4 | $0.0064 |
-| `greedy-eig/v1` | 4 | 4 | $0.0064 |
-| `thompson/v1` | 4 | 4 | $0.0064 |
+| policy | funded | correct | $/correct | nats/$ |
+|---|---|---|---|---|
+| `random/v1` | 4 | 4 | $0.0065 | 780.3 |
+| `round-robin/v1` | 4 | 4 | $0.0065 | 780.2 |
+| `cheapest-first/v1` | 4 | 4 | $0.0065 | 780.4 |
+| `greedy-eig/v1` | 4 | 4 | $0.0065 | 780.4 |
+| `thompson/v1` | 4 | 4 | $0.0065 | 780.3 |
 
-Greedy-EIG beats random: **+12.51 correct claims per dollar, 95% CI [+0.01, +38.96]** — an interval that excludes zero, but only just.
+Greedy-EIG against random on correct claims per dollar: **+2.54, 95% CI [−38.59, +38.62] — no measurable difference.** The spread of expected information gain across items is **0.000000000 nats**, and greedy-EIG's figures are identical to the cost-only control's to every digit shown.
 
-**And the gain has nothing to do with expected information gain.** The cost-only control produces a byte-identical figure, and the spread of EIG across items is exactly 0.000000000 nats. Under `MockProvider` every role emits the same forecast for every item, so the information term is constant and greedy-EIG *is* the cost control. Without `cheapest-first/v1` on the table this would have read as a win for the mechanism. It is a win for the denominator.
+**Why the information term could not have helped.** Under `MockProvider` every role emits the same forecast for every item, so EIG is constant across the bank and `greedy-eig/v1` *is* `cheapest-first/v1`. Reporting "EIG does not help" from that setting alone would be a claim about the forecasts dressed up as a claim about the policy — which is what `nullius economy sweep` exists to separate. Dialling forecast informativeness from nothing to oracle-grade, greedy-EIG **never separates from random at any forecast quality**, and never beats the cost-only control. Its point estimate against the control rises with forecast quality but the interval spans zero throughout.
 
-`nullius economy sweep` then dials forecast informativeness from nothing to oracle-grade. As the forecasts acquire per-item signal, greedy-EIG's advantage over random **shrinks** (+12.1 → +9.2) and its difference from the cost control turns **negative** (0.00 → −2.97, interval spanning zero). It never beats the cost control at any forecast quality. That is the direction the theory predicts and the module docstring stated in advance: EIG measures expected surprise, and the items with most surprise in them are the ones near a verdict boundary — exactly where the institution gets the answer wrong. Maximising information and maximising correct claims per dollar are different objectives on this bank, and ranking by the first costs you the second.
+**An earlier version of this section reported the opposite, and was wrong.** It claimed greedy-EIG beat random at +12.51, CI [+0.01, +38.96]. That interval's lower bound was one hundredth of a unit above zero, and it did not survive re-measurement once the seed bug below was fixed. A knife-edge separation reported as a win is exactly the failure this project is built to catch, and it caught it here on its own machinery rather than in review.
 
-What this does not settle: the forecasts here carry no information, so the sweep's oracle-informed rungs bound what a *perfect* forecaster could buy rather than measuring what a live one does. Re-run against a real provider when M6's live run lands.
+**The honest limitation.** Every bank item costs within 0.1% of every other, so all five policies fund exactly four items and there is almost nothing for an allocator to differentiate on. The bootstrap intervals are correspondingly enormous — roughly ±38 on a quantity whose point estimates are single digits. This design can detect a large allocation effect and would miss a moderate one. Cost heterogeneity across the bank is what M10 needs in order to make this comparison sharp; the honest statement today is *no detectable effect at this power*, not *no effect*.
+
+**A reproducibility bug the measurement found in the kernel.** Seed roots were derived from `abs(hash(item.item_id))`. Python randomises string hashing per process, so a *preregistered* seed root differed on every run — changing `spec_hash`, changing which seeds were drawn, and flipping the verdict of any item near a decision boundary. M3's acceptance claim, that two runs with the same seed give identical metrics, held within a process and failed across them, which is the case "reproducible from a clean clone" actually depends on. Now derived from SHA-256 via `seed_for()`, pinned by a test that compares subprocesses started with different `PYTHONHASHSEED` values, plus a control proving the old derivation really was unstable.
+
+**What re-running the measurement does and does not reproduce.** Experiment seeds are now fixed by the preregistration. The *evaluation* sample is not: the Custodian derives it from the registration id, so a fresh measurement draws a fresh holdout. That is deliberate — a custody seed derived from the design would let anyone re-register the same spec and shop a fixed evaluation set. Two consecutive full measurements were compared: all twenty verdicts agreed, while every realised effect differed. `bank/outcomes.lock.json` records one honest draw, not a canonical one.
+
+**The economy now governs the institution, rather than sitting beside it.** The first cut of M9 shipped an allocator that nothing in the research lifecycle called. `ResearchKernel` is now split at the seam the economy needs — `propose()` stops at a locked registration and locked forecasts, which is where expected information gain first becomes computable and just before anything expensive happens, and `execute()` continues from there. `FundingRound` puts several questions up, allocates the laboratory's budget across them, and runs only the winners; the rest keep their registrations and forecasts, reach `ABANDONED_BUDGET`, and leave a decision row naming what beat them. `nullius economy round` drives it.
+
+That work found the container was wrong. Allocation across bank items had been written inside a single programme, and M8's institutional-novelty guard correctly refused every proposal after the first — a `Program` is *one research question*, which is what the guard enforces. So a round now opens one programme per question and allocates one tier up, at the laboratory, which is the `institution → program` boundary the budget hierarchy already had and nothing had yet used.
 
 **Three silent bugs surfaced on the way**, all of which reported as science rather than as faults, and all now pinned by tests:
 - `SubprocessSandbox` passed a relative workdir to a child launched *inside* that workdir, so the path resolved twice and every seed returned `scientific_failure`. The first two bank measurements reported 0/20 correct because of it. An execution fault wearing the costume of a research result is the one disguise this project cannot allow.

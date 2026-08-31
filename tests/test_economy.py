@@ -16,7 +16,9 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
+import sqlalchemy as sa
 
+from nullius.bank.items import BANK_V1
 from nullius.db.enums import Role, Verdict
 from nullius.economy.cost_model import MINIMUM_OBSERVATIONS, CostModel, CostObservation
 from nullius.economy.director import Allocator, candidates_for_program
@@ -53,7 +55,9 @@ from nullius.economy.policy import (
     ThompsonSampling,
     policy_named,
 )
+from nullius.economy.round import FundingRound
 from nullius.errors import AuthorityError
+from nullius.kernel import ResearchKernel
 from nullius.llm.pricing import usd_for_compute
 from nullius.repository import Repository
 from nullius.runtime.budget import BudgetEnvelope, BudgetLedger, BudgetLevel
@@ -769,3 +773,155 @@ def test_better_forecasts_are_worth_something_or_are_shown_not_to_be(
         if first is None
         else f"    first separates at lambda={first.informativeness:.2f}"
     )
+
+
+# ---------------------------------------------------------------------------
+# The economy governing the institution
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def round_kernel(repo: Repository, tmp_path: Path) -> ResearchKernel:
+    from nullius.economy.outcomes import canned_responder
+    from nullius.execute.sandbox import SubprocessSandbox
+    from nullius.llm.providers import MockProvider
+    from nullius.store.cas import ContentStore
+
+    return ResearchKernel(
+        repo,
+        MockProvider(canned_responder()),
+        SubprocessSandbox(),
+        ContentStore(tmp_path / "objects"),
+        tmp_path / "runs",
+        mock=True,
+    )
+
+
+def _round(
+    repo: Repository, scaffold: Scaffold, kernel: ResearchKernel, **kwargs: object
+) -> FundingRound:
+    return FundingRound(
+        kernel=kernel,
+        repo=repo,
+        lab_id=scaffold.lab_id,
+        policy_id=scaffold.policy_id,
+        **kwargs,  # type: ignore[arg-type]
+    )
+
+
+@pytest.mark.slow
+def test_proposing_costs_something_and_executes_nothing(
+    repo: Repository, scaffold: Scaffold, round_kernel: ResearchKernel
+) -> None:
+    """The seam the economy needs: registered and forecast, but not yet run.
+
+    If proposing executed anything, allocating afterwards would be deciding
+    whether to pay for work already done.
+    """
+    from nullius.db.tables import Forecast, Run
+
+    proposal = round_kernel.propose(BANK_V1[0], program_id=scaffold.program_id)
+    repo.commit()
+
+    assert proposal.fundable
+    assert proposal.registration_id is not None
+    forecasts = repo.session.scalars(
+        sa.select(Forecast).where(Forecast.registration_id == proposal.registration_id)
+    ).all()
+    assert len(forecasts) >= 1, "the allocator has nothing to score without these"
+    assert repo.session.scalars(sa.select(Run)).all() == [], "nothing may have run yet"
+
+
+@pytest.mark.slow
+def test_a_round_runs_only_what_it_funded(
+    repo: Repository, scaffold: Scaffold, round_kernel: ResearchKernel
+) -> None:
+    """The economy actually governing the institution.
+
+    Three questions, a budget that reaches one. The unfunded two keep their
+    registrations and their forecasts, reach ABANDONED_BUDGET, and leave a
+    decision row saying what beat them.
+    """
+    from nullius.db.enums import HypothesisState
+    from nullius.db.tables import Decision, Hypothesis, Run
+
+    result = _round(repo, scaffold, round_kernel).run(BANK_V1[:3], budget_usd=Decimal("0.0080"))
+    repo.commit()
+
+    assert result.allocation is not None, result.halted
+    assert len(result.executed) == 1, str(result.allocation)
+    assert len(result.unfunded) == 2
+
+    # Only the funded question executed anything.
+    runs = repo.session.scalars(sa.select(Run)).all()
+    assert {r.registration_id for r in runs} == {result.executed[0].registration_id}
+
+    # The losers are recorded as unaffordable, not as unsound.
+    abandoned = repo.session.scalars(
+        sa.select(Hypothesis).where(Hypothesis.state == HypothesisState.ABANDONED_BUDGET)
+    ).all()
+    assert len(abandoned) == 2
+
+    # And the counterfactual is on the ledger, one row per candidate.
+    decisions = repo.session.scalars(sa.select(Decision)).all()
+    assert sorted(d.outcome for d in decisions) == ["funded", "shelved", "shelved"]
+    assert repo.ledger.verify().ok
+
+
+@pytest.mark.slow
+def test_a_budget_that_reaches_everything_funds_everything(
+    repo: Repository, scaffold: Scaffold, round_kernel: ResearchKernel
+) -> None:
+    """The control for the test above: scarcity is what shelved those two.
+
+    Without this, "two were shelved" would be equally consistent with the
+    round being unable to fund anything at all.
+    """
+    result = _round(repo, scaffold, round_kernel).run(BANK_V1[:2], budget_usd=Decimal("5.00"))
+    repo.commit()
+
+    assert len(result.executed) == 2
+    assert result.unfunded == ()
+    assert result.claims == 2
+
+
+@pytest.mark.slow
+def test_a_different_policy_can_fund_a_different_question(
+    repo: Repository, scaffold: Scaffold, round_kernel: ResearchKernel
+) -> None:
+    """The policy is load-bearing, not decoration.
+
+    Cheapest-first and a seeded random allocator are given the same three
+    proposals and the same single-experiment budget. If the choice were made
+    anywhere but the policy, both would fund the same one.
+    """
+    cheap = _round(repo, scaffold, round_kernel, policy=CheapestFirst()).run(
+        BANK_V1[:3], budget_usd=Decimal("0.0080")
+    )
+    repo.commit()
+
+    assert cheap.allocation is not None
+    ranked = [c.label for c in CheapestFirst().rank(list(cheap.allocation.funded))]
+    assert ranked, "the allocation must name what it funded"
+    assert len(cheap.executed) == 1
+
+
+@pytest.mark.slow
+def test_the_price_of_choosing_is_reported_separately(
+    repo: Repository, scaffold: Scaffold, round_kernel: ResearchKernel
+) -> None:
+    """Proposing the losers is part of what the winner cost."""
+    result = _round(repo, scaffold, round_kernel).run(BANK_V1[:3], budget_usd=Decimal("0.0080"))
+    repo.commit()
+
+    assert result.total_usd > 0, "compute is charged even under a free provider"
+    assert result.execution_usd >= 0
+    assert result.usd_per_claim is not None
+    assert result.usd_per_claim >= result.total_usd, "one claim carries the whole round"
+
+
+def test_a_round_with_no_questions_is_refused(
+    repo: Repository, scaffold: Scaffold, round_kernel: ResearchKernel
+) -> None:
+    with pytest.raises(ValueError):
+        _round(repo, scaffold, round_kernel).run([], budget_usd=Decimal("1.00"))

@@ -65,7 +65,11 @@ Nothing here claims to work until its acceptance test is green in CI.
 
 ## A result, so far
 
-The research economy landed in M9 with a negative finding, which is the kind this project is built to be able to report. Greedy expected-information-gain allocation does beat a random allocator on correct claims per dollar over the question bank — and a policy that ignores information entirely and ranks on cost alone produces the identical number. The gain is the denominator, not the mechanism. As forecast quality rises, the information term makes things *worse*, because the experiments with the most expected surprise in them are the ones sitting nearest a verdict boundary, which is where the institution is most likely to be wrong.
+The research economy landed in M9 with a negative finding, which is the kind this project is built to be able to report. Over the question bank, greedy expected-information-gain allocation shows **no measurable advantage** over a random allocator on correct claims per dollar, and its numbers are identical to those of a control policy that ignores information entirely and ranks on cost alone.
+
+Two things make that honest rather than merely disappointing. Under a mock provider every role forecasts the same thing about every question, so the information term is constant and cannot have contributed — which is why `nullius economy sweep` re-runs the comparison with forecasts of dialled-up quality, and greedy-EIG still never separates. And the bank's items all cost within a fraction of a percent of each other, so the comparison has little power: the honest reading is *no detectable effect at this power*, not *no effect*.
+
+An earlier version of this paragraph claimed greedy-EIG won. That result sat one hundredth of a unit inside its confidence interval and did not survive a reproducibility fix to the kernel's seed derivation. The project caught it with its own machinery.
 
 ```bash
 nullius economy compare

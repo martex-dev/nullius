@@ -28,11 +28,28 @@ substituted at all — the seconds were genuinely burned.
 The verdicts are not substituted in any way. Every one comes from real data,
 the real compiler, the real sandbox and the real statistics; only the prose
 around them came from a mock.
+
+**What re-running this does and does not reproduce.** Experiment seeds are
+fixed by the preregistration and derived from the item id by
+:func:`~nullius.util.ids.seed_for`, so they are identical on every run. The
+*evaluation* sample is not: :func:`~nullius.custody.custodian.custody_seed`
+derives it from the registration id, and a fresh measurement writes fresh
+registrations, so the Custodian draws a new holdout each time. That is
+deliberate — a custody seed derived from the design would let anyone
+re-register the same spec repeatedly and shop a fixed evaluation set, which is
+precisely what the query budget exists to stop.
+
+The consequence is worth stating plainly: ``realised_effect`` moves between
+measurements, and an item sitting close to a verdict boundary could in
+principle move with it. Two consecutive full measurements were compared when
+this was written; all twenty verdicts agreed while every realised effect
+differed. The lock therefore records one honest draw, not a canonical one.
 """
 
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -370,21 +387,47 @@ CANNED_ANSWERS: dict[str, dict[str, Any]] = {
 }
 """What the mock says, keyed by a marker in each role's system prompt.
 
-Identical for every bank item, and that is the finding rather than a
-shortcoming: a forecaster that says the same thing about every question
-carries no information about which question is worth funding, which is exactly
-what :mod:`nullius.economy.harness` measures and reports.
+The *forecast* is identical for every bank item, and that is the finding
+rather than a shortcoming: a forecaster that says the same thing about every
+question carries no information about which question is worth funding, which
+is exactly what :mod:`nullius.economy.harness` measures and reports.
+
+The *hypothesis* is not identical, and cannot be. Two questions about two
+different datasets that produce the same sentence are the same hypothesis, and
+the institutional-novelty guard from M8 refuses the second one — correctly.
+:func:`canned_responder` therefore names the item under study, which is what a
+Theorist that had read the question would do anyway.
 """
+
+_ITEM_ID = re.compile(r'"item_id":\s*"([^"]+)"')
 
 
 def canned_responder() -> Any:
-    """A responder for :class:`~nullius.llm.providers.MockProvider`."""
+    """A responder for :class:`~nullius.llm.providers.MockProvider`.
+
+    Reads the item under study out of the view it was sent, so that a
+    programme proposing several questions produces several distinguishable
+    hypotheses rather than one hypothesis and a stack of duplicate-rejections.
+    """
     from nullius.llm.types import LlmRequest
 
     def respond(request: LlmRequest) -> dict[str, Any]:
         for marker, payload in CANNED_ANSWERS.items():
-            if marker in request.system:
+            if marker not in request.system:
+                continue
+            if marker != "Theorist":
                 return payload
+
+            # Only the Theorist sees the question, and only its answer has to
+            # be distinguishable between items.
+            content = request.messages[0].content if request.messages else ""
+            found = _ITEM_ID.search(content)
+            item_id = found.group(1) if found else "an unnamed dataset"
+            return {
+                **payload,
+                "statement": f"On dataset {item_id}, {payload['statement'][0].lower()}"
+                f"{payload['statement'][1:]}",
+            }
         raise KeyError(f"no canned response for system prompt: {request.system[:60]}")
 
     return respond

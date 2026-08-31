@@ -37,6 +37,7 @@ from nullius.economy.policy import (
     ThompsonSampling,
     policy_named,
 )
+from nullius.economy.round import FundingRound, RoundResult
 
 __all__ = [
     "POLICIES",
@@ -49,11 +50,13 @@ __all__ = [
     "CostModel",
     "CostObservation",
     "EigReport",
+    "FundingRound",
     "Gaussian",
     "GreedyEig",
     "RandomAllocation",
     "Reserves",
     "RoleForecast",
+    "RoundResult",
     "RoundRobin",
     "ThompsonSampling",
     "candidates_for_program",

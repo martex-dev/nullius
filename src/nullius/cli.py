@@ -511,5 +511,94 @@ def economy_sweep(
     console.print()
 
 
+@economy_app.command("round")
+def economy_round(
+    questions: Annotated[
+        int, typer.Option("--questions", "-n", help="Bank items to put up for funding.")
+    ] = 4,
+    budget: BudgetOption = 0.02,
+    policy: Annotated[
+        str, typer.Option("--policy", "-p", help="Allocation policy version.")
+    ] = "greedy-eig/v1",
+    workroot: Annotated[
+        Path, typer.Option("--workroot", help="Scratch directory for runs and artifacts.")
+    ] = Path(".nullius-round"),
+) -> None:
+    """Put several questions up for funding and run only the ones that win.
+
+    The economy governing the institution rather than sitting beside it: every
+    question is proposed to a locked registration and locked forecasts, the
+    policy allocates the laboratory's budget across them, and only the funded
+    ones are executed. The rest keep their registrations and reach
+    ABANDONED_BUDGET, so what was declined stays on the record.
+    """
+    from decimal import Decimal
+
+    from nullius.bank.items import BANK_V1
+    from nullius.db.base import create_engine, create_schema, session_factory
+    from nullius.db.enums import Role
+    from nullius.economy.outcomes import canned_responder
+    from nullius.economy.policy import policy_named
+    from nullius.economy.round import FundingRound
+    from nullius.execute.sandbox import SubprocessSandbox
+    from nullius.kernel import ResearchKernel
+    from nullius.llm.providers import MockProvider
+    from nullius.repository import Repository
+    from nullius.store.cas import ContentStore
+
+    workroot.mkdir(parents=True, exist_ok=True)
+    engine = create_engine(workroot / "round.sqlite")
+    create_schema(engine)
+
+    with session_factory(engine)() as session:
+        repo = Repository(session, Role.SYSTEM)
+        lab = repo.create_lab("Nullius", "Measure whether structure helps.")
+        stored = repo.create_policy(
+            f"round-{policy.replace('/', '-')}",
+            {"allocation_class": policy},
+            "One funding round over the question bank.",
+        )
+        kernel = ResearchKernel(
+            repo,
+            MockProvider(canned_responder()),
+            SubprocessSandbox(),
+            ContentStore(workroot / "objects"),
+            workroot / "runs",
+            mock=True,
+        )
+        round_ = FundingRound(
+            kernel=kernel,
+            repo=repo,
+            lab_id=lab.lab_id,
+            policy_id=stored.policy_id,
+            policy=policy_named(policy),
+        )
+
+        console.print(
+            f"[dim]proposing {questions} question(s), then allocating "
+            f"${budget:.4f} by {policy}...[/dim]"
+        )
+        result = round_.run(list(BANK_V1[:questions]), budget_usd=Decimal(str(budget)))
+        repo.commit()
+
+    table = Table(box=None, padding=(0, 2, 0, 0))
+    for column in ("question", "decision", "verdict"):
+        table.add_column(column)
+
+    for outcome in result.executed:
+        verdict = outcome.verdict.verdict.value if outcome.verdict else "-"
+        table.add_row(outcome.item_id, "[green]funded[/green]", verdict)
+    for outcome in result.unfunded:
+        table.add_row(outcome.item_id, "[yellow]shelved[/yellow]", outcome.halted or "-")
+
+    console.print()
+    console.print(table)
+    console.print()
+    console.print(f"  {result}")
+    for line in result.halted:
+        console.print(f"  [yellow]![/yellow] {line}")
+    console.print()
+
+
 if __name__ == "__main__":  # pragma: no cover
     app()

@@ -21,6 +21,19 @@ The ordering is the argument:
 
 Steps 3, 4, 6, 7, 8, 10 and 11 involve no model at all. That is most of the
 work, and it is the part that decides what the institution believes.
+
+**The seam at step 5.** Everything up to and including the locked forecasts is
+cheap — a handful of model calls and no sandbox. Everything after it is
+expensive. That is also exactly where the research economy needs to intervene,
+because expected information gain is computed *from* the forecasts and so
+cannot be known any earlier. :meth:`ResearchKernel.propose` stops there and
+:meth:`ResearchKernel.execute` continues from there, which lets
+:class:`~nullius.economy.programme.ResearchProgramme` propose many questions,
+decide between them, and pay for only the ones it funded.
+
+:meth:`ResearchKernel.run_item` is the two composed, unconditionally. A single
+question with no competitors to be weighed against needs no allocator, and
+inserting one would be a decision procedure with one option.
 """
 
 from __future__ import annotations
@@ -50,8 +63,9 @@ from nullius.roles.schemas import AnalysisNote, DesignProposal, ForecastStatemen
 from nullius.runtime.contracts import TaskStatus
 from nullius.runtime.worker import Worker
 from nullius.store.cas import ContentStore
+from nullius.util.ids import seed_for
 
-__all__ = ["KernelOutcome", "ResearchKernel"]
+__all__ = ["KernelOutcome", "Proposal", "ResearchKernel"]
 
 FORECASTING_ROLES = (Role.THEORIST, Role.DESIGNER, Role.ANALYST)
 
@@ -79,6 +93,47 @@ class KernelOutcome:
     @property
     def completed(self) -> bool:
         return self.halted is None and self.claim_id is not None
+
+
+@dataclass(frozen=True, slots=True)
+class Proposal:
+    """A registered, forecast question that has not yet cost anything to run.
+
+    The unit the research economy allocates over. Everything here is already
+    irreversible — the registration is hashed and locked, the forecasts cannot
+    be revised — so a proposal that is never funded still leaves a complete
+    record of what was going to be tried and what the roles expected of it.
+    That is the point: an institution that discards its unfunded proposals
+    cannot tell you what it chose not to learn.
+    """
+
+    item: BankItem
+    program_id: uuid.UUID
+    usd: Decimal = Decimal(0)
+    hypothesis_id: uuid.UUID | None = None
+    registration_id: uuid.UUID | None = None
+    spec: ExperimentSpec | None = None
+    lint_report: LintReport | None = None
+    draft: HypothesisDraft | None = None
+    halted: str | None = None
+
+    @property
+    def fundable(self) -> bool:
+        """Whether there is anything here an allocator could choose to pay for."""
+        return self.halted is None and self.registration_id is not None and self.spec is not None
+
+    def outcome(self, *, halted: str | None = None) -> KernelOutcome:
+        """This proposal as a terminal result, for one that is never executed."""
+        return KernelOutcome(
+            item_id=self.item.item_id,
+            program_id=self.program_id,
+            hypothesis_id=self.hypothesis_id,
+            registration_id=self.registration_id,
+            spec=self.spec,
+            lint_report=self.lint_report,
+            usd=self.usd,
+            halted=halted or self.halted or "not funded",
+        )
 
 
 class ResearchKernel:
@@ -112,10 +167,36 @@ class ResearchKernel:
         program_id: uuid.UUID,
         allowance: Decimal = Decimal("0.50"),
     ) -> KernelOutcome:
-        """Take one question from proposal to claim."""
+        """Take one question from proposal to claim.
+
+        The two halves composed, with no allocation step between them. One
+        question weighed against nothing is not a choice, and an allocator
+        invoked here would be a decision procedure with a single option.
+        """
+        proposal = self.propose(item, program_id=program_id, allowance=allowance)
+        if not proposal.fundable:
+            return proposal.outcome()
+        return self.execute(proposal, allowance=allowance)
+
+    # ------------------------------------------------------------- propose
+
+    def propose(
+        self,
+        item: BankItem,
+        *,
+        program_id: uuid.UUID,
+        allowance: Decimal = Decimal("0.50"),
+    ) -> Proposal:
+        """Steps 1 to 5: hypothesis, design, lint, registration, locked forecasts.
+
+        Stops before anything is executed. Everything done here is cheap and
+        everything after it is not, and the forecasts this ends with are what
+        the allocator needs in order to decide whether the expensive part is
+        worth paying for.
+        """
         spent = Decimal(0)
 
-        # 1 — Theorist -------------------------------------------------------
+        # 1 - Theorist -------------------------------------------------------
         draft, cost = self._ask(
             Role.THEORIST,
             "v1",
@@ -126,7 +207,7 @@ class ResearchKernel:
         )
         spent += cost
         if not isinstance(draft, HypothesisDraft):
-            return KernelOutcome(item.item_id, program_id, usd=spent, halted="theorist failed")
+            return Proposal(item, program_id, usd=spent, halted="theorist failed")
 
         hypothesis = self._repo.as_role(Role.THEORIST).create_hypothesis(
             program_id=program_id,
@@ -139,8 +220,8 @@ class ResearchKernel:
             assumptions={"stated": draft.assumptions},
         )
 
-        # 2 — Designer -------------------------------------------------------
-        proposal, cost = self._ask(
+        # 2 - Designer -------------------------------------------------------
+        design, cost = self._ask(
             Role.DESIGNER,
             "v1",
             program_id,
@@ -149,34 +230,37 @@ class ResearchKernel:
             allowance=allowance,
         )
         spent += cost
-        if not isinstance(proposal, DesignProposal):
-            return KernelOutcome(
-                item.item_id,
+        if not isinstance(design, DesignProposal):
+            return Proposal(
+                item,
                 program_id,
-                hypothesis.hypothesis_id,
                 usd=spent,
+                hypothesis_id=hypothesis.hypothesis_id,
+                draft=draft,
                 halted="designer failed",
             )
 
-        spec = self._build_spec(item, draft, proposal)
+        spec = self._build_spec(item, draft, design)
 
-        # 3 — Lint. Errors block registration, and that is the point ---------
+        # 3 - Lint. Errors block registration, and that is the point ---------
         report = lint(spec)
         if not report.ok:
             self._repo.as_role(Role.DIRECTOR).advance_hypothesis(
                 hypothesis.hypothesis_id, HypothesisState.SHELVED
             )
-            return KernelOutcome(
-                item.item_id,
+            refusal = "; ".join(f.rule for f in report.errors)
+            return Proposal(
+                item,
                 program_id,
-                hypothesis.hypothesis_id,
+                usd=spent,
+                hypothesis_id=hypothesis.hypothesis_id,
                 spec=spec,
                 lint_report=report,
-                usd=spent,
-                halted=f"design refused: {'; '.join(f.rule for f in report.errors)}",
+                draft=draft,
+                halted=f"design refused: {refusal}",
             )
 
-        # 4 — Register. Irreversible from here -------------------------------
+        # 4 - Register. Irreversible from here --------------------------------
         registration = self._repo.as_role(Role.DESIGNER).register(
             hypothesis_id=hypothesis.hypothesis_id,
             spec=spec.model_dump(mode="json"),
@@ -195,22 +279,62 @@ class ResearchKernel:
             hypothesis.hypothesis_id, HypothesisState.REGISTERED
         )
 
-        # 5 — Forecasts, before anything runs --------------------------------
+        # 5 - Forecasts, before anything runs ---------------------------------
         spent += self._elicit_forecasts(
-            program_id, registration.registration_id, draft, proposal, allowance
+            program_id, registration.registration_id, draft, design, allowance
         )
 
-        # 6 — Execute --------------------------------------------------------
+        return Proposal(
+            item=item,
+            program_id=program_id,
+            usd=spent,
+            hypothesis_id=hypothesis.hypothesis_id,
+            registration_id=registration.registration_id,
+            spec=spec,
+            lint_report=report,
+            draft=draft,
+        )
+
+    # ------------------------------------------------------------- execute
+
+    def execute(
+        self,
+        proposal: Proposal,
+        *,
+        allowance: Decimal = Decimal("0.50"),
+    ) -> KernelOutcome:
+        """Steps 6 to 11: run every seed, take custody, analyse, claim, score.
+
+        Everything expensive lives here, which is why an allocator gets to
+        stand in front of it.
+        """
+        if not proposal.fundable:
+            raise ValueError(f"{proposal.item.item_id}: nothing here to execute")
+
+        # Guaranteed by ``fundable``; restated so the type checker agrees.
+        spec = proposal.spec
+        registration_id = proposal.registration_id
+        hypothesis_id = proposal.hypothesis_id
+        assert spec is not None
+        assert registration_id is not None
+        assert hypothesis_id is not None
+
+        item = proposal.item
+        draft = proposal.draft
+        program_id = proposal.program_id
+        spent = proposal.usd
+
+        # 6 - Execute ---------------------------------------------------------
         runner = ExperimentRunner(self._repo, self._backend, self._store, self._workroot)
         outcomes = runner.run(
             spec,
-            registration_id=registration.registration_id,
+            registration_id=registration_id,
             bundle_id=self._bundle_id(spec),
             dataset_id=self._dataset_id(item),
             program_id=program_id,
         )
         self._repo.as_role(Role.DIRECTOR).advance_hypothesis(
-            hypothesis.hypothesis_id, HypothesisState.EXECUTED
+            hypothesis_id, HypothesisState.EXECUTED
         )
 
         completed = [o for o in outcomes if o.ok]
@@ -218,67 +342,67 @@ class ResearchKernel:
             return KernelOutcome(
                 item.item_id,
                 program_id,
-                hypothesis.hypothesis_id,
-                registration.registration_id,
+                hypothesis_id,
+                registration_id,
                 spec,
-                report,
+                proposal.lint_report,
                 outcomes,
                 usd=spent,
                 halted="every seed failed to execute",
             )
 
-        # 7 — Custody: one look at the evaluation split, covering every seed ---
+        # 7 - Custody: one look at the evaluation split, covering every seed ---
         custodian = HoldoutCustodian(self._repo.as_role(Role.CUSTODIAN))
         custody = custodian.evaluate(
-            registration_id=registration.registration_id,
+            registration_id=registration_id,
             runs=[(o.run_id, compile_spec(spec, seed=o.seed)) for o in completed],
             program_id=program_id,
         )
 
-        # 8 — Statistics and verdict, computed by code ------------------------
+        # 8 - Statistics and verdict, computed by code -------------------------
         baseline = custody.arm_values(spec.baseline_arm, spec.primary_metric)
         treatment = custody.arm_values(spec.treatment_arm, spec.primary_metric)
         analysis = paired_analysis(baseline, treatment)
         verdict = derive_verdict(analysis, mde=spec.mde)
         variance = seed_variance(baseline)
         self._repo.as_role(Role.DIRECTOR).advance_hypothesis(
-            hypothesis.hypothesis_id, HypothesisState.ANALYZED
+            hypothesis_id, HypothesisState.ANALYZED
         )
 
-        # 9 — The Analyst interprets, in words --------------------------------
+        # 9 - The Analyst interprets, in words ---------------------------------
         note, cost = self._ask(
             Role.ANALYST,
             "v1",
             program_id,
             {
-                "hypothesis": draft.model_dump(mode="json"),
+                "hypothesis": draft.model_dump(mode="json") if draft else {},
                 "computed_statistics": analysis.as_dict(),
                 "verdict": verdict.verdict.value,
                 "verdict_reason": verdict.reason,
                 "seed_variance": variance.as_dict(),
             },
-            subject=("registrations", registration.registration_id),
+            subject=("registrations", registration_id),
             allowance=allowance,
         )
         spent += cost
 
-        # 10 — The claim, and its computed confidence --------------------------
+        # 10 - The claim, and its computed confidence --------------------------
         claim_id, confidence = self._record_claim(
             program_id=program_id,
-            hypothesis_id=hypothesis.hypothesis_id,
+            hypothesis_id=hypothesis_id,
             spec=spec,
             analysis=analysis,
             verdict=verdict,
             variance_sd=variance.sd,
-            holdout_queries=custodian.queries_consumed(registration.registration_id),
+            holdout_queries=custodian.queries_consumed(registration_id),
             outcomes=completed,
             note=note if isinstance(note, AnalysisNote) else None,
         )
 
-        # 11 — Score the forecasts against what happened ----------------------
+        # 11 - Score the forecasts against what happened -----------------------
         score_forecasts(
             self._repo,
-            registration_id=registration.registration_id,
+            registration_id=registration_id,
             realised_effect=analysis.difference,
             mde=spec.mde,
             program_id=program_id,
@@ -287,10 +411,10 @@ class ResearchKernel:
         return KernelOutcome(
             item_id=item.item_id,
             program_id=program_id,
-            hypothesis_id=hypothesis.hypothesis_id,
-            registration_id=registration.registration_id,
+            hypothesis_id=hypothesis_id,
+            registration_id=registration_id,
             spec=spec,
-            lint_report=report,
+            lint_report=proposal.lint_report,
             outcomes=outcomes,
             analysis=analysis,
             verdict=verdict,
@@ -410,7 +534,7 @@ class ResearchKernel:
             mde=draft.mde,
             prior_sd=draft.prior_sd,
             n_seeds=proposal.n_seeds,
-            seed_root=abs(hash(item.item_id)) % 100_000,
+            seed_root=seed_for(item.item_id),
             tuning_budget=proposal.tuning_budget,
             compute_budget_seconds=300.0,
         )
