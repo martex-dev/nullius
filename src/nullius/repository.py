@@ -58,6 +58,7 @@ from nullius.db.tables import (
     CostEntry,
     Dataset,
     Evidence,
+    FollowUp,
     Forecast,
     ForecastScore,
     HoldoutQuery,
@@ -77,6 +78,7 @@ from nullius.db.tables import (
     RunResult,
 )
 from nullius.errors import AuthorityError, InvariantViolation
+from nullius.knowledge.novelty import assess_novelty
 from nullius.ledger.ledger import Ledger
 from nullius.util.canonical import canonical_json, sha256_of
 from nullius.util.clock import Clock, SystemClock
@@ -113,6 +115,8 @@ WRITE_AUTHORITY: dict[str, frozenset[Role]] = {
     "record_review": frozenset({Role.SYSTEM, Role.REVIEWER}),
     "record_replication": frozenset({Role.SYSTEM, Role.REPLICATOR}),
     "promote_claim": frozenset({Role.SYSTEM, Role.DIRECTOR}),
+    "record_follow_up": frozenset({Role.SYSTEM, Role.DIRECTOR}),
+    "take_follow_up": frozenset({Role.SYSTEM, Role.THEORIST}),
     # Accounting is a control-plane action, recorded on behalf of whichever
     # role's task incurred it.
     "record_cost": frozenset({Role.SYSTEM}),
@@ -368,6 +372,27 @@ class Repository:
             raise InvariantViolation(
                 f"derivation {derivation.value!r} requires a parent hypothesis"
             )
+
+        # An institution that explores by rephrasing is not exploring
+        # (`docs/01-critique.md` F13). A repeat is permitted only as an
+        # acknowledged descendant: name the earlier hypothesis as the parent,
+        # and the genealogy records that this ground was revisited.
+        if parent_id is None:
+            novelty = assess_novelty(
+                self._session,
+                program_id=program_id,
+                statement=statement,
+                primary_metric=primary_metric,
+                direction=direction,
+                mde=mde,
+            )
+            if novelty.is_duplicate:
+                raise InvariantViolation(
+                    f"this programme already holds an equivalent hypothesis "
+                    f"({novelty.closest_id}): {novelty.closest_statement[:80]!r}. "
+                    "To revisit it, name it as the parent so the record shows a "
+                    "return rather than a new question."
+                )
 
         hypothesis = Hypothesis(
             hypothesis_id=self._ids.new(),
@@ -1027,6 +1052,82 @@ class Repository:
             )
         )
         return int(total or 0)
+
+    def record_follow_up(
+        self,
+        *,
+        program_id: uuid.UUID,
+        source_hypothesis_id: uuid.UUID,
+        source_state: HypothesisState,
+        kind: str,
+        prompt: str,
+        derivation: DerivationKind,
+    ) -> FollowUp:
+        """Record a question a terminal result left open."""
+        self._authorise("record_follow_up")
+        follow_up = FollowUp(
+            follow_up_id=self._ids.new(),
+            program_id=program_id,
+            source_hypothesis_id=source_hypothesis_id,
+            source_state=source_state,
+            kind=kind,
+            prompt=prompt,
+            derivation=derivation,
+            taken_by_hypothesis_id=None,
+            created_at=self._clock.now(),
+        )
+        return self._commit_entity(follow_up, event_type="follow_up.opened", program_id=program_id)
+
+    def take_follow_up(
+        self,
+        follow_up_id: uuid.UUID,
+        hypothesis_id: uuid.UUID,
+        *,
+        program_id: uuid.UUID | None = None,
+    ) -> FollowUp:
+        """Record that a follow-up was acted on, and by what.
+
+        Closes the generational loop: an institution that opens follow-ups and
+        never takes them is then visible in the ledger rather than merely
+        suspected.
+        """
+        self._authorise("take_follow_up")
+        follow_up = self._session.get(FollowUp, follow_up_id)
+        if follow_up is None:
+            raise InvariantViolation(f"no such follow-up: {follow_up_id}")
+        if follow_up.taken_by_hypothesis_id is not None:
+            raise InvariantViolation(
+                f"follow-up {follow_up_id} was already taken by {follow_up.taken_by_hypothesis_id}"
+            )
+
+        follow_up.taken_by_hypothesis_id = hypothesis_id
+        self._session.flush()
+
+        table, pk, row = self._describe(follow_up)
+        self._ledger.append(
+            event_type="follow_up.taken",
+            subject_type=table,
+            subject_id=follow_up.follow_up_id,
+            actor_role=self.role,
+            program_id=program_id or follow_up.program_id,
+            actor_task_id=self._task_id,
+            policy_id=self._policy_id,
+            payload={"entity": table, "pk": pk, "row": row},
+        )
+        return follow_up
+
+    def open_follow_ups(self, program_id: uuid.UUID) -> list[FollowUp]:
+        """Follow-ups nobody has acted on yet."""
+        rows = list(
+            self._session.scalars(
+                sa.select(FollowUp).where(
+                    FollowUp.program_id == program_id,
+                    FollowUp.taken_by_hypothesis_id.is_(None),
+                )
+            )
+        )
+        self._audit("open_follow_ups", "follow_ups", [str(f.follow_up_id) for f in rows])
+        return rows
 
     # --------------------------------------------------------- accounting
 

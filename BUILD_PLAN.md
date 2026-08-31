@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M7 complete (M6 and M7 mock-driven; the first live run awaits an API key). M8 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M8 complete (M6–M8 mock-driven; the first live run awaits an API key). M9 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -150,14 +150,14 @@ Skeptic + detector suite, typed objections with mandatory discriminating tests, 
 
 ---
 
-### M8 · Institutional memory ⬅ next
+### M8 · Institutional memory ✅
 Genealogy CTEs, follow-up generation from terminal states, institutional-novelty dedup, cross-item memory.
 
 **Acceptance** — second-generation hypotheses demonstrably derive from first-generation results; a duplicate hypothesis is caught at intake.
 
 ---
 
-### M9 · Research economy
+### M9 · Research economy ⬅ next
 Forecast-derived EIG, the `AllocationPolicy` interface with random / round-robin / greedy-EIG / Thompson implementations, hierarchical budgets, reserves for replication and null confirmation.
 
 **Acceptance** — greedy-EIG measurably beats random on cost-per-correct-claim over the bank, **or is shown not to**. Either result ships.

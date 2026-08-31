@@ -655,6 +655,39 @@ class Objection(Base):
     created_at: Mapped[dt.datetime]
 
 
+class FollowUp(Base):
+    """A question a terminal result left open.
+
+    Written by the control plane when a hypothesis reaches a terminal state,
+    and read by the Theorist on its next cycle. Carrying ``source_hypothesis_id``
+    is what makes a second-generation question traceable to the
+    first-generation finding that produced it — without it, the genealogy would
+    record that a hypothesis had a parent but not *why*.
+
+    ``taken_by_hypothesis_id`` closes the loop: a follow-up that was acted on
+    names the hypothesis that acted on it, so an institution that generates
+    follow-ups and ignores them is visible rather than merely suspected.
+    """
+
+    __tablename__ = "follow_ups"
+
+    follow_up_id: Mapped[uuid.UUID] = _uuid_pk()
+    program_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("programs.program_id"), index=True)
+    source_hypothesis_id: Mapped[uuid.UUID] = mapped_column(
+        sa.ForeignKey("hypotheses.hypothesis_id"), index=True
+    )
+    source_state: Mapped[HypothesisState] = mapped_column(
+        _enum(HypothesisState, "hypothesis_state")
+    )
+    kind: Mapped[str] = mapped_column(sa.String(32))
+    prompt: Mapped[str] = mapped_column(sa.Text)
+    derivation: Mapped[DerivationKind] = mapped_column(_enum(DerivationKind, "derivation_kind"))
+    taken_by_hypothesis_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.ForeignKey("hypotheses.hypothesis_id")
+    )
+    created_at: Mapped[dt.datetime]
+
+
 class ObjectionResolution(Base):
     """How a standing objection was settled.
 

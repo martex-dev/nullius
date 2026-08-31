@@ -366,6 +366,7 @@ NON_MUTATING = frozenset(
         "get_hypothesis",
         "get_registration",
         "open_critical_objections",
+        "open_follow_ups",
         "results_for_run",
         "rollback",
         "runs_for_registration",
