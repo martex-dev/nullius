@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M11, M12a and M12b complete (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M11, M12a, M12b complete and M13 in progress (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -333,13 +333,36 @@ Every parameter was found by measuring a 311-point sweep of the generator and se
 
 **Calibration improves monotonically down the ladder, and this is the clean signal.** Brier 0.203 → 0.164 → 0.151 → 0.110 → 0.101 and ECE 0.450 → 0.394 → 0.309 → 0.281 → 0.265 across B3→B7. Every added mechanism improves it, without exception. v1 could not see this at all, because v1's calibration metric was measuring the confidence mapping rather than the institution — the flaw protocol v2 was registered to fix.
 
-**Every error the institution makes is an abstention. Not once a false discovery.** FDR is 0.00 for every institutional arm, and of B3's 24 wrong answers *all 24* are `inconclusive`; of B6's 17, all 17. Eighteen and fourteen of those respectively are true nulls. The institution declines to call the hard items rather than calling them wrongly.
+**Never once a false discovery.** FDR is 0.00 for every institutional arm. Of B3's 24 wrong answers all 24 are `inconclusive`, and of B6's 17, all 17.
 
-**A flaw in the primary metric, now visible because the bank is hard.** `verdict_accuracy` scores a calibrated "I cannot tell" exactly as harshly as a confident error. That is the distinction an institution exists to make, and the headline metric is blind to it. Null accuracy falling from 0.89 (v1) to 0.33–0.48 (v2) is almost entirely this effect, not a decline in judgement.
+> **Corrected in M13.** This section originally said *"every error the institution makes is an abstention"*. That was wrong, and the error was mine rather than the system's. Splitting those `inconclusive` answers by the branch of `derive_verdict` that produced them shows most are not abstentions at all: **16 of B3's 24 and 11 of B6's 17 are substantive findings** — the interval ruled out the claimed effect but not a smaller one, so the institution asserted a real sub-MDE effect where the truth was a null. Only 8 and 6 respectively were genuine "the interval is too wide to say anything". A wrong finding and a declined question are different failures, and I reported the first as the second.
+
+**A flaw in the primary metric, now visible because the bank is hard.** `verdict_accuracy` scores a calibrated "I cannot tell" exactly as harshly as a confident error — the distinction an institution exists to make, and the headline metric was blind to it. Null accuracy falling from 0.89 (v1) to 0.33–0.48 (v2) is largely this effect rather than a decline in judgement.
+
+> **And worse than that, also found in M13.** Because `inconclusive` is a *real truth value* in this bank, the conflation did not only penalise abstention — it **rewarded** it. An arm whose interval was too wide to say anything was scored *correct* whenever the truth happened to be `inconclusive`. Every arm above is inflated by it, unevenly: B3 by 7 items, B4 by 9, B5 by 8, B6 by 4, B7 by 9, out of sixty. Deflated, the accuracies are B3 0.483, B4 0.517, B5 0.483, B6 0.650, B7 0.550 — and the B6/B7 gap widens from +0.017 to +0.100. **The ordering this section rests on is not safe.** M13 splits the verdict and re-runs the ladder; the numbers above stand as what protocol v2 measured, not as what is true.
 
 **And the abstentions are correct, which is a power finding about the design.** The measured experiment standard error is 0.00348 at the policy's `min_seeds: 5`. The hardest null sits 0.0030 from the null-band edge. Separating them at three standard errors needs about **61 seeds**. The institution is being asked questions its own declared design cannot answer, and it says so instead of guessing — so the right target for M13 is the seed policy, not the agents.
 
 **Memory still contributes nothing measurable.** B6 − B7 = +0.017, CI [−0.050, +0.083]. Consistent with v1, on a bank three times the size.
+
+---
+
+### M13 · Abstention is not an answer ◐ instrument done, ladder running
+The metric flaw M12b exposed, fixed at the representation rather than with a new scoring rule.
+
+**Acceptance** — an abstention can never be scored as a correct answer; coverage and accuracy-when-answering are reported beside the headline; the ladder re-runs under a protocol that registers all three.
+
+**One enum value was doing two jobs.** `derive_verdict` returns `inconclusive` both for *"the interval rules out the claimed effect but not a smaller one — something is there, less than was claimed"* and for *"the interval is too wide to separate anything; this is a statement about the design, not the world"*. Its own reason strings say exactly that. The benchmark scored the enum, so the distinction never left the function.
+
+**The cost was not what I first thought.** M12b reported that the institution's errors were all abstentions. They were not: most were substantive findings that were wrong. And because `inconclusive` is a real truth value here, the conflation ran in the flattering direction — an arm that could say nothing was credited with a correct answer whenever the truth happened to be `inconclusive`. That inflated every v2 arm, unevenly, and by enough to move the ordering.
+
+**The fix is representational.** `Verdict.UNDERPOWERED` is a separate member, and it is never a truth: the oracle measures at forty seeds of twenty thousand samples and is never short of power, so `classify` cannot produce it and an abstention cannot be scored correct by accident. This was preferred over a scoring rule with an abstention weight, because that weight would have been a free parameter chosen after seeing which value flattered the institution.
+
+**`VerdictReport.underpowered` already existed** and already computed this — by searching its own reason string for "too wide". It is an identity check now.
+
+**Protocol v3** registers the vocabulary and adds `coverage` and `assertion_accuracy` beside the headline. Neither is primary: an arm reaches assertion accuracy 1.0 by answering only what it is sure of, and coverage is what stops that reading as success. `verdict_accuracy` still counts an abstention as incorrect — v1's first exclusion rule refuses to pay an arm for declining the questions it found hardest, and separating abstention from error is not forgiving it.
+
+Per-version metric tuples were needed to do this without vandalism: adding two entries to the shared `METRICS` constant would have changed the hash of two protocols that are supposed to be immutable. v1 and v2 both still verify and still rebuild identically.
 
 ---
 
