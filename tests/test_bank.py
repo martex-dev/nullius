@@ -9,11 +9,12 @@ from pathlib import Path
 import pytest
 
 from nullius.bank import BANK_V1, MDE, classify, compute_truths, read_lock, validate_bank
-from nullius.bank.items import _FORBIDDEN_IN_QUESTIONS
-from nullius.bank.lock import DEFAULT_LOCK_PATH, verify, write_lock
+from nullius.bank.items import _FORBIDDEN_IN_QUESTIONS, BANK_V2
+from nullius.bank.lock import DEFAULT_LOCK_PATH, V2_LOCK_PATH, verify, write_lock
 from nullius.bank.oracle import ORACLE_SEED_OFFSET, measure_effect
 from nullius.bank.truth import MIN_BOUNDARY_MARGIN, ambiguous, boundary_margin
 from nullius.db.enums import Verdict
+from nullius.util.canonical import sha256_of
 
 
 @pytest.fixture(scope="module")
@@ -225,3 +226,87 @@ def test_the_oracle_knows_which_features_are_causal() -> None:
         n_seeds=2,
     )
     assert truth.causal_features == ("causal_0", "causal_1", "causal_2", "causal_3")
+
+
+# ---------------------------------------------------------------------------
+# M12 — bank v2 exists because v1 could not resolve the arms
+# ---------------------------------------------------------------------------
+
+
+def test_v1_is_frozen_and_still_hashes_to_what_the_protocol_registered() -> None:
+    """v1 is load-bearing: protocol v1 and M10's results are bound to its hash.
+
+    Adding a second bank must not disturb it. A bank version is part of a
+    preregistration, so a new bank is a new registration rather than an edit.
+    """
+    from nullius.benchmark.protocol import read_protocol
+
+    registered = read_protocol()
+    assert registered.bank["n_items"] == len(BANK_V1) == 20
+    assert registered.bank["items_hash"] == sha256_of([i.as_dict() for i in BANK_V1])
+
+
+def test_v2_is_larger_and_its_ids_do_not_collide_with_v1() -> None:
+    assert len(BANK_V2) == 60
+    assert not ({i.item_id for i in BANK_V1} & {i.item_id for i in BANK_V2})
+    assert not validate_bank(BANK_V2).problems
+
+
+def test_v2_holds_the_null_fraction_the_evaluation_doc_specifies() -> None:
+    truths = read_lock(V2_LOCK_PATH)
+    nulls = sum(1 for t in truths.values() if t.is_null)
+    assert nulls / len(truths) == pytest.approx(0.45, abs=0.02)
+
+
+def test_every_v2_item_has_an_unambiguous_truth() -> None:
+    """Hard for the experiment, never in doubt for the oracle.
+
+    That gap is the whole design: the oracle sees 40 seeds of 20,000 samples,
+    an experiment gets 5 of 2,000. An item may sit inside one experiment
+    standard error of a boundary while remaining several oracle standard
+    errors clear of it. Without this the bank would be unfair rather than hard.
+    """
+    truths = list(read_lock(V2_LOCK_PATH).values())
+    assert ambiguous(truths) == []
+    assert min(boundary_margin(t) for t in truths) >= MIN_BOUNDARY_MARGIN
+
+
+def test_v2_puts_far_more_items_where_the_arms_could_actually_differ() -> None:
+    """The measured reason v2 exists.
+
+    v1's ladder separated nothing. The diagnosis at the time — that the bank
+    was too easy — was wrong: thirteen of v1's twenty items already sat within
+    two experiment standard errors of a boundary. What was actually wrong is
+    that twenty items move the primary metric in steps of 0.05, and only six
+    sat inside one standard error, which is the band where two arms can
+    plausibly disagree.
+    """
+    experiment_se = 0.005
+
+    def within_one_se(truths: dict[str, object]) -> int:
+        return sum(
+            1
+            for t in truths.values()
+            if min(abs(t.effect - b) for b in (t.mde, -t.mde, 0.5 * t.mde, -0.5 * t.mde))
+            / experiment_se
+            <= 1.0
+        )
+
+    v1_hard = within_one_se(read_lock())
+    v2_hard = within_one_se(read_lock(V2_LOCK_PATH))
+
+    assert v1_hard <= 6
+    assert v2_hard >= 25
+    # And the resolution of the primary metric improves with the item count.
+    assert 1 / len(BANK_V2) < 1 / len(BANK_V1)
+
+
+def test_the_two_truth_locks_describe_their_own_banks_and_not_each_other() -> None:
+    """`write_lock` used to hard-code v1's hash, which would have silently
+    stamped it onto v2's truths."""
+    v1_payload = json.loads(Path("bank/truth.lock.json").read_text(encoding="utf-8"))
+    v2_payload = json.loads(V2_LOCK_PATH.read_text(encoding="utf-8"))
+
+    assert v1_payload["items_hash"] == sha256_of([i.as_dict() for i in BANK_V1])
+    assert v2_payload["items_hash"] == sha256_of([i.as_dict() for i in BANK_V2])
+    assert v1_payload["items_hash"] != v2_payload["items_hash"]

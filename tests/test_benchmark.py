@@ -10,6 +10,8 @@ import pytest
 from nullius.benchmark.arms import LADDER, Arm, ArmKind, arm_named, mechanism_arms
 from nullius.benchmark.protocol import (
     CONFIDENCE_AS_PROBABILITY,
+    V2_PROTOCOL_PATH,
+    ProtocolVerification,
     build_protocol,
     read_protocol,
     verify_protocol,
@@ -182,3 +184,106 @@ def test_the_protocol_refuses_to_drop_an_unanswered_item() -> None:
     assert any(
         "halts before a verdict counts as incorrect" in rule for rule in protocol.exclusion_rules
     )
+
+
+# ---------------------------------------------------------------------------
+# M12 — a second protocol, registered as a change rather than an edit
+# ---------------------------------------------------------------------------
+
+
+def test_registering_v2_leaves_v1_verifying_exactly_as_it_did() -> None:
+    """The point of the whole exercise.
+
+    v1 was found to have three flaws by running it. None was patched, because
+    editing a hashed preregistration to fix its own findings is precisely the
+    substitution the file exists to prevent. v1 stays on disk, still
+    verifying, still wrong in the three ways it was wrong.
+    """
+    assert verify_protocol().ok
+    assert read_protocol().version == "1"
+    assert read_protocol().statistics["baseline_arm"] == "B1"
+
+
+def test_v2_verifies_against_its_own_bank() -> None:
+    verification = verify_protocol(V2_PROTOCOL_PATH)
+    assert verification.ok, str(verification)
+    assert read_protocol(V2_PROTOCOL_PATH).version == "2"
+
+
+def test_the_two_protocols_are_different_registrations() -> None:
+    v1, v2 = read_protocol(), read_protocol(V2_PROTOCOL_PATH)
+    assert v1.protocol_hash != v2.protocol_hash
+    assert v1.bank["items_hash"] != v2.bank["items_hash"]
+    assert v1.bank["n_items"] == 20
+    assert v2.bank["n_items"] == 60
+
+
+def test_v2_fixes_each_flaw_that_running_v1_exposed() -> None:
+    """Every one of the three, and each is checkable rather than asserted."""
+    v2 = read_protocol(V2_PROTOCOL_PATH)
+
+    # 1. The baseline is no longer an arm whose behaviour the model dominates.
+    assert v2.statistics["baseline_arm"] == "B0"
+    assert not arm_named(str(v2.statistics["baseline_arm"])).model_dependent
+
+    # 2. The prediction is settled on an interval, not two point estimates.
+    assert v2.statistics["adjudication"] == "interval_excludes_zero"
+    assert "excludes zero" in v2.prediction
+
+    # 3. Calibration is scored where the rubric's quantity is the scored one.
+    assert v2.statistics["calibration_scope"] == "asserted_effects"
+
+
+def test_verifying_a_protocol_rebuilds_it_under_its_own_declared_version() -> None:
+    """Otherwise verifying v1 would silently check it against v2's bank, and a
+    protocol that fails because a *later* bank exists is not a check on
+    anything."""
+    v1 = read_protocol()
+    rebuilt = build_protocol(registered_at=v1.registered_at, version=v1.version)
+    assert rebuilt.protocol_hash == v1.protocol_hash
+
+    other = build_protocol(registered_at=v1.registered_at, version="2")
+    assert other.protocol_hash != v1.protocol_hash
+
+
+def test_an_unknown_protocol_version_raises_rather_than_defaulting() -> None:
+    with pytest.raises(KeyError):
+        build_protocol(version="99")
+
+
+def test_verification_catches_a_builder_that_has_drifted_from_the_file() -> None:
+    """The check that was missing, and the bug that motivated it.
+
+    Adding two keys to the builder's payload changed what v1 would rebuild to
+    while every existing check stayed green: the bank was unchanged, the arms
+    were unchanged, and the stored hash still matched its own content. A
+    registered protocol the code can no longer reproduce has been edited in
+    effect, however innocent the diff looks.
+    """
+    stored = read_protocol()
+    verification = verify_protocol()
+    assert verification.ok
+    assert verification.rebuilds_identically
+
+    drifted = ProtocolVerification(
+        ok=False,
+        protocol_hash=stored.protocol_hash,
+        stored_hash=stored.protocol_hash,
+        bank_unchanged=True,
+        ladder_unchanged=True,
+        rebuilds_identically=False,
+    )
+    assert not drifted.ok
+    assert "no longer rebuilds" in str(drifted)
+
+
+def test_v1_carries_none_of_the_keys_v2_registered() -> None:
+    """v2's choices are absent from v1 rather than back-filled into it.
+
+    Back-filling would change the hash of a protocol that is supposed to be
+    immutable, so readers of v1 fall back to the behaviour its results were
+    actually produced under.
+    """
+    v1 = read_protocol()
+    assert "calibration_scope" not in v1.statistics
+    assert "adjudication" not in v1.statistics

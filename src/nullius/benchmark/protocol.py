@@ -34,8 +34,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from nullius.bank.items import BANK_V1
+from nullius.bank.items import BANK_V1, BANK_V2
 from nullius.bank.lock import DEFAULT_LOCK_PATH as TRUTH_LOCK_PATH
+from nullius.bank.lock import V2_LOCK_PATH as V2_TRUTH_LOCK_PATH
 from nullius.benchmark.arms import LADDER
 from nullius.db.enums import CONFIDENCE_ORDER, ClaimConfidence
 from nullius.util.canonical import canonical_json, sha256_of
@@ -43,7 +44,10 @@ from nullius.util.canonical import canonical_json, sha256_of
 __all__ = [
     "CONFIDENCE_AS_PROBABILITY",
     "DEFAULT_PROTOCOL_PATH",
+    "LATEST_PROTOCOL_VERSION",
     "PROTOCOL_VERSION",
+    "PROTOCOL_VERSIONS",
+    "V2_PROTOCOL_PATH",
     "Protocol",
     "ProtocolVerification",
     "build_protocol",
@@ -55,6 +59,91 @@ __all__ = [
 DEFAULT_PROTOCOL_PATH = Path("benchmark/protocol.lock.json")
 
 PROTOCOL_VERSION = "1"
+PRIMARY_METRIC = "verdict_accuracy"
+
+REGISTERED_PREDICTION = (
+    "B4 captures most of the gain over B3 - that is, adding preregistration "
+    "and the Custodian to a role-decomposed pipeline improves verdict accuracy "
+    "more than adding the Skeptic, replication, review and memory do on top of "
+    "it. If true, the finding is that cheap mechanisms beat expensive agents."
+)
+
+EXCLUSION_RULES = (
+    "An item whose lifecycle halts before a verdict counts as incorrect for "
+    "that arm rather than being dropped, because dropping it would reward an "
+    "arm for failing to answer the questions it finds hard.",
+    "An arm whose behaviour is dominated by the language model is reported "
+    "with its results labelled model-dependent, and is excluded from any claim "
+    "about mechanism when the run used a mock provider.",
+    "Every arm's outcome is reported, including the ones that make the project "
+    "look bad. There is no rule under which a result is withheld.",
+)
+
+
+LATEST_PROTOCOL_VERSION = "2"
+
+V2_PROTOCOL_PATH = Path("benchmark/protocol.v2.lock.json")
+
+V2_PREDICTION = (
+    "The mechanism contrast B4 - B3 is positive and its 95% interval excludes "
+    "zero. Adding preregistration and the Custodian to a role-decomposed "
+    "pipeline improves verdict accuracy by a margin this design can actually "
+    "resolve. If it holds, cheap mechanism beats expensive agents; if the "
+    "interval spans zero, the prediction fails regardless of the point estimate."
+)
+
+V2_EXCLUSION_RULES = (
+    *EXCLUSION_RULES,
+    "The primary comparison is against B0, the arm that answers without "
+    "looking. B1 was v1's baseline and is model-dependent, which under a mock "
+    "provider made every comparison in the registered family uninterpretable "
+    "for mechanism. B1 and B2 are still reported; nothing is compared against "
+    "them.",
+    "Brier score and calibration error are computed only over items where the "
+    "arm asserted an effect. The confidence rubric measures evidence *for an "
+    "effect*, so a correct 'no effect' answer necessarily carries weak "
+    "evidence and scored as gross underconfidence in v1 - an artefact of the "
+    "mapping rather than a property of the institution. Restricting to "
+    "assertions is the subpopulation where the rubric's quantity and the "
+    "scored outcome are the same quantity.",
+    "The registered prediction is adjudicated on an interval, not on a point "
+    "estimate. v1's rule compared two point estimates and returned 'upheld' "
+    "for a one-item difference on a twenty-item bank.",
+)
+
+#: What differs between registered protocol versions. Everything else - the
+#: metrics, the resample count, alpha, the correction - is shared, because a
+#: version that changed all of them would not be a revision of the same
+#: benchmark.
+#:
+#: v2 exists because running v1 exposed three flaws in it, each recorded in
+#: ``BUILD_PLAN.md`` and none of them patched in place. Editing a hashed
+#: preregistration to fix its own findings is the exact substitution this file
+#: exists to prevent, so v1 stays on disk, still verifying, still wrong in the
+#: three ways it was wrong.
+PROTOCOL_VERSIONS: dict[str, dict[str, Any]] = {
+    "1": {
+        "items": BANK_V1,
+        "truth_lock": TRUTH_LOCK_PATH,
+        "path": DEFAULT_PROTOCOL_PATH,
+        "baseline_arm": "B1",
+        "prediction": REGISTERED_PREDICTION,
+        "exclusion_rules": EXCLUSION_RULES,
+        "extra_statistics": {},
+    },
+    "2": {
+        "items": BANK_V2,
+        "truth_lock": V2_TRUTH_LOCK_PATH,
+        "path": V2_PROTOCOL_PATH,
+        "baseline_arm": "B0",
+        "prediction": V2_PREDICTION,
+        "exclusion_rules": V2_EXCLUSION_RULES,
+        "extra_statistics": {
+            "calibration_scope": "asserted_effects",
+            "adjudication": "interval_excludes_zero",
+        },
+    },
+}
 
 RESAMPLES = 2000
 """Bootstrap resamples, fixed in advance.
@@ -87,26 +176,6 @@ is 0.30 rather than 0.05, so a contested claim that turns out right earns
 little credit. Both directions cost the system points. That is the correct
 bias for a project measuring itself.
 """
-
-PRIMARY_METRIC = "verdict_accuracy"
-
-REGISTERED_PREDICTION = (
-    "B4 captures most of the gain over B3 - that is, adding preregistration "
-    "and the Custodian to a role-decomposed pipeline improves verdict accuracy "
-    "more than adding the Skeptic, replication, review and memory do on top of "
-    "it. If true, the finding is that cheap mechanisms beat expensive agents."
-)
-
-EXCLUSION_RULES = (
-    "An item whose lifecycle halts before a verdict counts as incorrect for "
-    "that arm rather than being dropped, because dropping it would reward an "
-    "arm for failing to answer the questions it finds hard.",
-    "An arm whose behaviour is dominated by the language model is reported "
-    "with its results labelled model-dependent, and is excluded from any claim "
-    "about mechanism when the run used a mock provider.",
-    "Every arm's outcome is reported, including the ones that make the project "
-    "look bad. There is no rule under which a result is withheld.",
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,7 +258,8 @@ METRICS = (
 def build_protocol(
     *,
     registered_at: str | None = None,
-    truth_lock: Path = TRUTH_LOCK_PATH,
+    truth_lock: Path | None = None,
+    version: str = PROTOCOL_VERSION,
 ) -> Protocol:
     """Assemble the protocol from the bank and the ladder as they stand.
 
@@ -197,12 +267,15 @@ def build_protocol(
     and a second-resolution clock in a hashed artifact only makes the hash
     unreproducible without making the record more honest.
     """
-    truth = json.loads(truth_lock.read_text(encoding="utf-8"))
+    settings = PROTOCOL_VERSIONS[version]
+    items = settings["items"]
+    truth_lock = truth_lock or settings["truth_lock"]
+    truth = json.loads(Path(truth_lock).read_text(encoding="utf-8"))
     return Protocol(
-        version=PROTOCOL_VERSION,
+        version=version,
         registered_at=registered_at or dt.datetime.now(dt.UTC).date().isoformat(),
         claim=THE_CLAIM,
-        prediction=REGISTERED_PREDICTION,
+        prediction=settings["prediction"],
         primary_metric=PRIMARY_METRIC,
         metrics=METRICS,
         arms=tuple(arm.as_dict() for arm in LADDER),
@@ -213,15 +286,21 @@ def build_protocol(
             "resamples": RESAMPLES,
             "alpha": ALPHA,
             "multiplicity": FDR_METHOD,
-            "baseline_arm": "B1",
+            "baseline_arm": settings["baseline_arm"],
             "confidence_order": [level.value for level in CONFIDENCE_ORDER],
+            # Only versions that registered these carry them. v1 did not, and
+            # adding a key to a hashed payload after the fact would change the
+            # hash of a protocol that is supposed to be immutable — so readers
+            # of v1 fall back to the behaviour v1's results were produced
+            # under, and v2 states its choices explicitly.
+            **settings["extra_statistics"],
         },
         bank={
-            "n_items": len(BANK_V1),
-            "items_hash": sha256_of([item.as_dict() for item in BANK_V1]),
+            "n_items": len(items),
+            "items_hash": sha256_of([item.as_dict() for item in items]),
             "truth_lock_hash": sha256_of(truth),
         },
-        exclusion_rules=EXCLUSION_RULES,
+        exclusion_rules=settings["exclusion_rules"],
     )
 
 
@@ -262,6 +341,15 @@ class ProtocolVerification:
     stored_hash: str
     bank_unchanged: bool
     ladder_unchanged: bool
+    rebuilds_identically: bool = True
+    """Whether ``build_protocol`` still produces this exact payload.
+
+    Added after a change to the builder altered what v1 would rebuild to while
+    leaving every other check green: the bank was unchanged, the arms were
+    unchanged, and the stored hash still matched its own content, so nothing
+    complained. A registered protocol that the code can no longer reproduce has
+    been edited in effect, and this is the check that says so.
+    """
 
     def __str__(self) -> str:
         if self.ok:
@@ -269,6 +357,8 @@ class ProtocolVerification:
         parts: list[str] = []
         if self.protocol_hash != self.stored_hash:
             parts.append("the stored hash does not match the stored content")
+        if not self.rebuilds_identically:
+            parts.append("the code no longer rebuilds this protocol to the payload it holds")
         if not self.bank_unchanged:
             parts.append("the question bank or its ground truth has changed since registration")
         if not self.ladder_unchanged:
@@ -277,7 +367,7 @@ class ProtocolVerification:
 
 
 def verify_protocol(
-    path: Path = DEFAULT_PROTOCOL_PATH, *, truth_lock: Path = TRUTH_LOCK_PATH
+    path: Path = DEFAULT_PROTOCOL_PATH, *, truth_lock: Path | None = None
 ) -> ProtocolVerification:
     """Check that the protocol is intact and still describes the current bank.
 
@@ -290,14 +380,27 @@ def verify_protocol(
     protocol = Protocol.from_dict(body["protocol"])
     stored_hash = str(body.get("protocol_hash", ""))
 
-    current = build_protocol(registered_at=protocol.registered_at, truth_lock=truth_lock)
+    # Rebuilt under the version the file itself declares, so that verifying v1
+    # never silently checks it against v2's bank.
+    current = build_protocol(
+        registered_at=protocol.registered_at,
+        truth_lock=truth_lock,
+        version=protocol.version,
+    )
     bank_unchanged = protocol.bank == current.bank
     ladder_unchanged = protocol.arms == current.arms
+    rebuilds = current.protocol_hash == protocol.protocol_hash
 
     return ProtocolVerification(
-        ok=(protocol.protocol_hash == stored_hash and bank_unchanged and ladder_unchanged),
+        ok=(
+            protocol.protocol_hash == stored_hash
+            and bank_unchanged
+            and ladder_unchanged
+            and rebuilds
+        ),
         protocol_hash=protocol.protocol_hash,
         stored_hash=stored_hash,
         bank_unchanged=bank_unchanged,
         ladder_unchanged=ladder_unchanged,
+        rebuilds_identically=rebuilds,
     )

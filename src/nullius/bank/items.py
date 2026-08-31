@@ -24,7 +24,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-__all__ = ["BANK_V1", "BankItem", "validate_bank"]
+__all__ = ["BANK_V1", "BANK_V2", "BankItem", "validate_bank"]
 
 MDE = 0.02
 """The effect size every bank hypothesis claims. Two macro-F1 points."""
@@ -266,3 +266,495 @@ def validate_bank(items: tuple[BankItem, ...] = BANK_V1) -> BankReport:
             )
 
     return BankReport(problems=tuple(problems))
+
+
+#: Bank v2. Sixty items, and the reason is M10's own result rather than an
+#: appetite for more data.
+#:
+#: The v1 ladder could not separate any two institutional arms. The diagnosis
+#: written at the time — "the bank is too easy" — was wrong, and measuring it
+#: properly says so: thirteen of v1's twenty items already sat within two
+#: experiment standard errors of a verdict boundary, and the single item B4 got
+#: wrong was the third hardest in the bank. The real limits were that twenty
+#: items make the primary metric move in steps of 0.05, so no difference
+#: smaller than one item can be seen at all, and that only six items sat in the
+#: band where two arms could plausibly disagree.
+#:
+#: So v2 changes the two things that were actually wrong. Sixty items put the
+#: metric's resolution at 0.017, and **thirty** of them sit within one
+#: experiment standard error of a boundary, against six in v1.
+#:
+#: The headroom that makes this possible is the gap between the two
+#: measurements. The oracle sees forty seeds of twenty thousand samples and
+#: resolves an effect to about 0.0008; an experiment gets five seeds of two
+#: thousand and resolves it to about 0.005. Every item here is at least three
+#: *oracle* standard errors from its boundary — so its ground truth is not in
+#: doubt — while many sit well inside one *experiment* standard error of it.
+#: The truth is unambiguous and the question is still genuinely hard, which is
+#: the only arrangement under which a hard bank is also a fair one.
+#:
+#: Composition is 45% true nulls, as ``docs/04-evaluation.md`` specifies. Every
+#: parameter below was found by measuring a 311-point sweep of the generator
+#: and selecting on the result, never by choosing a number that looked right.
+#:
+#: **v1 is not replaced.** ``benchmark/protocol.lock.json`` hashes v1's items
+#: and its truth lock, and M10's results are bound to both. A bank version is
+#: part of a preregistration, so changing it means registering again rather
+#: than editing — the same rule that governs an experiment's ``spec_hash``.
+BANK_V2: tuple[BankItem, ...] = (
+    # ---- The claimed effect is really there (11) ---------------------
+    _item(
+        "C01",
+        "E-01",
+        "at or above the claimed effect; comfortably clear of any boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.3975,
+    ),
+    _item(
+        "C02",
+        "E-02",
+        "at or above the claimed effect; comfortably clear of any boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.3375,
+    ),
+    _item(
+        "C03",
+        "E-03",
+        "at or above the claimed effect; comfortably clear of any boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.285,
+    ),
+    _item(
+        "C04",
+        "E-04",
+        "at or above the claimed effect; comfortably clear of any boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.2375,
+    ),
+    _item(
+        "C05",
+        "E-05",
+        "at or above the claimed effect; comfortably clear of any boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.1975,
+    ),
+    _item(
+        "C06",
+        "E-06",
+        "at or above the claimed effect; comfortably clear of any boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.1625,
+    ),
+    _item(
+        "C07",
+        "E-07",
+        "at or above the claimed effect; comfortably clear of any boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.135,
+    ),
+    _item(
+        "C08",
+        "E-08",
+        "at or above the claimed effect; comfortably clear of any boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.1125,
+    ),
+    _item(
+        "C09",
+        "E-09",
+        "at or above the claimed effect; one to two standard errors out",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.0975,
+    ),
+    _item(
+        "C10",
+        "E-10",
+        "at or above the claimed effect; inside one experiment standard error of a boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.0875,
+    ),
+    _item(
+        "C11",
+        "E-11",
+        "at or above the claimed effect; inside one experiment standard error of a boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.085,
+    ),
+    # ---- Real, but smaller than claimed (12) - the calibration cases --
+    _item(
+        "C12",
+        "E-12",
+        "real but smaller than claimed; inside one experiment standard error of a boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.075,
+    ),
+    _item(
+        "C13",
+        "E-13",
+        "real but smaller than claimed; inside one experiment standard error of a boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.0725,
+    ),
+    _item(
+        "C14",
+        "E-14",
+        "real but smaller than claimed; inside one experiment standard error of a boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.07,
+    ),
+    _item(
+        "C15",
+        "E-15",
+        "real but smaller than claimed; inside one experiment standard error of a boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.0675,
+    ),
+    _item(
+        "C16",
+        "E-16",
+        "real but smaller than claimed; inside one experiment standard error of a boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.065,
+    ),
+    _item(
+        "C17",
+        "E-17",
+        "real but smaller than claimed; inside one experiment standard error of a boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.0625,
+    ),
+    _item(
+        "C18",
+        "E-18",
+        "real but smaller than claimed; inside one experiment standard error of a boundary",
+        shift="causal",
+        shift_strength=1.025,
+    ),
+    _item(
+        "C19",
+        "E-19",
+        "real but smaller than claimed; inside one experiment standard error of a boundary",
+        shift="causal",
+        shift_strength=1.0425,
+    ),
+    _item(
+        "C20",
+        "E-20",
+        "real but smaller than claimed; inside one experiment standard error of a boundary",
+        shift="causal",
+        shift_strength=1.0775,
+    ),
+    _item(
+        "C21",
+        "E-21",
+        "real but smaller than claimed; inside one experiment standard error of a boundary",
+        shift="causal",
+        shift_strength=1.1125,
+    ),
+    _item(
+        "C22",
+        "E-22",
+        "real but smaller than claimed; inside one experiment standard error of a boundary",
+        shift="causal",
+        shift_strength=1.1475,
+    ),
+    _item(
+        "C23",
+        "E-23",
+        "real but smaller than claimed; inside one experiment standard error of a boundary",
+        shift="causal",
+        shift_strength=1.165,
+    ),
+    # ---- No effect at all (27) - 45% of the bank, per docs/04 --------
+    _item(
+        "C24",
+        "E-24",
+        "inside the null band; inside one experiment standard error of a boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.05,
+    ),
+    _item(
+        "C25",
+        "E-25",
+        "inside the null band; inside one experiment standard error of a boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.0475,
+    ),
+    _item(
+        "C26",
+        "E-26",
+        "inside the null band; inside one experiment standard error of a boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.045,
+    ),
+    _item(
+        "C27",
+        "E-27",
+        "inside the null band; inside one experiment standard error of a boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.0425,
+    ),
+    _item(
+        "C28",
+        "E-28",
+        "inside the null band; inside one experiment standard error of a boundary",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.04,
+    ),
+    _item(
+        "C29",
+        "E-29",
+        "inside the null band; one to two standard errors out",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.0375,
+    ),
+    _item(
+        "C30",
+        "E-30",
+        "inside the null band; one to two standard errors out",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.035,
+    ),
+    _item(
+        "C31",
+        "E-31",
+        "inside the null band; one to two standard errors out",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.0325,
+    ),
+    _item(
+        "C32",
+        "E-32",
+        "inside the null band; one to two standard errors out",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.03,
+    ),
+    _item(
+        "C33",
+        "E-33",
+        "inside the null band; one to two standard errors out",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.0275,
+    ),
+    _item(
+        "C34",
+        "E-34",
+        "inside the null band; one to two standard errors out",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.025,
+    ),
+    _item(
+        "C35",
+        "E-35",
+        "inside the null band; one to two standard errors out",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.0225,
+    ),
+    _item(
+        "C36",
+        "E-36",
+        "inside the null band; one to two standard errors out",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.0175,
+    ),
+    _item(
+        "C37",
+        "E-37",
+        "inside the null band; one to two standard errors out",
+        shift="spurious",
+        shift_strength=2.0,
+        spurious_strength=0.01,
+    ),
+    _item(
+        "C38",
+        "E-38",
+        "inside the null band; one to two standard errors out",
+        shift="causal",
+        shift_strength=0.5175,
+    ),
+    _item(
+        "C39",
+        "E-39",
+        "inside the null band; one to two standard errors out",
+        shift="causal",
+        shift_strength=0.5875,
+    ),
+    _item(
+        "C40",
+        "E-40",
+        "inside the null band; one to two standard errors out",
+        shift="causal",
+        shift_strength=0.64,
+    ),
+    _item(
+        "C41",
+        "E-41",
+        "inside the null band; one to two standard errors out",
+        shift="causal",
+        shift_strength=0.71,
+    ),
+    _item(
+        "C42",
+        "E-42",
+        "inside the null band; inside one experiment standard error of a boundary",
+        shift="causal",
+        shift_strength=0.7625,
+    ),
+    _item(
+        "C43",
+        "E-43",
+        "inside the null band; inside one experiment standard error of a boundary",
+        shift="causal",
+        shift_strength=0.815,
+    ),
+    _item(
+        "C44",
+        "E-44",
+        "inside the null band; inside one experiment standard error of a boundary",
+        shift="causal",
+        shift_strength=0.85,
+    ),
+    _item(
+        "C45",
+        "E-45",
+        "inside the null band; inside one experiment standard error of a boundary",
+        shift="causal",
+        shift_strength=0.8675,
+    ),
+    _item(
+        "C46",
+        "E-46",
+        "inside the null band; inside one experiment standard error of a boundary",
+        shift="causal",
+        shift_strength=0.885,
+    ),
+    _item(
+        "C47",
+        "E-47",
+        "inside the null band; inside one experiment standard error of a boundary",
+        shift="causal",
+        shift_strength=0.9025,
+    ),
+    _item(
+        "C48",
+        "E-48",
+        "inside the null band; inside one experiment standard error of a boundary",
+        shift="causal",
+        shift_strength=0.92,
+    ),
+    _item(
+        "C49",
+        "E-49",
+        "inside the null band; inside one experiment standard error of a boundary",
+        shift="causal",
+        shift_strength=0.9375,
+    ),
+    _item(
+        "C50",
+        "E-50",
+        "inside the null band; inside one experiment standard error of a boundary",
+        shift="causal",
+        shift_strength=0.955,
+    ),
+    # ---- Real, and pointing the other way (10) -----------------------
+    _item(
+        "C51",
+        "E-51",
+        "against the claimed direction; inside one experiment standard error of a boundary",
+        shift="causal",
+        shift_strength=1.2175,
+    ),
+    _item(
+        "C52",
+        "E-52",
+        "against the claimed direction; inside one experiment standard error of a boundary",
+        shift="causal",
+        shift_strength=1.235,
+    ),
+    _item(
+        "C53",
+        "E-53",
+        "against the claimed direction; one to two standard errors out",
+        shift="causal",
+        shift_strength=1.305,
+    ),
+    _item(
+        "C54",
+        "E-54",
+        "against the claimed direction; comfortably clear of any boundary",
+        shift="causal",
+        shift_strength=1.4275,
+    ),
+    _item(
+        "C55",
+        "E-55",
+        "against the claimed direction; comfortably clear of any boundary",
+        shift="causal",
+        shift_strength=1.6025,
+    ),
+    _item(
+        "C56",
+        "E-56",
+        "against the claimed direction; comfortably clear of any boundary",
+        shift="causal",
+        shift_strength=1.8125,
+    ),
+    _item(
+        "C57",
+        "E-57",
+        "against the claimed direction; comfortably clear of any boundary",
+        shift="causal",
+        shift_strength=2.0925,
+    ),
+    _item(
+        "C58",
+        "E-58",
+        "against the claimed direction; comfortably clear of any boundary",
+        shift="causal",
+        shift_strength=2.4075,
+    ),
+    _item(
+        "C59",
+        "E-59",
+        "against the claimed direction; comfortably clear of any boundary",
+        shift="causal",
+        shift_strength=2.775,
+    ),
+    _item(
+        "C60",
+        "E-60",
+        "against the claimed direction; comfortably clear of any boundary",
+        shift="causal",
+        shift_strength=3.195,
+    ),
+)

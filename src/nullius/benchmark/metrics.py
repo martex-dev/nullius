@@ -155,11 +155,24 @@ def score_arm(run: ArmRun, protocol: Protocol) -> ArmMetrics:
     outcomes = run.outcomes
     nulls = [o for o in outcomes if o.is_null_item]
     discoveries = [o for o in outcomes if o.claimed_an_effect]
-    probabilities = [protocol.confidence_as_probability[o.confidence.value] for o in outcomes]
-    correct = [o.correct for o in outcomes]
+
+    # Which items the calibration metrics are computed over. v1 said "all of
+    # them", and running it showed why that was wrong: the confidence rubric
+    # measures evidence *for an effect*, so a correct `no_effect` answer
+    # necessarily carries weak evidence and scored as gross underconfidence.
+    # v2 registers `asserted_effects` - the subpopulation where the rubric's
+    # quantity and the scored outcome are the same quantity. Read from the
+    # protocol rather than chosen here, and v1 keeps the behaviour its results
+    # were produced under.
+    scope = str(protocol.statistics.get("calibration_scope", "all_items"))
+    scored = discoveries if scope == "asserted_effects" else list(outcomes)
+
+    probabilities = [protocol.confidence_as_probability[o.confidence.value] for o in scored]
+    correct = [o.correct for o in scored]
+    all_correct = [o.correct for o in outcomes]
 
     usd_total = sum((o.usd for o in outcomes), Decimal(0))
-    n_correct = sum(correct)
+    n_correct = sum(all_correct)
 
     return ArmMetrics(
         arm_id=run.arm.arm_id,
@@ -397,7 +410,11 @@ class LadderReport:
         }
 
 
-def _adjudicate(metrics: Sequence[ArmMetrics]) -> tuple[bool | None, str]:
+def _adjudicate(
+    metrics: Sequence[ArmMetrics],
+    contrasts: Sequence[Comparison] = (),
+    rule: str = "point_estimates",
+) -> tuple[bool | None, str]:
     """Was the registered prediction right?
 
     The prediction, fixed before any of this ran: *B4 captures most of the gain
@@ -412,6 +429,18 @@ def _adjudicate(metrics: Sequence[ArmMetrics]) -> tuple[bool | None, str]:
     accuracy, which is a live possibility since B3 is scored on the split it
     tuned on — refutes the prediction rather than being explained.
     """
+    if rule == "interval_excludes_zero":
+        found = next((c for c in contrasts if (c.arm_id, c.baseline_arm_id) == ("B4", "B3")), None)
+        if found is None:
+            return None, "not adjudicable: this run produced no B4-B3 contrast"
+        upheld = found.ci_low > 0.0
+        return upheld, (
+            f"mechanism (B4-B3) = {found.difference:+.4f}, "
+            f"95% CI [{found.ci_low:+.4f}, {found.ci_high:+.4f}]; "
+            f"interval {'excludes' if upheld else 'does not exclude'} zero; "
+            f"prediction {'upheld' if upheld else 'refuted'}"
+        )
+
     by_id = {m.arm_id: m for m in metrics}
     missing = [arm for arm in ("B3", "B4", "B6") if arm not in by_id]
     if missing:
@@ -472,12 +501,14 @@ def score_ladder(
     """Score every arm and settle the registered prediction."""
     metrics = tuple(score_arm(run, protocol) for run in runs)
     comparisons, correction = compare_to_baseline(runs, protocol, seed=seed)
-    upheld, reason = _adjudicate(metrics)
     contrasts = tuple(
         found
         for offset, (treatment, baseline) in enumerate(PREDICTION_CONTRASTS)
         if (found := _contrast(runs, treatment, baseline, protocol, seed=seed + 100 + offset))
         is not None
+    )
+    upheld, reason = _adjudicate(
+        metrics, contrasts, str(protocol.statistics.get("adjudication", "point_estimates"))
     )
     return LadderReport(
         protocol_hash=protocol.protocol_hash,

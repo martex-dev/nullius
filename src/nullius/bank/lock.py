@@ -13,7 +13,7 @@ it.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,6 +24,7 @@ from nullius.util.canonical import canonical_json, sha256_of
 
 __all__ = [
     "DEFAULT_LOCK_PATH",
+    "V2_LOCK_PATH",
     "LockVerification",
     "compute_truths",
     "read_lock",
@@ -32,6 +33,15 @@ __all__ = [
 ]
 
 DEFAULT_LOCK_PATH = Path("bank/truth.lock.json")
+V2_LOCK_PATH = Path("bank/truth.v2.lock.json")
+"""Bank v2's truths, in their own file beside v1's.
+
+Two banks, two locks, and no merging. ``benchmark/protocol.lock.json`` hashes
+v1's items *and* v1's truth lock, so a lock that grew to cover both banks would
+change the hash of the one M10's results were registered against. A bank
+version is part of a preregistration; adding to it means a new file, not a
+bigger one.
+"""
 
 #: How far a recomputed effect may drift before verification fails.
 #: Generous relative to the oracle's own standard error, tight relative to the
@@ -60,12 +70,22 @@ def compute_truths(
     ]
 
 
-def write_lock(truths: Iterable[Truth], path: Path = DEFAULT_LOCK_PATH) -> Path:
-    """Write the lock file, with a hash of the items it describes."""
+def write_lock(
+    truths: Iterable[Truth],
+    path: Path = DEFAULT_LOCK_PATH,
+    *,
+    items: Sequence[BankItem] = BANK_V1,
+) -> Path:
+    """Write the lock file, with a hash of the items it describes.
+
+    ``items`` must be the bank the truths were measured from. It used to be
+    hard-coded to v1, which was correct while one bank existed and would have
+    silently stamped v1's hash onto v2's truths the moment a second one did.
+    """
     truth_list = list(truths)
     payload = {
         "version": 1,
-        "items_hash": sha256_of([item.as_dict() for item in BANK_V1]),
+        "items_hash": sha256_of([item.as_dict() for item in items]),
         "truths": [truth.as_dict() for truth in truth_list],
     }
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -105,6 +125,7 @@ def verify(
     *,
     n_samples: int | None = None,
     n_seeds: int | None = None,
+    items: Sequence[BankItem] = BANK_V1,
 ) -> LockVerification:
     """Recompute every truth and compare it to the lock.
 
@@ -114,7 +135,7 @@ def verify(
     """
     payload = json.loads(path.read_text(encoding="utf-8"))
     locked = {entry["item_id"]: Truth.from_dict(entry) for entry in payload["truths"]}
-    items_changed = payload.get("items_hash") != sha256_of([i.as_dict() for i in BANK_V1])
+    items_changed = payload.get("items_hash") != sha256_of([i.as_dict() for i in items])
 
     if locked:
         first = next(iter(locked.values()))
@@ -124,7 +145,7 @@ def verify(
     drifted: list[str] = []
     missing: list[str] = []
     for truth in compute_truths(
-        n_samples=n_samples or DEFAULT_SAMPLES, n_seeds=n_seeds or DEFAULT_SEEDS
+        items, n_samples=n_samples or DEFAULT_SAMPLES, n_seeds=n_seeds or DEFAULT_SEEDS
     ):
         previous = locked.get(truth.item_id)
         if previous is None:

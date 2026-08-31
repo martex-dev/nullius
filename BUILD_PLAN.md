@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M11 complete (M6–M11 mock-driven; the first live run awaits an API key). M12 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M11 and M12a complete (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -270,8 +270,43 @@ Static HTML report generator, then the FastAPI + HTMX dashboard: overview, hypot
 
 ---
 
-### M12 · Beyond the MVP ⬅ next
+### M12 · Beyond the MVP
 Code generation (restricted op registry → constrained → free-form, measured against the compiler baseline, Docker required here), vendored literature corpus with a provenance verifier, versioned self-improving policies, template-rendered papers, and finally multiple labs.
+
+**Blocked, and stated rather than quietly skipped.** Code generation needs a live model *and* Docker, and this machine has neither (`docs/adr/0002`, and the M0 environment table). It stays unbuilt until both exist. Nothing else in this bucket was started, because building more mechanisms on an instrument that cannot measure mechanisms is the mistake M10 was warning about.
+
+---
+
+### M12a · A bank that can measure ✅
+M10's ladder separated no two institutional arms. Before adding anything, fix the instrument — which is entirely offline work.
+
+**Acceptance** — a second registered bank on which the primary metric can resolve a difference smaller than one item, with ground truth that is not in doubt; and a second protocol repairing the three flaws running the first one exposed. Neither replaces the first.
+
+**The diagnosis in M10 was wrong, and measuring it properly says so.** M10 concluded "the bank is too easy". It is not: thirteen of v1's twenty items already sat within two experiment standard errors of a verdict boundary, and the single item B4 got wrong (B15) was the third hardest in the bank. The actual limits were different, and both are arithmetic rather than judgement — twenty items make the primary metric move in steps of 0.05, so **no difference smaller than one item can be seen at all**, and only six items sat inside one standard error, which is the band where two arms can plausibly disagree. That correction is recorded here because the wrong version was committed in M10's own write-up.
+
+**Bank v2: sixty items, thirty of them inside one experiment standard error.**
+
+| | v1 | v2 |
+|---|---|---|
+| items | 20 | **60** |
+| metric resolution | 0.050 | **0.017** |
+| within 1 experiment SE of a boundary | 6 | **30** |
+| true nulls | 45% | **45%** |
+| minimum oracle margin | ≥3 SE | **3.4 SE** |
+
+The headroom that makes a hard bank a *fair* one is the gap between the two measurements. The oracle sees 40 seeds of 20,000 samples and resolves an effect to about 0.0008; an experiment gets 5 seeds of 2,000 and resolves it to about 0.005. Every v2 item is at least three *oracle* standard errors from its boundary — its ground truth is not in doubt — while half of them sit inside one *experiment* standard error of it. Unambiguous to the oracle, a coin flip for the institution.
+
+Every parameter was found by measuring a 311-point sweep of the generator and selecting on the result, never by picking a number that looked right. The causal branch turns out to be non-monotone below `shift_strength≈0.5`, so selection is restricted to the monotone branch above it. Truth derivation for all sixty items takes 69 seconds.
+
+**Protocol v2 repairs the three flaws, and repairs none of them in place.** v1 stays on disk, still verifying, still wrong in the three ways it was wrong — editing a hashed preregistration to fix its own findings is the exact substitution the file exists to prevent.
+
+1. **Baseline arm B1 → B0.** B1 is `model_dependent`, so under a mock every comparison in v1's registered family inherited the flag and the whole table was uninterpretable for mechanism. B0 answers without looking and is not a model.
+2. **Adjudication on an interval, not two point estimates.** v1's rule returned "upheld" for a one-item difference. v2 requires the B4−B3 interval to exclude zero, and fails the prediction if it does not, whatever the point estimate says.
+3. **Calibration scored only where the rubric's quantity is the scored quantity.** The confidence rubric measures evidence *for an effect*, so a correct `no_effect` answer necessarily carries weak evidence and scored as gross underconfidence — ECE ≈ 0.42 was an artefact of the mapping, not a property of the institution. v2 registers `asserted_effects`.
+
+**A fourth flaw, found while fixing the other three.** Adding those two keys to the builder changed what `build_protocol(version="1")` produced, while every existing check stayed green: bank unchanged, arms unchanged, stored hash still matching its own content. A registered protocol the code can no longer reproduce has been edited in effect. `ProtocolVerification` now carries `rebuilds_identically`, v1's payload gained no keys, and v1 rebuilds to `1d4c76d2…` exactly as M10 registered it.
+
+`nullius benchmark run --bank 2` runs the ladder on v2. `--bank 1` still reproduces M10.
 
 ---
 

@@ -106,6 +106,20 @@ jobs:
       - run: uv sync --all-extras --dev
       - name: recompute every locked truth
         run: uv run nullius bank verify
+      - name: recompute bank v2's truths, all sixty
+        run: |
+          uv run python -c "
+          from nullius.bank.items import BANK_V2
+          from nullius.bank.lock import V2_LOCK_PATH, verify
+          from nullius.bank.truth import ambiguous, boundary_margin
+          from nullius.bank.lock import read_lock
+          result = verify(V2_LOCK_PATH, items=BANK_V2)
+          print(result)
+          assert result.ok, result
+          truths = list(read_lock(V2_LOCK_PATH).values())
+          assert ambiguous(truths) == [], ambiguous(truths)
+          print(f'min oracle margin {min(boundary_margin(t) for t in truths):.1f} SE')
+          "
       - name: report composition
         run: uv run nullius bank stats
 
@@ -123,8 +137,10 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --all-extras --dev
-      - name: the protocol still describes this bank
-        run: uv run nullius benchmark verify
+      - name: every registered protocol still describes its own bank
+        run: |
+          uv run nullius benchmark verify
+          uv run nullius benchmark verify --protocol benchmark/protocol.v2.lock.json
       - name: the committed results re-score to their own summary
         run: |
           uv run python -c "

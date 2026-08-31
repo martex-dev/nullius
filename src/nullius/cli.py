@@ -708,6 +708,13 @@ def benchmark_run(
     seed: Annotated[
         int, typer.Option(help="Bootstrap seed. The whole report is a function of it.")
     ] = 0,
+    bank: Annotated[
+        str,
+        typer.Option(
+            "--bank",
+            help="Which registered bank to run: '1' (20 items) or '2' (60 items).",
+        ),
+    ] = "1",
 ) -> None:
     """Run the full B0-B7 ladder and score it against the registered protocol.
 
@@ -716,8 +723,15 @@ def benchmark_run(
     producing one anyway would waste the only thing this benchmark has.
     """
     from nullius.benchmark.metrics import score_ladder, write_results
-    from nullius.benchmark.protocol import read_protocol, verify_protocol
+    from nullius.benchmark.protocol import PROTOCOL_VERSIONS, read_protocol, verify_protocol
     from nullius.benchmark.runner import run_ladder
+
+    if bank not in PROTOCOL_VERSIONS:
+        console.print(f"[red]no registered bank {bank!r}; known: {sorted(PROTOCOL_VERSIONS)}[/red]")
+        raise typer.Exit(code=1)
+    settings = PROTOCOL_VERSIONS[bank]
+    if protocol == Path("benchmark/protocol.lock.json"):
+        protocol = settings["path"]
 
     verification = verify_protocol(protocol)
     if not verification.ok:
@@ -730,7 +744,13 @@ def benchmark_run(
     console.print(f"  [dim]prediction:[/dim] {registered.prediction}")
     console.print()
 
-    runs = run_ladder(root=workdir)
+    console.print(
+        f"  bank v{bank}: {len(settings['items'])} items, "
+        f"baseline arm {registered.statistics['baseline_arm']}"
+    )
+    console.print()
+
+    runs = run_ladder(root=workdir, items=settings["items"], truth_lock=settings["truth_lock"])
     report = score_ladder(runs, registered, seed=seed)
     path = write_results(report, runs, results, provider="mock")
 
