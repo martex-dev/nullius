@@ -256,10 +256,37 @@ class Stance(StrEnum):
 
 
 class Verdict(StrEnum):
-    """The institution's answer, scored against planted ground truth."""
+    """The institution's answer, scored against planted ground truth.
+
+    ``INCONCLUSIVE`` and ``UNDERPOWERED`` are separate because they are
+    different kinds of statement, and collapsing them cost the benchmark its
+    meaning. The first is a *finding about the world*: the interval rules out
+    the claimed effect but not a smaller one, so something is there and it is
+    less than was claimed. The second is a *statement about the design*: the
+    interval is too wide to separate any hypothesis from any other, and the
+    institution is declining to answer.
+
+    They were one value until M13. ``derive_verdict`` had always distinguished
+    them in its reason string — one says "something is there, less than was
+    claimed", the other says "this is a statement about the design, not the
+    world" — while returning the same enum member for both. The consequence was
+    not merely that abstention was scored as an error. It was that when the
+    truth happened to *be* ``inconclusive``, an arm that could say nothing at
+    all was credited with having said the right thing. Every arm's v2 accuracy
+    was inflated that way, by four to nine items out of sixty.
+
+    ``UNDERPOWERED`` is never a truth. The oracle measures at forty seeds of
+    twenty thousand samples and is never short of power, so
+    :func:`~nullius.bank.truth.classify` cannot return it and an abstention can
+    never be scored correct by accident.
+    """
 
     SUPPORTED = "supported"
     REFUTED = "refuted"
     NO_EFFECT = "no_effect"
     CONDITIONAL = "conditional"
     INCONCLUSIVE = "inconclusive"
+    """A real effect, smaller than the one claimed. A finding, not a shrug."""
+
+    UNDERPOWERED = "underpowered"
+    """The design cannot separate the hypotheses. An abstention, not a finding."""

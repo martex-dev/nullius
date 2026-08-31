@@ -128,6 +128,19 @@ class ArmMetrics:
     n_correct: int
     n_halted: int
     verdict_accuracy: float
+    coverage: float
+    """Fraction of items the arm was willing to answer at all."""
+
+    assertion_accuracy: float
+    """Accuracy over the items it did answer.
+
+    Reported beside ``verdict_accuracy`` rather than instead of it. An arm can
+    raise this to 1.0 by answering only what it is sure of, and ``coverage``
+    is what stops that reading as a good result. Neither number means much
+    alone, which is the point of printing both.
+    """
+
+    n_abstained: int
     null_accuracy: float
     brier: float
     expected_calibration_error: float
@@ -155,6 +168,9 @@ class ArmMetrics:
             "n_correct": self.n_correct,
             "n_halted": self.n_halted,
             "verdict_accuracy": _round(self.verdict_accuracy),
+            "coverage": _round(self.coverage),
+            "assertion_accuracy": _round(self.assertion_accuracy),
+            "n_abstained": self.n_abstained,
             "null_accuracy": _round(self.null_accuracy),
             "brier": _round(self.brier),
             "expected_calibration_error": _round(self.expected_calibration_error),
@@ -168,9 +184,9 @@ class ArmMetrics:
         flag = " [model-dependent]" if self.model_dependent else ""
         return (
             f"{self.arm_id} accuracy {self.verdict_accuracy:.2f} "
+            f"(answered {self.coverage:.0%}, right {self.assertion_accuracy:.2f}) "
             f"null {self.null_accuracy:.2f} brier {self.brier:.3f} "
-            f"fdr {self.false_discovery_rate:.2f} "
-            f"${self.usd_per_correct_claim:.4f}/correct{flag}"
+            f"fdr {self.false_discovery_rate:.2f}{flag}"
         )
 
 
@@ -202,8 +218,12 @@ def score_arm(run: ArmRun, protocol: Protocol) -> ArmMetrics:
     usd_total = sum((o.usd for o in outcomes), Decimal(0))
     n_correct = sum(all_correct)
 
+    answered = [o for o in outcomes if not o.abstained]
     return ArmMetrics(
         n_scored=len(scored),
+        coverage=(len(answered) / len(outcomes)) if outcomes else float("nan"),
+        assertion_accuracy=_accuracy(answered),
+        n_abstained=len(outcomes) - len(answered),
         arm_id=run.arm.arm_id,
         label=run.arm.label,
         model_dependent=run.arm.model_dependent,

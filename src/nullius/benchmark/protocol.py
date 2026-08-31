@@ -38,7 +38,7 @@ from nullius.bank.items import BANK_V1, BANK_V2
 from nullius.bank.lock import DEFAULT_LOCK_PATH as TRUTH_LOCK_PATH
 from nullius.bank.lock import V2_LOCK_PATH as V2_TRUTH_LOCK_PATH
 from nullius.benchmark.arms import LADDER
-from nullius.db.enums import CONFIDENCE_ORDER, ClaimConfidence
+from nullius.db.enums import CONFIDENCE_ORDER, ClaimConfidence, Verdict
 from nullius.util.canonical import canonical_json, sha256_of
 
 __all__ = [
@@ -48,6 +48,7 @@ __all__ = [
     "PROTOCOL_VERSION",
     "PROTOCOL_VERSIONS",
     "V2_PROTOCOL_PATH",
+    "V3_PROTOCOL_PATH",
     "Protocol",
     "ProtocolVerification",
     "build_protocol",
@@ -80,9 +81,28 @@ EXCLUSION_RULES = (
 )
 
 
-LATEST_PROTOCOL_VERSION = "2"
+THE_CLAIM = (
+    "Institutional structure - preregistration, adversarial challenge, "
+    "independent replication, and evidence-typed memory - improves the accuracy "
+    "and calibration of autonomous empirical research relative to an "
+    "unstructured agent, at a measurable cost in compute and tokens."
+)
+
+METRICS = (
+    "verdict_accuracy",
+    "null_accuracy",
+    "brier",
+    "expected_calibration_error",
+    "false_discovery_rate",
+    "usd_per_correct_claim",
+    "effect_size_error",
+)
+
+
+LATEST_PROTOCOL_VERSION = "3"
 
 V2_PROTOCOL_PATH = Path("benchmark/protocol.v2.lock.json")
+V3_PROTOCOL_PATH = Path("benchmark/protocol.v3.lock.json")
 
 V2_PREDICTION = (
     "The mechanism contrast B4 - B3 is positive and its 95% interval excludes "
@@ -121,6 +141,36 @@ V2_EXCLUSION_RULES = (
 #: preregistration to fix its own findings is the exact substitution this file
 #: exists to prevent, so v1 stays on disk, still verifying, still wrong in the
 #: three ways it was wrong.
+V3_METRICS = (
+    *METRICS,
+    "coverage",
+    "assertion_accuracy",
+)
+
+V3_PREDICTION = (
+    "Separating abstention from finding lowers every arm's verdict accuracy, "
+    "because v2 credited an arm that could say nothing with having said the "
+    "right thing whenever the truth happened to be 'inconclusive'. The "
+    "institutional arms will separate on coverage: B6 answers more of the bank "
+    "than B3 does, and the interval on that difference excludes zero. If "
+    "coverage does not separate, the institution's advantage is in what it "
+    "says and not in how much it is able to say."
+)
+
+V3_EXCLUSION_RULES = (
+    *V2_EXCLUSION_RULES,
+    "An abstention is reported, never dropped. 'underpowered' still counts as "
+    "incorrect for verdict accuracy, because the first exclusion rule refuses "
+    "to reward an arm for declining the questions it found hardest. It is also "
+    "counted separately, because a system that knows what it cannot measure is "
+    "not the same as one that guesses.",
+    "Coverage and assertion accuracy are reported together and neither is the "
+    "primary metric. An arm can drive assertion accuracy to 1.0 by answering "
+    "only what it is sure of, and coverage is what stops that reading as a "
+    "good result.",
+)
+
+
 PROTOCOL_VERSIONS: dict[str, dict[str, Any]] = {
     "1": {
         "items": BANK_V1,
@@ -129,7 +179,22 @@ PROTOCOL_VERSIONS: dict[str, dict[str, Any]] = {
         "baseline_arm": "B1",
         "prediction": REGISTERED_PREDICTION,
         "exclusion_rules": EXCLUSION_RULES,
+        "metrics": METRICS,
         "extra_statistics": {},
+    },
+    "3": {
+        "items": BANK_V2,
+        "truth_lock": V2_TRUTH_LOCK_PATH,
+        "path": V3_PROTOCOL_PATH,
+        "baseline_arm": "B0",
+        "prediction": V3_PREDICTION,
+        "exclusion_rules": V3_EXCLUSION_RULES,
+        "metrics": V3_METRICS,
+        "extra_statistics": {
+            "calibration_scope": "asserted_effects",
+            "adjudication": "interval_excludes_zero",
+            "verdict_vocabulary": [v.value for v in Verdict],
+        },
     },
     "2": {
         "items": BANK_V2,
@@ -138,6 +203,7 @@ PROTOCOL_VERSIONS: dict[str, dict[str, Any]] = {
         "baseline_arm": "B0",
         "prediction": V2_PREDICTION,
         "exclusion_rules": V2_EXCLUSION_RULES,
+        "metrics": METRICS,
         "extra_statistics": {
             "calibration_scope": "asserted_effects",
             "adjudication": "interval_excludes_zero",
@@ -237,24 +303,6 @@ class Protocol:
         )
 
 
-THE_CLAIM = (
-    "Institutional structure - preregistration, adversarial challenge, "
-    "independent replication, and evidence-typed memory - improves the accuracy "
-    "and calibration of autonomous empirical research relative to an "
-    "unstructured agent, at a measurable cost in compute and tokens."
-)
-
-METRICS = (
-    "verdict_accuracy",
-    "null_accuracy",
-    "brier",
-    "expected_calibration_error",
-    "false_discovery_rate",
-    "usd_per_correct_claim",
-    "effect_size_error",
-)
-
-
 def build_protocol(
     *,
     registered_at: str | None = None,
@@ -277,7 +325,7 @@ def build_protocol(
         claim=THE_CLAIM,
         prediction=settings["prediction"],
         primary_metric=PRIMARY_METRIC,
-        metrics=METRICS,
+        metrics=settings["metrics"],
         arms=tuple(arm.as_dict() for arm in LADDER),
         confidence_as_probability=dict(CONFIDENCE_AS_PROBABILITY),
         statistics={

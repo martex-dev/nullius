@@ -125,6 +125,19 @@ class ArmOutcome:
         return self.verdict is self.truth_verdict
 
     @property
+    def abstained(self) -> bool:
+        """Whether the arm declined to answer rather than answering wrongly.
+
+        ``UNDERPOWERED`` is a statement about the design, not about the world.
+        It is still counted as incorrect by :attr:`correct` — the protocol's
+        first exclusion rule refuses to drop an unanswered item, because
+        dropping it would pay an arm for refusing the questions it found
+        hardest — but it is reported separately, so that a system which knows
+        what it cannot measure is distinguishable from one that guesses.
+        """
+        return self.verdict is Verdict.UNDERPOWERED
+
+    @property
     def is_null_item(self) -> bool:
         return self.truth_verdict is Verdict.NO_EFFECT
 
@@ -157,6 +170,7 @@ class ArmOutcome:
             "replications": self.replications,
             "findings": self.findings,
             "correct": self.correct,
+            "abstained": self.abstained,
             "halted": self.halted,
         }
 

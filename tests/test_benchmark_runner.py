@@ -23,7 +23,7 @@ from nullius.benchmark.metrics import (
     read_results,
     score_arm,
 )
-from nullius.benchmark.protocol import V2_PROTOCOL_PATH, read_protocol
+from nullius.benchmark.protocol import V2_PROTOCOL_PATH, V3_PROTOCOL_PATH, read_protocol
 from nullius.benchmark.runner import ArmOutcome, ArmRun, mechanisms_for
 from nullius.db.enums import ClaimConfidence, Verdict
 from nullius.util.canonical import canonical_json
@@ -367,3 +367,74 @@ def test_a_checkpoint_from_a_different_bank_is_ignored(tmp_path: Path) -> None:
     _write_checkpoint(tmp_path, run, "hash-of-some-other-bank")
 
     assert _read_checkpoint(tmp_path, arm, "hash-of-the-bank-being-run") is None
+
+
+# ------------------------------- abstention is not an answer, and not a shrug
+
+
+def test_an_abstention_is_never_credited_as_a_correct_answer() -> None:
+    """The bug that inflated every arm's v2 accuracy.
+
+    ``inconclusive`` is a real truth value in this bank -- "the effect is real
+    and smaller than claimed" -- and it was also what the institution returned
+    when its interval was too wide to say anything at all. So an arm that could
+    say nothing was scored correct whenever the truth happened to be
+    ``inconclusive``. It cost four to nine items out of sixty, per arm, all in
+    the flattering direction.
+
+    ``UNDERPOWERED`` is never a truth, because the oracle is never short of
+    power, so the two can no longer be confused.
+    """
+    abstention = outcome(verdict=Verdict.UNDERPOWERED, truth=Verdict.INCONCLUSIVE)
+    assert abstention.abstained
+    assert not abstention.correct
+
+    finding = outcome(verdict=Verdict.INCONCLUSIVE, truth=Verdict.INCONCLUSIVE)
+    assert not finding.abstained
+    assert finding.correct
+
+
+def test_an_abstention_is_not_a_discovery_either() -> None:
+    assert not outcome(verdict=Verdict.UNDERPOWERED).claimed_an_effect
+    assert not outcome(verdict=Verdict.UNDERPOWERED, truth=Verdict.NO_EFFECT).false_discovery
+
+
+def test_coverage_and_assertion_accuracy_are_reported_together() -> None:
+    """Either alone is misleading, which is why the protocol registers both.
+
+    An arm can drive assertion accuracy to 1.0 by answering only what it is
+    sure of. Coverage is what stops that reading as a good result.
+    """
+    cautious = ArmRun(
+        arm=arm_named("B4"),
+        outcomes=(
+            outcome(item_id="C01", verdict=Verdict.SUPPORTED, truth=Verdict.SUPPORTED),
+            outcome(item_id="C02", verdict=Verdict.UNDERPOWERED, truth=Verdict.SUPPORTED),
+            outcome(item_id="C03", verdict=Verdict.UNDERPOWERED, truth=Verdict.NO_EFFECT),
+            outcome(item_id="C04", verdict=Verdict.UNDERPOWERED, truth=Verdict.REFUTED),
+        ),
+    )
+    metrics = score_arm(cautious, read_protocol(V3_PROTOCOL_PATH))
+
+    assert metrics.assertion_accuracy == 1.0  # never wrong when it spoke
+    assert metrics.coverage == 0.25  # but it hardly ever spoke
+    assert metrics.verdict_accuracy == 0.25  # and the headline still says so
+    assert metrics.n_abstained == 3
+
+
+def test_the_headline_metric_still_counts_an_abstention_as_incorrect() -> None:
+    """The protocol's first exclusion rule, unchanged since v1: dropping an
+    unanswered item would pay an arm for refusing the questions it found
+    hardest. Separating abstention from error does not mean forgiving it."""
+    run = ArmRun(
+        arm=arm_named("B4"),
+        outcomes=tuple(
+            outcome(item_id=f"C{i:02d}", verdict=Verdict.UNDERPOWERED, truth=Verdict.SUPPORTED)
+            for i in range(4)
+        ),
+    )
+    metrics = score_arm(run, read_protocol(V3_PROTOCOL_PATH))
+    assert metrics.verdict_accuracy == 0.0
+    assert metrics.coverage == 0.0
+    assert math.isnan(metrics.assertion_accuracy)
+    assert metrics.as_dict()["assertion_accuracy"] is None

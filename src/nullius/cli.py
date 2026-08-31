@@ -713,7 +713,7 @@ def benchmark_run(
         str,
         typer.Option(
             "--bank",
-            help="Which registered bank to run: '1' (20 items) or '2' (60 items).",
+            help="Which registered protocol to run under: 1, 2 or 3.",
         ),
     ] = "1",
 ) -> None:
@@ -746,7 +746,7 @@ def benchmark_run(
     console.print()
 
     console.print(
-        f"  bank v{bank}: {len(settings['items'])} items, "
+        f"  protocol v{bank}: {len(settings['items'])} items, "
         f"baseline arm {registered.statistics['baseline_arm']}"
     )
     console.print()
@@ -762,13 +762,26 @@ def benchmark_run(
         return f"{value:.{places}f}"
 
     table = Table(box=None, padding=(0, 2, 0, 0))
-    for column in ("arm", "acc", "null", "brier", "ece", "fdr", "$/correct", "halted"):
+    for column in (
+        "arm",
+        "acc",
+        "cover",
+        "when answered",
+        "null",
+        "brier",
+        "ece",
+        "fdr",
+        "$/correct",
+        "halted",
+    ):
         table.add_column(column)
     for row in report.metrics:
         marker = " *" if row.model_dependent else ""
         table.add_row(
             f"{row.arm_id}{marker}",
             cell(row.verdict_accuracy, 2),
+            cell(row.coverage, 2),
+            cell(row.assertion_accuracy, 2),
             cell(row.null_accuracy, 2),
             cell(row.brier),
             cell(row.expected_calibration_error),

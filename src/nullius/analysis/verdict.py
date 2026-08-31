@@ -53,8 +53,15 @@ class VerdictReport:
         A null that means "we could not tell" is not a null, and reporting it
         as one is the failure mode a bank half full of true zeros exists to
         catch.
+
+        This used to be decided by looking for "too wide" in the reason string,
+        because the verdict vocabulary had no way to say it. That worked here
+        and nowhere else: the benchmark scored the enum, so the distinction
+        never left this class, and an arm that could say nothing was scored
+        against a bank where "inconclusive" is a real answer. It is an
+        identity check now.
         """
-        return self.verdict is Verdict.INCONCLUSIVE and "too wide" in self.reason
+        return self.verdict is Verdict.UNDERPOWERED
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -79,7 +86,7 @@ def derive_verdict(result: PairedResult, mde: float) -> VerdictReport:
 
     if result.method == "none" and result.n_seeds == 1:
         return VerdictReport(
-            Verdict.INCONCLUSIVE,
+            Verdict.UNDERPOWERED,
             "one seed gives no interval, so the result is too wide to distinguish "
             "any outcome from any other",
             mde,
@@ -118,7 +125,7 @@ def derive_verdict(result: PairedResult, mde: float) -> VerdictReport:
             result,
         )
     return VerdictReport(
-        Verdict.INCONCLUSIVE,
+        Verdict.UNDERPOWERED,
         f"the interval [{low:+.4f}, {high:+.4f}] is too wide to separate the claimed "
         f"effect from no effect; this is a statement about the design, not the world",
         mde,

@@ -244,8 +244,8 @@ def _result(low: float, high: float, n: int = 10):
         (0.03, 0.06, Verdict.SUPPORTED),
         (-0.06, -0.03, Verdict.REFUTED),
         (-0.005, 0.005, Verdict.NO_EFFECT),
-        (0.011, 0.018, Verdict.INCONCLUSIVE),  # real, smaller than claimed
-        (-0.30, 0.30, Verdict.INCONCLUSIVE),  # too wide to say anything
+        (0.011, 0.018, Verdict.INCONCLUSIVE),  # a finding: real, smaller than claimed
+        (-0.30, 0.30, Verdict.UNDERPOWERED),  # too wide to say anything
     ],
 )
 def test_verdicts_are_derived_from_the_interval(low: float, high: float, expected: Verdict) -> None:
@@ -253,24 +253,35 @@ def test_verdicts_are_derived_from_the_interval(low: float, high: float, expecte
 
 
 def test_a_wide_interval_is_reported_as_a_fact_about_the_design() -> None:
-    """The difference between "no effect" and "we could not tell"."""
+    """The difference between "no effect" and "we could not tell".
+
+    Carried by the verdict itself since M13, not by a substring of the reason.
+    The distinction was always computed here; it just could not leave this
+    class, so the benchmark scored an abstention as though it were an answer.
+    """
     wide = derive_verdict(_result(-0.30, 0.30), mde=0.02)
     narrow = derive_verdict(_result(-0.005, 0.005), mde=0.02)
 
+    assert wide.verdict is Verdict.UNDERPOWERED
     assert wide.underpowered
     assert not narrow.underpowered
     assert "about the design" in wide.reason
 
 
 def test_an_estimate_past_the_threshold_is_not_enough_on_its_own() -> None:
-    """Point estimate +0.05, but the interval also admits +0.001."""
+    """Point estimate +0.05, but the interval also admits +0.001.
+
+    The interval straddles the claimed effect, so this is a statement about
+    the design rather than a smaller-than-claimed finding.
+    """
     marginal = derive_verdict(_result(0.001, 0.099), mde=0.02)
-    assert marginal.verdict is Verdict.INCONCLUSIVE
+    assert marginal.verdict is Verdict.UNDERPOWERED
 
 
 def test_a_single_seed_can_never_produce_a_verdict() -> None:
+    """And says so as an abstention, not as a finding about the world."""
     result = paired_analysis([0.8], [0.9])
-    assert derive_verdict(result, mde=0.02).verdict is Verdict.INCONCLUSIVE
+    assert derive_verdict(result, mde=0.02).verdict is Verdict.UNDERPOWERED
 
 
 # ---------------------------------------------------------------------------
