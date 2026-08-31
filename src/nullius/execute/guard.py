@@ -79,8 +79,19 @@ def install_guard(workdir: Path) -> None:
 
     Resolved once, up front: resolving paths inside the hook would itself
     trigger filesystem audit events and recurse.
+
+    Two forms of the root are kept, because the hook cannot resolve and the
+    root can. On Windows a directory reached through an 8.3 short name —
+    ``PCGAME~1`` for ``PC Games``, which is what the system temporary directory
+    is on this machine — resolves to its long form, while a write the child
+    performs under the path it was handed stays short. Comparing the two denied
+    every write an experiment made to its own output directory, and reported it
+    as a scientific failure. Both spellings are therefore allowed, which is one
+    directory named twice rather than two directories.
     """
-    allowed_root = workdir.resolve()
+    absolute = Path(os.path.normpath(workdir if workdir.is_absolute() else Path.cwd() / workdir))
+    allowed_roots = (absolute, workdir.resolve())
+    allowed_root = allowed_roots[-1]
 
     def hook(event: str, args: tuple[Any, ...]) -> None:
         if event in FORBIDDEN_EVENTS:
@@ -103,7 +114,8 @@ def install_guard(workdir: Path) -> None:
                 resolved = Path(os.path.normpath(resolved))
             except (OSError, ValueError):  # pragma: no cover - defensive
                 return
-            if allowed_root not in resolved.parents and resolved != allowed_root:
+            parents = set(resolved.parents)
+            if not any(root in parents or resolved == root for root in allowed_roots):
                 message = f"denied write outside the workdir: {resolved}"
                 _violations.append(message)
                 raise GuardViolation(f"{message}. An experiment writes only under {allowed_root}.")

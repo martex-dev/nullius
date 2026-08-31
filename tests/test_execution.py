@@ -147,6 +147,57 @@ def test_an_experiment_runs_end_to_end(
 
 
 @pytest.mark.slow
+def test_a_relative_workroot_still_runs(
+    repo: Repository, scaffold: Scaffold, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A workdir given relative to the caller must not be re-read by the child.
+
+    The child is launched with its working directory set to the workdir, so a
+    relative path handed straight through is resolved twice and points nowhere.
+    That failure arrives as ``scientific_failure`` on every seed — an execution
+    fault wearing the costume of a research result, which is the one disguise
+    this project cannot allow. Pinned here because nothing else would notice.
+    """
+    monkeypatch.chdir(tmp_path)
+    runner = ExperimentRunner(
+        repo, SubprocessSandbox(), ContentStore(Path("objects")), Path("runs")
+    )
+    registration, bundle, dataset = _registered(repo, scaffold)
+
+    outcomes = runner.run(
+        SPEC,
+        registration_id=registration.registration_id,  # type: ignore[attr-defined]
+        bundle_id=bundle.bundle_id,  # type: ignore[attr-defined]
+        dataset_id=dataset.dataset_id,  # type: ignore[attr-defined]
+        program_id=scaffold.program_id,
+    )
+
+    assert all(o.ok for o in outcomes), [o.result.stderr for o in outcomes if not o.ok]
+
+
+@pytest.mark.slow
+def test_a_run_is_charged_for_the_seconds_it_used(
+    repo: Repository, scaffold: Scaffold, runner: ExperimentRunner
+) -> None:
+    """Compute is the only thing a mock-driven programme actually spends."""
+    from nullius.runtime.budget import BudgetLedger
+
+    registration, bundle, dataset = _registered(repo, scaffold)
+    before = BudgetLedger(repo).status(scaffold.program_id).spent_usd
+
+    runner.run(
+        SPEC,
+        registration_id=registration.registration_id,  # type: ignore[attr-defined]
+        bundle_id=bundle.bundle_id,  # type: ignore[attr-defined]
+        dataset_id=dataset.dataset_id,  # type: ignore[attr-defined]
+        program_id=scaffold.program_id,
+    )
+    repo.commit()
+
+    assert BudgetLedger(repo).status(scaffold.program_id).spent_usd > before
+
+
+@pytest.mark.slow
 def test_no_holdout_metric_is_produced_by_a_run(
     repo: Repository, scaffold: Scaffold, runner: ExperimentRunner
 ) -> None:

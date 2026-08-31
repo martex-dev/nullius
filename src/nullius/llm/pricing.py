@@ -9,6 +9,13 @@ what past research appeared to cost.
 Prices are US dollars per million tokens, as published for the first-party
 Anthropic API. Bedrock, Vertex and Foundry are partner-operated with separate
 rates; add them as distinct provider entries rather than assuming parity.
+
+Compute is priced here too, and for a reason that only becomes visible at M9.
+A programme run against :class:`~nullius.llm.providers.MockProvider` costs
+exactly nothing in tokens, so an economy denominated in tokens alone reports
+every research strategy as infinitely efficient. The experiments are real
+whatever produced their design, so the seconds they burn are real, and
+cost-per-correct-claim is only a ratio if the denominator can be non-zero.
 """
 
 from __future__ import annotations
@@ -18,10 +25,36 @@ from decimal import Decimal
 
 from nullius.llm.types import Usage
 
-__all__ = ["PRICE_TABLE_VERSION", "ModelPrice", "price_of", "usd_for"]
+__all__ = [
+    "COMPUTE_USD_PER_CPU_SECOND",
+    "PRICE_TABLE_VERSION",
+    "STORAGE_USD_PER_MB_MONTH",
+    "ModelPrice",
+    "price_of",
+    "usd_for",
+    "usd_for_compute",
+]
 
-PRICE_TABLE_VERSION = "2026-06-24"
-"""Bump whenever a rate changes. Stored on every cost entry."""
+PRICE_TABLE_VERSION = "2026-08-31"
+"""Bump whenever a rate changes. Stored on every cost entry.
+
+Bumped from ``2026-06-24`` when compute rates were added: a table that
+prices more things than it used to is a different table, and a cost row
+written under the old version must stay comparable to itself rather than to
+whatever the current table would have said.
+"""
+
+COMPUTE_USD_PER_CPU_SECOND = Decimal("0.0000111")
+"""About $0.04 per vCPU-hour — a general-purpose cloud instance, per second.
+
+Wall-clock seconds are charged as CPU seconds because the sandbox pins one
+process to one core (:class:`~nullius.execute.sandbox.SubprocessSandbox`).
+When a backend arrives that runs several cores per experiment, this stops
+being true and the runner must report real CPU time instead.
+"""
+
+STORAGE_USD_PER_MB_MONTH = Decimal("0.000023")
+"""About $0.023 per GB-month. Artifacts are kept, so storage is a real, if small, term."""
 
 _CACHE_READ_MULTIPLIER = Decimal("0.1")
 """Cached input is billed at roughly a tenth of the input rate."""
@@ -91,3 +124,19 @@ def usd_for(model: str, usage: Usage, *, cache_hit: bool = False) -> Decimal:
     output = Decimal(usage.output_tokens) * price.output_usd_per_mtok
 
     return (ordinary_input + cached_input + written_cache + output) / _PER_MILLION
+
+
+def usd_for_compute(cpu_seconds: float, storage_mb: float = 0.0) -> Decimal:
+    """Cost of one experiment run: the seconds it burned and the bytes it kept.
+
+    Storage is billed for one month of retention. That is a choice rather than
+    a measurement — nothing here knows how long an artifact will be kept — and
+    it is stated so that a reader can see the assumption instead of inferring
+    it from a number that looks derived.
+    """
+    if cpu_seconds < 0 or storage_mb < 0:
+        raise ValueError("compute cannot be negative")
+    return (
+        Decimal(str(cpu_seconds)) * COMPUTE_USD_PER_CPU_SECOND
+        + Decimal(str(storage_mb)) * STORAGE_USD_PER_MB_MONTH
+    )

@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M8 complete (M6–M8 mock-driven; the first live run awaits an API key). M9 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M9 complete (M6–M9 mock-driven; the first live run awaits an API key). M10 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -157,14 +157,37 @@ Genealogy CTEs, follow-up generation from terminal states, institutional-novelty
 
 ---
 
-### M9 · Research economy ⬅ next
+### M9 · Research economy ✅
 Forecast-derived EIG, the `AllocationPolicy` interface with random / round-robin / greedy-EIG / Thompson implementations, hierarchical budgets, reserves for replication and null confirmation.
 
 **Acceptance** — greedy-EIG measurably beats random on cost-per-correct-claim over the bank, **or is shown not to**. Either result ships.
 
+**The result, and it is the second kind.** Measured over the twenty-item bank at a $0.03 budget, 400 paired bootstrap resamples over items ([ADR-0007](docs/adr/0007-allocation-measured-on-fixed-outcomes.md) for why the comparison holds the science fixed and varies only selection):
+
+| policy | funded | correct | $/correct |
+|---|---|---|---|
+| `random/v1` | 4 | 3 | $0.0086 |
+| `round-robin/v1` | 4 | 4 | $0.0064 |
+| `cheapest-first/v1` | 4 | 4 | $0.0064 |
+| `greedy-eig/v1` | 4 | 4 | $0.0064 |
+| `thompson/v1` | 4 | 4 | $0.0064 |
+
+Greedy-EIG beats random: **+12.51 correct claims per dollar, 95% CI [+0.01, +38.96]** — an interval that excludes zero, but only just.
+
+**And the gain has nothing to do with expected information gain.** The cost-only control produces a byte-identical figure, and the spread of EIG across items is exactly 0.000000000 nats. Under `MockProvider` every role emits the same forecast for every item, so the information term is constant and greedy-EIG *is* the cost control. Without `cheapest-first/v1` on the table this would have read as a win for the mechanism. It is a win for the denominator.
+
+`nullius economy sweep` then dials forecast informativeness from nothing to oracle-grade. As the forecasts acquire per-item signal, greedy-EIG's advantage over random **shrinks** (+12.1 → +9.2) and its difference from the cost control turns **negative** (0.00 → −2.97, interval spanning zero). It never beats the cost control at any forecast quality. That is the direction the theory predicts and the module docstring stated in advance: EIG measures expected surprise, and the items with most surprise in them are the ones near a verdict boundary — exactly where the institution gets the answer wrong. Maximising information and maximising correct claims per dollar are different objectives on this bank, and ranking by the first costs you the second.
+
+What this does not settle: the forecasts here carry no information, so the sweep's oracle-informed rungs bound what a *perfect* forecaster could buy rather than measuring what a live one does. Re-run against a real provider when M6's live run lands.
+
+**Three silent bugs surfaced on the way**, all of which reported as science rather than as faults, and all now pinned by tests:
+- `SubprocessSandbox` passed a relative workdir to a child launched *inside* that workdir, so the path resolved twice and every seed returned `scientific_failure`. The first two bank measurements reported 0/20 correct because of it. An execution fault wearing the costume of a research result is the one disguise this project cannot allow.
+- The write guard compared a resolved allowed-root against an unresolved target, so a workdir reached through a Windows 8.3 short name denied every write an experiment made to its own output directory.
+- `.gitignore` used trailing `#` comments, which git does not support — `objects/`, `runs/` and the rest matched nothing and were never ignored.
+
 ---
 
-### M10 · Benchmark harness
+### M10 · Benchmark harness ⬅ next
 Arms B0–B7 from `docs/04-evaluation.md`, matched on model, compute, seeds and data access. Preregistered protocol committed with a hash *before* results are collected.
 
 **Acceptance** — the full ladder runs; verdict accuracy, null accuracy, calibration, FDR, and cost-per-correct-claim reported per arm with bootstrap CIs.

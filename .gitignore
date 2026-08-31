@@ -16,14 +16,22 @@ venv/
 coverage.xml
 htmlcov/
 
-# Nullius runtime state — provenance lives in the ledger, not in git
-objects/            # content-addressed artifact store
-runs/               # experiment working directories
+# Nullius runtime state — provenance lives in the ledger, not in git.
+# Note: git treats '#' as a comment only at the start of a line, so these
+# patterns carry no trailing annotations. They previously did, which made each
+# one a literal path with trailing spaces that matched nothing at all.
+
+# content-addressed artifact store
+objects/
+# experiment working directories
+runs/
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
 *.sqlite-shm
 .nullius/
+# scratch for `nullius economy measure`; the lock file it writes is committed
+.nullius-measure/
 
 # Datasets are vendored deliberately and by hash; nothing lands here by accident
 data/**

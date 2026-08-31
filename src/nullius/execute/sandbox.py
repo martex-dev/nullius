@@ -134,6 +134,13 @@ class SubprocessSandbox:
         self._python = python or sys.executable
 
     def run(self, plan: dict[str, Any], workdir: Path, limits: SandboxLimits) -> SandboxResult:
+        # Absolute before anything else. The child is launched with its working
+        # directory set to the workdir, so a relative path handed in by the
+        # caller would be re-interpreted against the workdir itself and the
+        # child would fail to find the plan it was told to run — a failure that
+        # surfaces as a scientific failure of every seed, which is the most
+        # misleading way this could possibly break.
+        workdir = workdir.resolve()
         workdir.mkdir(parents=True, exist_ok=True)
         out = workdir / "out"
         out.mkdir(exist_ok=True)
@@ -202,6 +209,7 @@ class DockerSandbox:
         self._image = image
 
     def run(self, plan: dict[str, Any], workdir: Path, limits: SandboxLimits) -> SandboxResult:
+        workdir = workdir.resolve()  # a bind mount source must be absolute
         workdir.mkdir(parents=True, exist_ok=True)
         out = workdir / "out"
         out.mkdir(exist_ok=True)

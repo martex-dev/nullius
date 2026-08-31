@@ -57,6 +57,7 @@ from nullius.db.tables import (
     CodeBundle,
     CostEntry,
     Dataset,
+    Decision,
     Evidence,
     FollowUp,
     Forecast,
@@ -116,6 +117,9 @@ WRITE_AUTHORITY: dict[str, frozenset[Role]] = {
     "record_replication": frozenset({Role.SYSTEM, Role.REPLICATOR}),
     "promote_claim": frozenset({Role.SYSTEM, Role.DIRECTOR}),
     "record_follow_up": frozenset({Role.SYSTEM, Role.DIRECTOR}),
+    # Allocation is the Director's single genuine authority: it decides what
+    # gets funded and is answerable for the numbers it decided from.
+    "record_decision": frozenset({Role.SYSTEM, Role.DIRECTOR}),
     "take_follow_up": frozenset({Role.SYSTEM, Role.THEORIST}),
     # Accounting is a control-plane action, recorded on behalf of whichever
     # role's task incurred it.
@@ -1130,6 +1134,50 @@ class Repository:
         return rows
 
     # --------------------------------------------------------- accounting
+
+    def record_decision(
+        self,
+        *,
+        program_id: uuid.UUID,
+        policy_id: uuid.UUID,
+        kind: str,
+        subject_id: uuid.UUID,
+        inputs: dict[str, Any],
+        outcome: str,
+        dissent: dict[str, Any] | None = None,
+    ) -> Decision:
+        """Record an allocation or governance decision with the inputs it saw.
+
+        ``inputs`` is stored verbatim rather than summarised. A decision whose
+        recorded justification has been condensed cannot be re-derived, and a
+        justification that cannot be re-derived is a claim about a decision
+        rather than a record of one.
+        """
+        self._authorise("record_decision")
+        decision = Decision(
+            decision_id=self._ids.new(),
+            program_id=program_id,
+            policy_id=policy_id,
+            kind=kind,
+            subject_id=subject_id,
+            inputs=_jsonable(inputs),
+            outcome=outcome,
+            dissent=_jsonable(dissent) if dissent is not None else None,
+            created_at=self._clock.now(),
+        )
+        return self._commit_entity(decision, event_type=f"decision.{kind}", program_id=program_id)
+
+    def decisions_for_program(self, program_id: uuid.UUID) -> list[Decision]:
+        """Every allocation decision this programme has made, oldest first."""
+        rows = list(
+            self._session.scalars(
+                sa.select(Decision)
+                .where(Decision.program_id == program_id)
+                .order_by(Decision.created_at.asc(), Decision.decision_id.asc())
+            )
+        )
+        self._audit("select", "decisions", [str(r.decision_id) for r in rows])
+        return rows
 
     def record_cost(
         self,

@@ -63,6 +63,14 @@ Nothing here claims to work until its acceptance test is green in CI.
 | [`docs/06-roadmap.md`](docs/06-roadmap.md) | Staged roadmap, complexity estimates, the first experiment |
 | [`docs/adr/`](docs/adr/) | Decision records, including every deviation from the above |
 
+## A result, so far
+
+The research economy landed in M9 with a negative finding, which is the kind this project is built to be able to report. Greedy expected-information-gain allocation does beat a random allocator on correct claims per dollar over the question bank — and a policy that ignores information entirely and ranks on cost alone produces the identical number. The gain is the denominator, not the mechanism. As forecast quality rises, the information term makes things *worse*, because the experiments with the most expected surprise in them are the ones sitting nearest a verdict boundary, which is where the institution is most likely to be wrong.
+
+```bash
+nullius economy compare
+```
+
 ## Quick start
 
 ```bash

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from nullius.llm.cache import ResponseCache
-from nullius.llm.pricing import PRICE_TABLE_VERSION, usd_for
+from nullius.llm.pricing import PRICE_TABLE_VERSION, usd_for, usd_for_compute
 from nullius.llm.providers import (
     CachingProvider,
     LlmProvider,
@@ -28,4 +28,5 @@ __all__ = [
     "ResponseCache",
     "Usage",
     "usd_for",
+    "usd_for_compute",
 ]

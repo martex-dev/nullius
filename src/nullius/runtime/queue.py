@@ -9,6 +9,12 @@ Dispatch is where budgets bite. :meth:`TaskQueue.enqueue` refuses a task whose
 allowance the programme cannot afford, records a ``task.refused_budget`` event,
 and returns the refused task rather than raising — budget exhaustion is a
 research outcome, not a crash.
+
+A caller may pass a :class:`~nullius.runtime.budget.BudgetEnvelope` to have the
+institution- and hypothesis-level caps checked too. The refusal then records
+*which* level bound, because a programme that stopped because one hypothesis
+exhausted its allowance and a programme that stopped because the laboratory
+ran out of money are different findings.
 """
 
 from __future__ import annotations
@@ -23,7 +29,7 @@ from nullius.db.enums import Role
 from nullius.db.rows import entity_row
 from nullius.db.tables import Task
 from nullius.repository import Repository
-from nullius.runtime.budget import BudgetLedger
+from nullius.runtime.budget import BudgetEnvelope, BudgetLedger, BudgetLevel
 from nullius.runtime.contracts import AgentTask, TaskStatus
 
 __all__ = ["TaskQueue"]
@@ -50,6 +56,7 @@ class TaskQueue:
         subject_id: uuid.UUID,
         allowance_usd: Decimal,
         view: dict[str, Any],
+        envelope: BudgetEnvelope | None = None,
     ) -> Task:
         """Queue a task, or refuse it for want of budget.
 
@@ -58,9 +65,10 @@ class TaskQueue:
         model call.
         """
         status = self._budget.status(program_id)
+        ruling = self._budget.rule(program_id, allowance_usd, envelope)
         now = self._repo.clock.now()
 
-        affordable = status.can_afford(allowance_usd)
+        affordable = ruling.allowed
         task = Task(
             task_id=self._repo.ids.new(),
             program_id=program_id,
@@ -72,14 +80,7 @@ class TaskQueue:
             allowance_usd=allowance_usd,
             view=view,
             result=None,
-            failure_reason=(
-                None
-                if affordable
-                else (
-                    f"allowance ${allowance_usd:.4f} exceeds remaining "
-                    f"${status.remaining_usd:.4f} of ${status.budget_usd:.2f}"
-                )
-            ),
+            failure_reason=ruling.reason,
             calls=0,
             spent_usd=Decimal(0),
             created_at=now,
@@ -102,6 +103,8 @@ class TaskQueue:
                 "budget": {
                     "remaining_usd": str(status.remaining_usd),
                     "allowance_usd": str(allowance_usd),
+                    "binding_level": (ruling.level or BudgetLevel.TASK).value,
+                    **((envelope.as_dict()) if envelope is not None else {}),
                 },
             },
         )

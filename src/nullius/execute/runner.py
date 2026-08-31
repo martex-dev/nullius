@@ -15,6 +15,12 @@ advance and every member having a row.
 recorded as a scientific failure — evidence about the design — and the rest
 continue.
 
+**Every run is charged.** Compute is the only cost a mock-driven programme
+actually incurs, so a runner that recorded metrics but not seconds would leave
+the research economy measuring a numerator over an empty denominator. The
+charge is written from the sandbox's own telemetry, in the same transaction as
+the run it belongs to.
+
 No holdout metric is produced here. The child never sees the evaluation
 sample, and :meth:`~nullius.repository.Repository.record_result` would refuse
 a holdout metric from anyone but the Custodian in any case.
@@ -27,11 +33,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from nullius.build.compiler import compile_spec
-from nullius.db.enums import RunStatus, Split
+from nullius.db.enums import Role, RunStatus, Split
 from nullius.design.spec import ExperimentSpec
 from nullius.execute.manifest import environment_hash, environment_manifest
 from nullius.execute.sandbox import SandboxBackend, SandboxLimits, SandboxResult
+from nullius.llm.pricing import usd_for_compute
 from nullius.repository import Repository
+from nullius.runtime.budget import BudgetLedger
 from nullius.store.cas import ContentStore
 
 __all__ = ["ExperimentRunner", "SeedOutcome"]
@@ -58,7 +66,7 @@ class SeedOutcome:
 class ExperimentRunner:
     """Executes every seed of a registered experiment."""
 
-    __slots__ = ("_backend", "_repo", "_store", "_workroot")
+    __slots__ = ("_backend", "_budget", "_repo", "_store", "_workroot")
 
     def __init__(
         self,
@@ -71,6 +79,11 @@ class ExperimentRunner:
         self._backend = backend
         self._store = store
         self._workroot = Path(workroot)
+        # Accounting is a control-plane action recorded on behalf of whichever
+        # role's work incurred it, which is what WRITE_AUTHORITY says about
+        # ``record_cost``. Naming that here keeps a Replicator-scoped runner
+        # able to be charged without being able to charge itself anything else.
+        self._budget = BudgetLedger(repo.as_role(Role.SYSTEM))
 
     def run(
         self,
@@ -129,6 +142,9 @@ class ExperimentRunner:
                 program_id=program_id,
             )
 
+            if program_id is not None:
+                self._charge(run.run_id, result, artifacts, program_id)
+
             outcomes.append(
                 SeedOutcome(
                     seed=seed,
@@ -144,6 +160,31 @@ class ExperimentRunner:
         return outcomes
 
     # ------------------------------------------------------------- helpers
+
+    def _charge(
+        self,
+        run_id: uuid.UUID,
+        result: SandboxResult,
+        artifacts: dict[str, str],
+        program_id: uuid.UUID,
+    ) -> None:
+        """Bill the programme for the seconds and bytes this seed used.
+
+        A failed seed is charged too. It consumed the machine, and a ledger
+        that only records successful work would make an expensive dead end
+        look free — which is precisely the mistake the research economy exists
+        to stop anyone making.
+        """
+        storage_mb = sum(
+            path.stat().st_size for path in result.outputs.values() if path.exists()
+        ) / (1024 * 1024)
+        self._budget.record_compute_cost(
+            program_id=program_id,
+            run_id=run_id,
+            cpu_seconds=result.wall_seconds,
+            storage_mb=storage_mb,
+            usd=usd_for_compute(result.wall_seconds, storage_mb),
+        )
 
     def _store_outputs(self, result: SandboxResult) -> dict[str, str]:
         """Hash every harvested file into the content-addressed store."""

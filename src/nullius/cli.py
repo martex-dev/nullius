@@ -92,8 +92,12 @@ app.add_typer(db_app, name="db")
 app.add_typer(ledger_app, name="ledger")
 app.add_typer(store_app, name="store")
 cost_app = typer.Typer(help="Estimate what a research programme will cost.", no_args_is_help=True)
+economy_app = typer.Typer(
+    help="Allocation policies, and whether any of them beats chance.", no_args_is_help=True
+)
 app.add_typer(bank_app, name="bank")
 app.add_typer(cost_app, name="cost")
+app.add_typer(economy_app, name="economy")
 
 DatabaseOption = Annotated[
     Path,
@@ -316,6 +320,193 @@ def cost_estimate(
             f"{PROMPT_CACHE_MINIMUM_TOKENS}-token minimum for prompt caching, so the "
             "cached-input discount is not applied. The response cache still makes an "
             "exact repeat free."
+        )
+    console.print()
+
+
+# ---------------------------------------------------------------- economy
+
+OutcomesOption = Annotated[
+    Path,
+    typer.Option("--outcomes", "-o", help="Path to the measured bank outcomes lock."),
+]
+BudgetOption = Annotated[
+    float,
+    typer.Option("--budget", "-b", help="Budget the policies are allocating, in USD."),
+]
+
+
+@economy_app.command("policies")
+def economy_policies() -> None:
+    """List the allocation policies, and what each one ranks by."""
+    from nullius.economy.policy import POLICIES
+
+    table = Table(box=None, padding=(0, 2, 0, 0))
+    table.add_column("version")
+    table.add_column("ranks by")
+
+    for version, cls in sorted(POLICIES.items()):
+        summary = (cls.__doc__ or "").strip().splitlines()[0]
+        table.add_row(version, summary)
+
+    console.print()
+    console.print(table)
+    console.print()
+
+
+@economy_app.command("measure")
+def economy_measure(
+    outcomes: OutcomesOption = Path("bank/outcomes.lock.json"),
+    workroot: Annotated[
+        Path, typer.Option("--workroot", help="Scratch directory for runs and artifacts.")
+    ] = Path(".nullius-measure"),
+) -> None:
+    """Carry every bank item through the lifecycle and lock what it produced.
+
+    Slow and deliberate — one full research programme per item. The result is
+    committed, so the allocation comparison runs from a measurement rather than
+    re-running the science every time somebody changes a ranking rule.
+    """
+    from nullius.economy.outcomes import measure_bank, write_outcomes
+
+    console.print("[dim]running every bank item through the lifecycle…[/dim]")
+    measured = measure_bank(workroot / "measure.sqlite", workroot)
+    for outcome in measured:
+        colour = "green" if outcome.correct else "yellow"
+        console.print(f"  [{colour}]{outcome}[/{colour}]")
+
+    path = write_outcomes(measured, outcomes)
+    correct = sum(1 for o in measured if o.correct)
+    console.print()
+    console.print(f"  {correct}/{len(measured)} correct, written to [bold]{path}[/bold]")
+    console.print()
+
+
+@economy_app.command("compare")
+def economy_compare(
+    outcomes: OutcomesOption = Path("bank/outcomes.lock.json"),
+    budget: BudgetOption = 0.05,
+    resamples: Annotated[
+        int, typer.Option("--resamples", help="Bootstrap resamples over bank items.")
+    ] = 2000,
+) -> None:
+    """Run every allocation policy over the measured bank and report the result.
+
+    The acceptance criterion for M9 is whether greedy-EIG separates from random
+    on cost per correct claim. Both answers are printed the same way.
+    """
+    from decimal import Decimal
+
+    from nullius.economy.harness import compare_policies
+    from nullius.economy.outcomes import outcomes_are_current, read_outcomes
+
+    measured = read_outcomes(outcomes)
+    if not outcomes_are_current(outcomes):
+        console.print(
+            "[yellow]![/yellow] these outcomes were measured on a different bank; "
+            "re-run [bold]nullius economy measure[/bold]"
+        )
+
+    report = compare_policies(measured, budget_usd=Decimal(str(budget)), resamples=resamples)
+
+    table = Table(box=None, padding=(0, 2, 0, 0))
+    for column, justify in (
+        ("policy", "left"),
+        ("funded", "right"),
+        ("correct", "right"),
+        ("usd", "right"),
+        ("$/correct", "right"),
+        ("nats/$", "right"),
+    ):
+        table.add_column(column, justify=justify)  # type: ignore[arg-type]
+
+    for result in report.results:
+        per_correct = "—" if result.correct == 0 else f"${result.cost_per_correct_claim:.4f}"
+        table.add_row(
+            result.policy_version,
+            str(result.funded),
+            str(result.correct),
+            f"${result.usd:.4f}",
+            per_correct,
+            f"{result.nats_per_dollar:.1f}",
+        )
+
+    console.print()
+    console.print(
+        f"  [dim]forecasts: {report.forecast_source}, "
+        f"{report.n_items} items, budget ${report.budget_usd:.4f}[/dim]"
+    )
+    console.print()
+    console.print(table)
+    console.print()
+    console.print(f"  [dim]EIG spread across items: {report.eig_spread:.6f} nats[/dim]")
+    if report.eig_spread == 0:
+        console.print(
+            "  [yellow]![/yellow] every item scored the same expected information gain, "
+            "so no policy could rank on it. Run [bold]nullius economy sweep[/bold] to see "
+            "what better forecasts would be worth."
+        )
+    console.print()
+    for difference in report.differences:
+        colour = "green" if difference.separates and difference.observed > 0 else "dim"
+        console.print(f"  [{colour}]{difference}[/{colour}]")
+    console.print()
+
+
+@economy_app.command("sweep")
+def economy_sweep(
+    outcomes: OutcomesOption = Path("bank/outcomes.lock.json"),
+    budget: BudgetOption = 0.05,
+    resamples: Annotated[
+        int, typer.Option("--resamples", help="Bootstrap resamples per rung.")
+    ] = 400,
+) -> None:
+    """Dial forecast quality from nothing to oracle-grade and watch the gap.
+
+    Answers the question the comparison cannot: under a mock provider every
+    role forecasts the same thing about every item, so a null result there is a
+    fact about the forecasts rather than about the policy. The top of this
+    ladder uses ground truth no role may see, and is an upper bound only.
+    """
+    from decimal import Decimal
+
+    from nullius.economy.harness import sweep_informativeness
+    from nullius.economy.outcomes import read_outcomes
+
+    report = sweep_informativeness(
+        read_outcomes(outcomes), budget_usd=Decimal(str(budget)), resamples=resamples
+    )
+
+    console.print()
+    for point in report.points:
+        colour = "green" if point.difference.separates else "dim"
+        console.print(f"  [{colour}]{point}[/{colour}]")
+        control = "green" if point.information_helped else "dim"
+        console.print(f"      [{control}]vs cost control: {point.against_cost_control}[/{control}]")
+    console.print()
+
+    first = report.first_separating
+    if first is None:
+        console.print(
+            "  greedy-EIG does not separate from random at any forecast quality on this bank."
+        )
+    else:
+        console.print(
+            f"  greedy-EIG first separates from random at forecast quality "
+            f"[bold]lambda={first.informativeness:.2f}[/bold]."
+        )
+
+    isolated = report.first_beating_the_cost_control
+    if isolated is None:
+        console.print(
+            "  It never beats the cost-only control, so nothing it gained can be "
+            "attributed to the information term."
+        )
+    else:
+        console.print(
+            f"  It first beats the cost-only control at "
+            f"[bold]lambda={isolated.informativeness:.2f}[/bold] - the point at which "
+            "the information term is doing the work."
         )
     console.print()
 

@@ -363,6 +363,7 @@ NON_MUTATING = frozenset(
         "as_role",
         "audit_trail",
         "commit",
+        "decisions_for_program",
         "get_hypothesis",
         "get_registration",
         "open_critical_objections",
