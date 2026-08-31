@@ -95,9 +95,14 @@ cost_app = typer.Typer(help="Estimate what a research programme will cost.", no_
 economy_app = typer.Typer(
     help="Allocation policies, and whether any of them beats chance.", no_args_is_help=True
 )
+benchmark_app = typer.Typer(
+    help="The B0-B7 ladder, and the protocol registered before it runs.",
+    no_args_is_help=True,
+)
 app.add_typer(bank_app, name="bank")
 app.add_typer(cost_app, name="cost")
 app.add_typer(economy_app, name="economy")
+app.add_typer(benchmark_app, name="benchmark")
 
 DatabaseOption = Annotated[
     Path,
@@ -598,6 +603,95 @@ def economy_round(
     for line in result.halted:
         console.print(f"  [yellow]![/yellow] {line}")
     console.print()
+
+
+# -------------------------------------------------------------- benchmark
+
+ProtocolOption = Annotated[
+    Path, typer.Option("--protocol", help="Path to the registered protocol lock.")
+]
+
+
+@benchmark_app.command("ladder")
+def benchmark_ladder() -> None:
+    """Show the arms, and which mechanism each one adds."""
+    from nullius.benchmark.arms import LADDER
+
+    table = Table(box=None, padding=(0, 2, 0, 0))
+    for column in ("arm", "composition", "prereg", "custody", "skeptic", "replic", "memory"):
+        table.add_column(column)
+
+    def mark(on: bool) -> str:
+        return "[green]yes[/green]" if on else "[dim]-[/dim]"
+
+    for arm in LADDER:
+        table.add_row(
+            f"{arm.arm_id}{' *' if arm.model_dependent else ''}",
+            arm.label,
+            mark(arm.preregistered),
+            mark(arm.custodian),
+            mark(arm.adversary),
+            mark(arm.replication),
+            mark(arm.memory),
+        )
+
+    console.print()
+    console.print(table)
+    console.print()
+    console.print(
+        "  [dim]* behaviour dominated by the language model; under a mock provider "
+        "these arms describe the mock.[/dim]"
+    )
+    console.print()
+
+
+@benchmark_app.command("preregister")
+def benchmark_preregister(protocol: ProtocolOption = Path("benchmark/protocol.lock.json")) -> None:
+    """Fix the analysis plan and hash it, before any result exists.
+
+    Refuses to overwrite a different protocol. That refusal is the mechanism:
+    a preregistration that can be replaced once the numbers are in is a
+    postregistration.
+    """
+    from nullius.benchmark.protocol import build_protocol, write_protocol
+
+    registered = build_protocol()
+    try:
+        path = write_protocol(registered, protocol)
+    except ValueError as refusal:
+        console.print(f"[red]{refusal}[/red]")
+        raise typer.Exit(code=1) from None
+
+    console.print()
+    console.print(f"  registered [bold]{registered.protocol_hash}[/bold]")
+    console.print(f"  written to [bold]{path}[/bold]")
+    console.print()
+    console.print(f"  [dim]claim:[/dim] {registered.claim}")
+    console.print()
+    console.print(f"  [dim]prediction:[/dim] {registered.prediction}")
+    console.print()
+    console.print(
+        f"  [dim]bank:[/dim] {registered.bank['n_items']} items, "
+        f"truth {registered.bank['truth_lock_hash'][:16]}"
+    )
+    console.print()
+
+
+@benchmark_app.command("verify")
+def benchmark_verify(protocol: ProtocolOption = Path("benchmark/protocol.lock.json")) -> None:
+    """Check the protocol is intact and still describes the current bank.
+
+    Exits non-zero otherwise, so a run against a bank that moved after
+    registration cannot be reported as preregistered.
+    """
+    from nullius.benchmark.protocol import verify_protocol
+
+    result = verify_protocol(protocol)
+    if result.ok:
+        console.print(f"[green]{result}[/green]")
+        return
+    console.print(f"[red]{result}[/red]")
+    raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":  # pragma: no cover
