@@ -141,14 +141,18 @@ jobs:
         run: |
           uv run nullius benchmark verify
           uv run nullius benchmark verify --protocol benchmark/protocol.v2.lock.json
-      - name: the committed results re-score to their own summary
+      - name: every committed results file re-scores to its own summary
         run: |
           uv run python -c "
+          from pathlib import Path
           from nullius.benchmark.metrics import read_results
-          report, runs = read_results()
-          print(report.prediction_reason)
-          for contrast in report.prediction_contrasts:
-              print(contrast)
+          for path in (Path('benchmark/results.lock.json'),
+                       Path('benchmark/results.v2.lock.json')):
+              report, runs = read_results(path)
+              print(f'{path.name}: protocol {report.protocol_hash[:16]}, {len(runs)} arms')
+              print('  ' + report.prediction_reason)
+              for contrast in report.prediction_contrasts:
+                  print('  ' + str(contrast))
           "
 
   report:

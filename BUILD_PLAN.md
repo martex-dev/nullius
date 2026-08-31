@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M11 and M12a complete (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M11, M12a and M12b complete (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -290,9 +290,12 @@ M10's ladder separated no two institutional arms. Before adding anything, fix th
 |---|---|---|
 | items | 20 | **60** |
 | metric resolution | 0.050 | **0.017** |
-| within 1 experiment SE of a boundary | 6 | **30** |
+| within 1 measured experiment SE | 3 | **20** |
+| within 2 measured experiment SEs | 6 | **37** |
 | true nulls | 45% | **45%** |
 | minimum oracle margin | ≥3 SE | **3.4 SE** |
+
+*Corrected after the fact.* The bank was designed against an assumed experiment standard error of 0.005; the ledger says the real one is **0.00348** (median over B6's 360 claims). Every item is therefore *harder* in relative terms than intended, and the counts above are the measured ones rather than the design-time estimates.
 
 The headroom that makes a hard bank a *fair* one is the gap between the two measurements. The oracle sees 40 seeds of 20,000 samples and resolves an effect to about 0.0008; an experiment gets 5 seeds of 2,000 and resolves it to about 0.005. Every v2 item is at least three *oracle* standard errors from its boundary — its ground truth is not in doubt — while half of them sit inside one *experiment* standard error of it. Unambiguous to the oracle, a coin flip for the institution.
 
@@ -307,6 +310,36 @@ Every parameter was found by measuring a 311-point sweep of the generator and se
 **A fourth flaw, found while fixing the other three.** Adding those two keys to the builder changed what `build_protocol(version="1")` produced, while every existing check stayed green: bank unchanged, arms unchanged, stored hash still matching its own content. A registered protocol the code can no longer reproduce has been edited in effect. `ProtocolVerification` now carries `rebuilds_identically`, v1's payload gained no keys, and v1 rebuilds to `1d4c76d2…` exactly as M10 registered it.
 
 `nullius benchmark run --bank 2` runs the ladder on v2. `--bank 1` still reproduces M10.
+
+---
+
+### M12b · The v2 ladder ✅ — and the registered prediction is refuted
+`benchmark/results.v2.lock.json`, protocol `254be687…`, 60 items, mock provider.
+
+| arm | | acc | null | brier | ece | fdr | $/correct |
+|---|---|---|---|---|---|---|---|
+| B0 | oracle-null | 0.45 | 1.00 | — | — | 0.00 | 0.00000 |
+| B1 * | single-shot | 0.18 | 0.00 | 0.197 | 0.217 | 0.45 | 0.00293 |
+| B2 * | + loop | 0.18 | 0.00 | 0.197 | 0.217 | 0.45 | 0.00830 |
+| B3 | multi-role | 0.60 | 0.33 | 0.203 | 0.450 | 0.00 | 0.01081 |
+| B4 | + prereg + custodian | 0.67 | 0.37 | 0.164 | 0.394 | 0.00 | 0.00973 |
+| B5 | + Skeptic | 0.62 | 0.41 | 0.151 | 0.309 | 0.00 | 0.01052 |
+| B6 | full institution | **0.72** | 0.48 | **0.110** | **0.281** | 0.00 | **0.00919** |
+| B7 | full − memory | 0.70 | 0.48 | 0.101 | 0.265 | 0.00 | 0.00940 |
+
+**The prediction is refuted, by the rule registered before the run.** B4 − B3 = +0.067, 95% CI **[−0.033, +0.167]** — the interval spans zero, so the prediction fails regardless of the point estimate. v1's weaker rule would have called the same data "upheld". The project was wrong in public about its own registered prediction, which is the outcome preregistration exists to make possible.
+
+**Only the full institution beats the do-nothing baseline.** After Benjamini–Hochberg across the family of seven, four comparisons survive: B1−B0 and B2−B0 (both *negative*, and model-dependent), and **B6−B0 = +0.267 [+0.050, +0.450]** and **B7−B0 = +0.250 [+0.050, +0.467]**. B4−B0 = +0.217 with a lower bound of exactly 0.000 and does **not** survive. So the cheap-mechanism arm is not what separates — the expensive one is. That is the opposite of what was registered.
+
+**Calibration improves monotonically down the ladder, and this is the clean signal.** Brier 0.203 → 0.164 → 0.151 → 0.110 → 0.101 and ECE 0.450 → 0.394 → 0.309 → 0.281 → 0.265 across B3→B7. Every added mechanism improves it, without exception. v1 could not see this at all, because v1's calibration metric was measuring the confidence mapping rather than the institution — the flaw protocol v2 was registered to fix.
+
+**Every error the institution makes is an abstention. Not once a false discovery.** FDR is 0.00 for every institutional arm, and of B3's 24 wrong answers *all 24* are `inconclusive`; of B6's 17, all 17. Eighteen and fourteen of those respectively are true nulls. The institution declines to call the hard items rather than calling them wrongly.
+
+**A flaw in the primary metric, now visible because the bank is hard.** `verdict_accuracy` scores a calibrated "I cannot tell" exactly as harshly as a confident error. That is the distinction an institution exists to make, and the headline metric is blind to it. Null accuracy falling from 0.89 (v1) to 0.33–0.48 (v2) is almost entirely this effect, not a decline in judgement.
+
+**And the abstentions are correct, which is a power finding about the design.** The measured experiment standard error is 0.00348 at the policy's `min_seeds: 5`. The hardest null sits 0.0030 from the null-band edge. Separating them at three standard errors needs about **61 seeds**. The institution is being asked questions its own declared design cannot answer, and it says so instead of guessing — so the right target for M13 is the seed policy, not the agents.
+
+**Memory still contributes nothing measurable.** B6 − B7 = +0.017, CI [−0.050, +0.083]. Consistent with v1, on a bank three times the size.
 
 ---
 

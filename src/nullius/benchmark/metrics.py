@@ -35,7 +35,7 @@ import numpy as np
 
 from nullius.analysis.multiple import Correction, correct
 from nullius.benchmark.arms import arm_named
-from nullius.benchmark.protocol import Protocol, read_protocol
+from nullius.benchmark.protocol import PROTOCOL_VERSIONS, Protocol, read_protocol
 from nullius.benchmark.runner import AS_IF_MODEL, ArmOutcome, ArmRun
 from nullius.db.enums import ClaimConfidence, Verdict
 from nullius.util.canonical import canonical_json
@@ -621,13 +621,31 @@ def read_results(path: Path = DEFAULT_RESULTS_PATH) -> tuple[LadderReport, list[
         )
         for entry in body["per_item"]
     ]
+    # Which registered protocol these results were scored under, found by
+    # hash rather than assumed. More than one protocol is registered now, and
+    # re-scoring v2's results under v1's plan would be exactly the substitution
+    # preregistration exists to prevent — quietly, and with a plausible number
+    # at the end of it.
     stored_hash = str(body["report"]["protocol_hash"])
-    protocol = read_protocol()
-    if protocol.protocol_hash != stored_hash:
+    protocol = None
+    for settings in PROTOCOL_VERSIONS.values():
+        candidate_path = Path(settings["path"])
+        if not candidate_path.exists():
+            continue
+        candidate = read_protocol(candidate_path)
+        if candidate.protocol_hash == stored_hash:
+            protocol = candidate
+            break
+    if protocol is None:
+        known = ", ".join(
+            f"{v}={read_protocol(Path(c['path'])).protocol_hash[:16]}"
+            for v, c in PROTOCOL_VERSIONS.items()
+            if Path(c["path"]).exists()
+        )
         raise ValueError(
-            f"these results were scored against protocol {stored_hash[:16]}, and the "
-            f"registered protocol is now {protocol.protocol_hash[:16]}. Re-scoring them "
-            "under a different plan would be exactly the substitution preregistration "
-            "exists to prevent."
+            f"these results were scored against protocol {stored_hash[:16]}, which is "
+            f"not among the registered ones ({known}). Re-scoring them under a "
+            "different plan would be exactly the substitution preregistration exists "
+            "to prevent."
         )
     return score_ladder(runs, protocol), runs
