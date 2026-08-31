@@ -7,6 +7,7 @@ honest statement of what works.
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import Annotated
 
@@ -754,22 +755,25 @@ def benchmark_run(
     report = score_ladder(runs, registered, seed=seed)
     path = write_results(report, runs, results, provider="mock")
 
+    def cell(value: float, places: int = 3) -> str:
+        """An undefined metric reads as undefined rather than as 'nan'."""
+        if math.isnan(value) or math.isinf(value):
+            return "[dim]--[/dim]"
+        return f"{value:.{places}f}"
+
     table = Table(box=None, padding=(0, 2, 0, 0))
     for column in ("arm", "acc", "null", "brier", "ece", "fdr", "$/correct", "halted"):
         table.add_column(column)
     for row in report.metrics:
         marker = " *" if row.model_dependent else ""
-        per_correct = (
-            "[dim]none[/dim]" if row.n_correct == 0 else f"{row.usd_per_correct_claim:.5f}"
-        )
         table.add_row(
             f"{row.arm_id}{marker}",
-            f"{row.verdict_accuracy:.2f}",
-            f"{row.null_accuracy:.2f}",
-            f"{row.brier:.3f}",
-            f"{row.expected_calibration_error:.3f}",
-            f"{row.false_discovery_rate:.2f}",
-            per_correct,
+            cell(row.verdict_accuracy, 2),
+            cell(row.null_accuracy, 2),
+            cell(row.brier),
+            cell(row.expected_calibration_error),
+            cell(row.false_discovery_rate, 2),
+            cell(row.usd_per_correct_claim, 5),
             str(row.n_halted),
         )
     console.print(table)

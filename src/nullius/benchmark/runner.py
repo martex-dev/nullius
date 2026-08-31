@@ -25,6 +25,7 @@ reported as one.
 
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -44,6 +45,7 @@ from nullius.db.tables import CostEntry
 from nullius.kernel import KernelOutcome, Mechanisms, ResearchKernel
 from nullius.llm.pricing import price_of
 from nullius.repository import Repository
+from nullius.util.canonical import canonical_json, sha256_of
 
 __all__ = [
     "CONSTANT_VERDICT",
@@ -558,27 +560,84 @@ def run_arm(
     return ArmRun(arm=arm, outcomes=tuple(outcomes))
 
 
+def _checkpoint_path(root: Path, arm: Arm) -> Path:
+    return root / f"{arm.arm_id.lower()}.outcomes.json"
+
+
+def _write_checkpoint(root: Path, run: ArmRun, items_hash: str) -> None:
+    payload = {"items_hash": items_hash, "run": run.as_dict()}
+    _checkpoint_path(root, run.arm).write_text(canonical_json(payload) + "\n", encoding="utf-8")
+
+
+def _read_checkpoint(root: Path, arm: Arm, items_hash: str) -> ArmRun | None:
+    """A completed arm from an earlier attempt, if it was run on this bank."""
+    path = _checkpoint_path(root, arm)
+    if not path.exists():
+        return None
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("items_hash") != items_hash:
+        return None
+    return ArmRun(
+        arm=arm,
+        outcomes=tuple(
+            ArmOutcome(
+                arm_id=row["arm_id"],
+                item_id=row["item_id"],
+                verdict=Verdict(row["verdict"]),
+                truth_verdict=Verdict(row["truth_verdict"]),
+                true_effect=row["true_effect"],
+                realised_effect=row["realised_effect"],
+                boundary_margin=row["boundary_margin"],
+                confidence=ClaimConfidence(row["confidence"]),
+                usd=Decimal(row["usd"]),
+                n_seeds=row["n_seeds"],
+                replications=row["replications"],
+                findings=row["findings"],
+                halted=row["halted"],
+            )
+            for row in payload["run"]["outcomes"]
+        ),
+    )
+
+
 def run_ladder(
     *,
     root: Path,
     arms: Sequence[Arm] = LADDER,
     items: Sequence[BankItem] = BANK_V1,
     truth_lock: Path = TRUTH_LOCK_PATH,
+    resume: bool = True,
 ) -> list[ArmRun]:
     """Every arm, each in its own database, over the same bank.
 
     Separate databases because arms must not see each other's ledgers: a
     shared store would let an arm's novelty check trip on another arm's
     hypotheses, and the arms would stop being independent.
+
+    **Each arm is checkpointed the moment it finishes.** The first full v2
+    ladder ran all eight arms over two hours and then died writing the results
+    file, on a metric that was legitimately undefined, and every completed arm
+    went with it. Science that has already been done should not be lost to a
+    fault in the reporting of it. ``resume`` reuses any checkpoint written for
+    the same bank; a checkpoint from a different bank is ignored rather than
+    trusted, since it describes questions this run is not asking.
     """
     root.mkdir(parents=True, exist_ok=True)
-    return [
-        run_arm(
+    items_hash = sha256_of([item.as_dict() for item in items])
+
+    runs: list[ArmRun] = []
+    for arm in arms:
+        cached = _read_checkpoint(root, arm, items_hash) if resume else None
+        if cached is not None:
+            runs.append(cached)
+            continue
+        run = run_arm(
             arm,
             database=root / f"{arm.arm_id.lower()}.sqlite",
             workroot=root / arm.arm_id.lower(),
             items=items,
             truth_lock=truth_lock,
         )
-        for arm in arms
-    ]
+        _write_checkpoint(root, run, items_hash)
+        runs.append(run)
+    return runs

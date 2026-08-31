@@ -23,9 +23,10 @@ from nullius.benchmark.metrics import (
     read_results,
     score_arm,
 )
-from nullius.benchmark.protocol import read_protocol
+from nullius.benchmark.protocol import V2_PROTOCOL_PATH, read_protocol
 from nullius.benchmark.runner import ArmOutcome, ArmRun, mechanisms_for
 from nullius.db.enums import ClaimConfidence, Verdict
+from nullius.util.canonical import canonical_json
 
 PROTOCOL = read_protocol()
 
@@ -268,3 +269,101 @@ def test_results_scored_against_a_different_protocol_are_refused(tmp_path: Path)
 
     with pytest.raises(ValueError, match="preregistration exists to prevent"):
         read_results(tampered)
+
+
+# ------------------------------------------- an undefined metric is not a NaN
+
+
+def test_an_arm_that_asserts_nothing_serialises_a_null_not_a_nan(tmp_path: Path) -> None:
+    """The bug that stopped the first v2 ladder writing its results.
+
+    B0 answers ``no_effect`` about everything, so under v2's registered
+    ``asserted_effects`` calibration scope it asserts nothing and has no Brier
+    score at all. That is a real property of the arm. Serialising it as NaN
+    made ``canonical_json`` refuse the whole results file -- correctly, since
+    "a metric that is NaN or infinite is a defect, not a result" -- after all
+    eight arms had already run. JSON null is the honest representation: there
+    is no such number, rather than a number that is not a number.
+    """
+    abstaining = ArmRun(
+        arm=arm_named("B0"),
+        outcomes=tuple(
+            outcome(
+                arm_id="B0",
+                item_id=f"C{i:02d}",
+                verdict=Verdict.NO_EFFECT,
+                truth=Verdict.NO_EFFECT,
+            )
+            for i in range(5)
+        ),
+    )
+    v2 = read_protocol(V2_PROTOCOL_PATH)
+    metrics = score_arm(abstaining, v2)
+
+    assert metrics.n_scored == 0
+    assert math.isnan(metrics.brier)
+    payload = metrics.as_dict()
+    assert payload["brier"] is None
+    assert payload["expected_calibration_error"] is None
+    # And the whole thing must now survive canonicalisation, which is where it
+    # failed before.
+    assert canonical_json(payload)
+
+
+def test_the_v1_scope_still_scores_every_item() -> None:
+    """v2's scope must not leak backwards into the protocol v1 was run under."""
+    run = ArmRun(
+        arm=arm_named("B4"),
+        outcomes=tuple(
+            outcome(item_id=f"B{i:02d}", verdict=Verdict.NO_EFFECT, truth=Verdict.NO_EFFECT)
+            for i in range(5)
+        ),
+    )
+    assert score_arm(run, PROTOCOL).n_scored == 5
+    assert score_arm(run, read_protocol(V2_PROTOCOL_PATH)).n_scored == 0
+
+
+# --------------------------------------------------------------- checkpoints
+
+
+def test_a_finished_arm_is_reused_rather_than_rerun(tmp_path: Path) -> None:
+    """Science already done should not be lost to a fault in reporting it.
+
+    The first full v2 ladder ran all eight arms over two hours and then died
+    writing the results file, on a metric that was legitimately undefined.
+    Every completed arm went with it.
+    """
+    from nullius.bank.items import BANK_V2
+    from nullius.benchmark.runner import _read_checkpoint, _write_checkpoint
+    from nullius.util.canonical import sha256_of
+
+    items = BANK_V2[:3]
+    items_hash = sha256_of([i.as_dict() for i in items])
+    arm = arm_named("B0")
+    run = ArmRun(
+        arm=arm,
+        outcomes=tuple(
+            outcome(arm_id="B0", item_id=i.item_id, verdict=Verdict.NO_EFFECT) for i in items
+        ),
+    )
+
+    _write_checkpoint(tmp_path, run, items_hash)
+    restored = _read_checkpoint(tmp_path, arm, items_hash)
+
+    assert restored is not None
+    assert restored.arm == arm
+    assert [o.item_id for o in restored.outcomes] == [i.item_id for i in items]
+    assert [o.verdict for o in restored.outcomes] == [o.verdict for o in run.outcomes]
+    assert [o.usd for o in restored.outcomes] == [o.usd for o in run.outcomes]
+
+
+def test_a_checkpoint_from_a_different_bank_is_ignored(tmp_path: Path) -> None:
+    """It describes questions this run is not asking, so it is not evidence
+    about this run."""
+    from nullius.benchmark.runner import _read_checkpoint, _write_checkpoint
+
+    arm = arm_named("B0")
+    run = ArmRun(arm=arm, outcomes=(outcome(arm_id="B0", verdict=Verdict.NO_EFFECT),))
+    _write_checkpoint(tmp_path, run, "hash-of-some-other-bank")
+
+    assert _read_checkpoint(tmp_path, arm, "hash-of-the-bank-being-run") is None

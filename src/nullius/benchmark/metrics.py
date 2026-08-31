@@ -23,6 +23,7 @@ the top level is 0.90, so a confident error is punished hard.
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
@@ -52,6 +53,23 @@ __all__ = [
     "score_ladder",
     "write_results",
 ]
+
+
+def _round(value: float, places: int = 6) -> float | None:
+    """Round for serialisation, and render an undefined metric as null.
+
+    ``canonical_json`` refuses NaN, and is right to: "a metric that is NaN or
+    infinite is a defect, not a result". But some metrics are genuinely
+    *undefined* rather than defective — B0 asserts no effects, so under v2's
+    registered calibration scope it has no Brier score, and an arm that is
+    never correct has no cost per correct claim. JSON ``null`` says "there is
+    no such number here". NaN says "here is a number, and it is not a number",
+    which is how an undefined metric ends up being averaged into a table.
+    """
+    if math.isnan(value) or math.isinf(value):
+        return None
+    return round(value, places)
+
 
 ECE_BINS = 5
 """Bins for expected calibration error.
@@ -118,22 +136,32 @@ class ArmMetrics:
     usd_per_correct_claim: float
     effect_size_error: float
 
+    n_scored: int = 0
+    """Items the calibration metrics were computed over.
+
+    Under v2's registered ``asserted_effects`` scope this is smaller than
+    ``n_items``, and for B0 it is zero: an arm that answers ``no_effect`` about
+    everything never asserts an effect, so it has no calibration to score. That
+    is a real property of the arm, not a gap in the measurement.
+    """
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "arm_id": self.arm_id,
             "label": self.label,
             "model_dependent": self.model_dependent,
             "n_items": self.n_items,
+            "n_scored": self.n_scored,
             "n_correct": self.n_correct,
             "n_halted": self.n_halted,
-            "verdict_accuracy": round(self.verdict_accuracy, 6),
-            "null_accuracy": round(self.null_accuracy, 6),
-            "brier": round(self.brier, 6),
-            "expected_calibration_error": round(self.expected_calibration_error, 6),
-            "false_discovery_rate": round(self.false_discovery_rate, 6),
+            "verdict_accuracy": _round(self.verdict_accuracy),
+            "null_accuracy": _round(self.null_accuracy),
+            "brier": _round(self.brier),
+            "expected_calibration_error": _round(self.expected_calibration_error),
+            "false_discovery_rate": _round(self.false_discovery_rate),
             "usd_total": str(self.usd_total),
-            "usd_per_correct_claim": round(self.usd_per_correct_claim, 8),
-            "effect_size_error": round(self.effect_size_error, 6),
+            "usd_per_correct_claim": _round(self.usd_per_correct_claim, 8),
+            "effect_size_error": _round(self.effect_size_error),
         }
 
     def __str__(self) -> str:
@@ -175,6 +203,7 @@ def score_arm(run: ArmRun, protocol: Protocol) -> ArmMetrics:
     n_correct = sum(all_correct)
 
     return ArmMetrics(
+        n_scored=len(scored),
         arm_id=run.arm.arm_id,
         label=run.arm.label,
         model_dependent=run.arm.model_dependent,
