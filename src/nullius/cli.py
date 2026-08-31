@@ -91,7 +91,9 @@ bank_app = typer.Typer(
 app.add_typer(db_app, name="db")
 app.add_typer(ledger_app, name="ledger")
 app.add_typer(store_app, name="store")
+cost_app = typer.Typer(help="Estimate what a research programme will cost.", no_args_is_help=True)
 app.add_typer(bank_app, name="bank")
+app.add_typer(cost_app, name="cost")
 
 DatabaseOption = Annotated[
     Path,
@@ -255,6 +257,67 @@ def bank_verify(lock: LockOption = Path("bank/truth.lock.json")) -> None:
         return
     console.print(f"[red]{result}[/red]")
     raise typer.Exit(code=1)
+
+
+@cost_app.command("estimate")
+def cost_estimate(
+    cycles: Annotated[int, typer.Option("--cycles", "-c", help="Research cycles to price.")] = 1,
+    retry_multiplier: Annotated[
+        float, typer.Option("--retries", help="Allowance for schema repairs and follow-ups.")
+    ] = 1.3,
+) -> None:
+    """Price a research cycle from the prompts the roles will actually send.
+
+    Input sizes are measured from the real contracts. Only the reply length is
+    estimated, and it is shown as a range because adaptive thinking - billed as
+    output - dominates it.
+    """
+    from nullius.costing import PROMPT_CACHE_MINIMUM_TOKENS, estimate_programme
+    from nullius.roles.contracts import CONTRACTS
+
+    estimate = estimate_programme(CONTRACTS, cycles=cycles, retry_multiplier=retry_multiplier)
+
+    table = Table(box=None, padding=(0, 2, 0, 0))
+    for column, justify in (
+        ("role", "left"),
+        ("model", "left"),
+        ("input tok", "right"),
+        ("output tok", "right"),
+        ("usd low", "right"),
+        ("usd high", "right"),
+    ):
+        table.add_column(column, justify=justify)  # type: ignore[arg-type]
+
+    for call in estimate.calls:
+        table.add_row(
+            call.role,
+            call.model,
+            f"{call.input_tokens:,}",
+            f"{call.output_low:,}-{call.output_high:,}",
+            f"${call.usd_low:.5f}",
+            f"${call.usd_high:.5f}",
+        )
+
+    console.print()
+    console.print(table)
+    console.print()
+    console.print(
+        f"  per cycle   [bold]${estimate.per_cycle_low:.3f} - ${estimate.per_cycle_high:.3f}[/bold]"
+        f"  [dim](x{retry_multiplier} for repairs and follow-ups)[/dim]"
+    )
+    console.print(
+        f"  {cycles} cycle(s)  [bold]${estimate.total_low:.2f} - ${estimate.total_high:.2f}[/bold]"
+    )
+
+    if not any(call.prompt_caches for call in estimate.calls):
+        console.print()
+        console.print(
+            f"  [yellow]![/yellow] no role's system prompt reaches the "
+            f"{PROMPT_CACHE_MINIMUM_TOKENS}-token minimum for prompt caching, so the "
+            "cached-input discount is not applied. The response cache still makes an "
+            "exact repeat free."
+        )
+    console.print()
 
 
 if __name__ == "__main__":  # pragma: no cover

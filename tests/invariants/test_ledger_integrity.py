@@ -47,7 +47,7 @@ def populated(repo: Repository, scaffold: Scaffold) -> Repository:
     never fires on an empty table, so testing append-only enforcement against
     empty tables would pass while proving nothing.
     """
-    from nullius.db.tables import CostEntry, HoldoutQuery, LlmCall
+    from nullius.db.tables import CostEntry, ForecastScore, HoldoutQuery, LlmCall
 
     hypothesis_id = make_hypothesis(repo, scaffold)
     dataset = repo.record_dataset(name="d", version="1", content_hash="a" * 64, licence="CC0")
@@ -60,7 +60,7 @@ def populated(repo: Repository, scaffold: Scaffold) -> Repository:
         n_seeds=1,
         holdout_query_budget=1,
     )
-    repo.record_forecast(
+    forecast = repo.record_forecast(
         registration_id=registration.registration_id,
         p_effect_exceeds_mde=0.5,
         predictive_mean=0.0,
@@ -108,6 +108,16 @@ def populated(repo: Repository, scaffold: Scaffold) -> Repository:
                 artifact_hash="e" * 64,
                 granted=True,
                 remaining_budget=0,
+            ),
+            ForecastScore(
+                forecast_id=forecast.forecast_id,
+                registration_id=registration.registration_id,
+                role=Role.SYSTEM,
+                brier_score=0.25,
+                crps=0.01,
+                realised_effect=0.0,
+                exceeded_mde=False,
+                scored_at=now,
             ),
             LlmCall(
                 call_id=repo.ids.new(),

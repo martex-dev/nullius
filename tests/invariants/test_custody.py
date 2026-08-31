@@ -157,13 +157,12 @@ def test_a_full_run_produces_no_holdout_metric_until_custody(
     custodian = _custodian(repo)
     result = custodian.evaluate(
         registration_id=registration.registration_id,
-        run_id=outcomes[0].run_id,
-        plan=compile_spec(SPEC, seed=outcomes[0].seed),
+        runs=[(o.run_id, compile_spec(SPEC, seed=o.seed)) for o in outcomes],
         program_id=scaffold.program_id,
     )
     repo.commit()
 
-    assert set(result.metrics) == {"full", "prune", "random"}
+    assert set(result.per_seed[outcomes[0].seed]) == {"full", "prune", "random"}
     assert set(repo.session.scalars(sa.select(RunResult.split))) == {Split.DEV, Split.HOLDOUT}
 
     holdout_rows = list(
@@ -229,8 +228,7 @@ def test_exhausting_the_budget_blocks_further_access_and_is_an_event(
     for index in range(2):
         custodian.evaluate(
             registration_id=registration_id,
-            run_id=run_ids[index],
-            plan=compile_spec(SPEC, seed=seeds[index]),
+            runs=[(run_ids[index], compile_spec(SPEC, seed=seeds[index]))],
             program_id=scaffold.program_id,
         )
     assert custodian.remaining_budget(registration_id) == 0
@@ -238,8 +236,7 @@ def test_exhausting_the_budget_blocks_further_access_and_is_an_event(
     with pytest.raises(BudgetExhausted, match="used all 2 of its holdout queries"):
         custodian.evaluate(
             registration_id=registration_id,
-            run_id=run_ids[2],
-            plan=compile_spec(SPEC, seed=seeds[2]),
+            runs=[(run_ids[2], compile_spec(SPEC, seed=seeds[2]))],
             program_id=scaffold.program_id,
         )
     repo.commit()
@@ -270,8 +267,7 @@ def test_a_refused_query_produces_no_metric(
     for index in range(2):
         custodian.evaluate(
             registration_id=registration_id,
-            run_id=run_ids[index],
-            plan=compile_spec(SPEC, seed=seeds[index]),
+            runs=[(run_ids[index], compile_spec(SPEC, seed=seeds[index]))],
             program_id=scaffold.program_id,
         )
     repo.commit()
@@ -280,8 +276,7 @@ def test_a_refused_query_produces_no_metric(
     with pytest.raises(BudgetExhausted):
         custodian.evaluate(
             registration_id=registration_id,
-            run_id=run_ids[2],
-            plan=compile_spec(SPEC, seed=seeds[2]),
+            runs=[(run_ids[2], compile_spec(SPEC, seed=seeds[2]))],
             program_id=scaffold.program_id,
         )
     repo.commit()
@@ -297,8 +292,7 @@ def test_an_unlocked_registration_does_not_open_the_split(
     with pytest.raises(NulliusError, match="no registration"):
         custodian.evaluate(
             registration_id=uuid.uuid4(),
-            run_id=uuid.uuid4(),
-            plan=compile_spec(SPEC, seed=SPEC.seeds()[0]),
+            runs=[(uuid.uuid4(), compile_spec(SPEC, seed=SPEC.seeds()[0]))],
         )
 
 
@@ -316,7 +310,6 @@ def test_a_plan_cannot_be_evaluated_against_another_seeds_run(
     with pytest.raises(NulliusError, match="never saw"):
         custodian.evaluate(
             registration_id=registration_id,
-            run_id=run_ids[0],
-            plan=compile_spec(SPEC, seed=SPEC.seeds()[1]),
+            runs=[(run_ids[0], compile_spec(SPEC, seed=SPEC.seeds()[1]))],
             program_id=scaffold.program_id,
         )

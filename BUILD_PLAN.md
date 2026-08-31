@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M5 complete (CI green, SQLite and PostgreSQL). M6 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M5 complete; M6 complete mock-driven, awaiting the first live run. M7 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -130,7 +130,7 @@ The append-only spine and every entity from `docs/03-data-model.md`.
 
 ---
 
-### M6 · Research kernel — first end-to-end science ⬅ next
+### M6 · Research kernel — first end-to-end science ◐ mock-driven; live run pending an API key
 Roles: Theorist, Designer, Analyst, and a rule-based Director. Plus the Registry and the Forecast Ledger.
 
 **Acceptance**
@@ -140,7 +140,7 @@ Roles: Theorist, Designer, Analyst, and a rule-based Director. Plus the Registry
 
 ---
 
-### M7 · Adversarial layer
+### M7 · Adversarial layer ⬅ next
 Skeptic + detector suite, typed objections with mandatory discriminating tests, Replicator with enforced blindness, Reviewer, defect injector.
 
 **Acceptance**

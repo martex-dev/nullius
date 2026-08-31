@@ -56,6 +56,7 @@ from nullius.db.tables import (
     Dataset,
     Evidence,
     Forecast,
+    ForecastScore,
     HoldoutQuery,
     Hypothesis,
     Lab,
@@ -108,6 +109,9 @@ WRITE_AUTHORITY: dict[str, frozenset[Role]] = {
     # Only the Custodian looks at the evaluation split, so only the
     # Custodian can record having looked.
     "record_holdout_query": frozenset({Role.CUSTODIAN}),
+    # Scoring is arithmetic on a locked prediction, done by the control plane
+    # rather than by the role whose record it affects.
+    "record_forecast_score": frozenset({Role.SYSTEM}),
     "record_llm_call": frozenset({Role.SYSTEM}),
 }
 """Which roles may perform which operation.
@@ -898,6 +902,39 @@ class Repository:
             event_type="holdout.queried" if granted else "holdout.refused",
             program_id=program_id,
         )
+
+    def record_forecast_score(
+        self,
+        *,
+        forecast_id: uuid.UUID,
+        registration_id: uuid.UUID,
+        role: Role,
+        brier_score: float,
+        crps: float,
+        realised_effect: float,
+        exceeded_mde: bool,
+        program_id: uuid.UUID | None = None,
+    ) -> ForecastScore:
+        """Record how a locked forecast turned out. Once."""
+        self._authorise("record_forecast_score")
+        existing = self._session.get(ForecastScore, forecast_id)
+        if existing is not None:
+            raise InvariantViolation(
+                f"forecast {forecast_id} has already been scored; a prediction is "
+                "judged once, against the result that was actually obtained"
+            )
+
+        score = ForecastScore(
+            forecast_id=forecast_id,
+            registration_id=registration_id,
+            role=role,
+            brier_score=brier_score,
+            crps=crps,
+            realised_effect=realised_effect,
+            exceeded_mde=exceeded_mde,
+            scored_at=self._clock.now(),
+        )
+        return self._commit_entity(score, event_type="forecast.scored", program_id=program_id)
 
     def record_llm_call(
         self,

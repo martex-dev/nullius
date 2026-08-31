@@ -15,10 +15,13 @@ Nothing is deserialised either. The Custodian re-fits the model from the plan,
 which is deterministic, rather than loading a pickled estimator — avoiding an
 arbitrary-code surface and a stale-artifact problem in one decision.
 
-Every look costs a query. `docs/01-critique.md` F2 is the failure this
-prevents: hundreds of automated experiments against one test split will
-eventually select on its noise, and the only real defence is to count the
-looks and price them into the claim's confidence.
+Every look costs a query, and a *look* is one evaluation of one
+registration across all of its seeds — not one seed. The failure being
+prevented (`docs/01-critique.md` F2) is selection on test-set noise, and
+selection happens at the level of a design decision: seeing all five seeds of
+one design is one decision's worth of information. Charging per seed would
+have made a well-replicated design look more suspicious than a thin one,
+which is backwards.
 """
 
 from __future__ import annotations
@@ -60,21 +63,31 @@ class BudgetExhausted(NulliusError):
 
 @dataclass(frozen=True, slots=True)
 class CustodyResult:
-    """Metrics from the evaluation split, and what they cost."""
+    """Metrics from the evaluation split, and what they cost.
+
+    One result covers every seed of one registration, because that is what one
+    query buys.
+    """
 
     registration_id: uuid.UUID
-    seed: int
-    metrics: dict[str, dict[str, float]]
-    """``{arm: {metric: value}}`` on the evaluation sample."""
+    per_seed: dict[int, dict[str, dict[str, float]]]
+    """``{seed: {arm: {metric: value}}}`` on the evaluation samples."""
     queries_consumed: int
     remaining_budget: int
-    custody_seed: int
+
+    def arm_values(self, arm: str, metric: str) -> list[float]:
+        """One value per seed, in seed order — what the paired analysis needs."""
+        return [
+            self.per_seed[seed][arm][metric]
+            for seed in sorted(self.per_seed)
+            if arm in self.per_seed[seed]
+        ]
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "registration_id": str(self.registration_id),
-            "seed": self.seed,
-            "metrics": self.metrics,
+            "seeds": sorted(self.per_seed),
+            "per_seed": {str(k): v for k, v in self.per_seed.items()},
             "queries_consumed": self.queries_consumed,
             "remaining_budget": self.remaining_budget,
         }
@@ -136,27 +149,31 @@ class HoldoutCustodian:
         self,
         *,
         registration_id: uuid.UUID,
-        run_id: uuid.UUID,
-        plan: dict[str, Any],
+        runs: list[tuple[uuid.UUID, dict[str, Any]]],
         program_id: uuid.UUID | None = None,
     ) -> CustodyResult:
-        """Evaluate every arm of ``plan`` on a fresh sample, and charge a query.
+        """Evaluate every seed of one registration, and charge a single query.
 
-        Refuses once the registration's budget is spent. The refusal is
-        recorded as a denied :class:`~nullius.db.tables.HoldoutQuery` row, so
-        the attempt is visible even though it produced nothing.
+        ``runs`` pairs each recorded run with the plan it executed. All of them
+        are evaluated together because they are one design's worth of evidence,
+        and the budget counts design decisions rather than seeds.
+
+        Refuses once the registration's budget is spent, recording the denied
+        attempt so it stays visible even though it produced nothing.
         """
         registration = self._registration(registration_id)
-        self._check_plan_belongs_to_run(registration_id, run_id, plan)
-        remaining = registration.holdout_query_budget - self.queries_consumed(registration_id)
-        evaluation_seed = custody_seed(registration_id, int(plan["seed"]))
+        if not runs:
+            raise NulliusError("nothing to evaluate: no runs were supplied")
+        for run_id, plan in runs:
+            self._check_plan_belongs_to_run(registration_id, run_id, plan)
 
+        remaining = registration.holdout_query_budget - self.queries_consumed(registration_id)
         if remaining <= 0:
             self._record_query(
                 registration_id,
                 granted=False,
                 remaining=0,
-                artifact_hash=sha256_of(plan),
+                artifact_hash=sha256_of([plan for _, plan in runs]),
                 program_id=program_id,
             )
             raise BudgetExhausted(
@@ -166,11 +183,19 @@ class HoldoutCustodian:
                 "new confirmatory experiment instead."
             )
 
-        metrics = self._measure(plan, evaluation_seed)
-        artifact_hash = sha256_of(
-            {"plan": plan, "custody_seed": evaluation_seed, "metrics": metrics}
-        )
+        per_seed: dict[int, dict[str, dict[str, float]]] = {}
+        for _, plan in runs:
+            seed = int(plan["seed"])
+            per_seed[seed] = self._measure(plan, custody_seed(registration_id, seed))
 
+        # Seed keys are stringified for hashing: canonical JSON refuses non-string
+        # mapping keys, because their ordering is not stable across types.
+        artifact_hash = sha256_of(
+            {
+                "registration": registration_id,
+                "per_seed": {str(seed): metrics for seed, metrics in per_seed.items()},
+            }
+        )
         self._record_query(
             registration_id,
             granted=True,
@@ -178,25 +203,26 @@ class HoldoutCustodian:
             artifact_hash=artifact_hash,
             program_id=program_id,
         )
-        for arm_name, arm_metrics in metrics.items():
-            for metric_name, value in arm_metrics.items():
-                self._repo.record_result(
-                    run_id=run_id,
-                    split=Split.HOLDOUT,
-                    metric=f"{arm_name}.{metric_name}",
-                    value=float(value),
-                    artifact_hash=artifact_hash,
-                    computed_by=ComputedBy.CUSTODIAN,
-                    program_id=program_id,
-                )
+
+        for run_id, plan in runs:
+            seed = int(plan["seed"])
+            for arm_name, arm_metrics in per_seed[seed].items():
+                for metric_name, value in arm_metrics.items():
+                    self._repo.record_result(
+                        run_id=run_id,
+                        split=Split.HOLDOUT,
+                        metric=f"{arm_name}.{metric_name}",
+                        value=float(value),
+                        artifact_hash=artifact_hash,
+                        computed_by=ComputedBy.CUSTODIAN,
+                        program_id=program_id,
+                    )
 
         return CustodyResult(
             registration_id=registration_id,
-            seed=int(plan["seed"]),
-            metrics=metrics,
+            per_seed=per_seed,
             queries_consumed=self.queries_consumed(registration_id),
             remaining_budget=remaining - 1,
-            custody_seed=evaluation_seed,
         )
 
     def _check_plan_belongs_to_run(

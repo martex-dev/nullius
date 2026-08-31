@@ -377,9 +377,6 @@ class Forecast(Base):
     predictive_sd: Mapped[float] = mapped_column(sa.Float)
     p_execution_success: Mapped[float] = mapped_column(sa.Float)
     created_at: Mapped[dt.datetime]
-    # Written once, after resolution.
-    brier_score: Mapped[float | None] = mapped_column(sa.Float)
-    crps: Mapped[float | None] = mapped_column(sa.Float)
 
     __table_args__ = (
         sa.UniqueConstraint("registration_id", "role", name="uq_forecast_one_per_role"),
@@ -394,6 +391,31 @@ class Forecast(Base):
 # ===========================================================================
 # Data, code, execution
 # ===========================================================================
+
+
+class ForecastScore(Base):
+    """How a locked forecast turned out.
+
+    Kept apart from :class:`Forecast` so the prediction itself stays strictly
+    append-only. If the score lived on the forecast row, that row would have to
+    be updatable — and a table where predictions can be edited after the fact
+    measures nothing at all. One score per forecast, written once.
+    """
+
+    __tablename__ = "forecast_scores"
+
+    forecast_id: Mapped[uuid.UUID] = mapped_column(
+        sa.ForeignKey("forecasts.forecast_id"), primary_key=True
+    )
+    registration_id: Mapped[uuid.UUID] = mapped_column(
+        sa.ForeignKey("registrations.registration_id"), index=True
+    )
+    role: Mapped[Role] = mapped_column(_enum(Role, "role_t"))
+    brier_score: Mapped[float] = mapped_column(sa.Float)
+    crps: Mapped[float] = mapped_column(sa.Float)
+    realised_effect: Mapped[float] = mapped_column(sa.Float)
+    exceeded_mde: Mapped[bool] = mapped_column(sa.Boolean)
+    scored_at: Mapped[dt.datetime]
 
 
 class Dataset(Base):
@@ -793,6 +815,7 @@ APPEND_ONLY_TABLES: tuple[str, ...] = (
     "events",
     "run_results",
     "forecasts",
+    "forecast_scores",
     "objections",
     "cost_entries",
     "holdout_queries",
