@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M10 complete (M6–M10 mock-driven; the first live run awaits an API key). M11 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M11 complete (M6–M11 mock-driven; the first live run awaits an API key). M12 next. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -249,14 +249,28 @@ Arms B0–B7 from `docs/04-evaluation.md`, matched on model, compute, seeds and 
 
 ---
 
-### M11 · Observability ⬅ next
+### M11 · Observability ✅ (static report; the dashboard stays a Stage 6 item)
 Static HTML report generator, then the FastAPI + HTMX dashboard: overview, hypothesis explorer, run monitor, genealogy graph, agent timeline, claim view.
 
-**Acceptance** — a person answers "why does the system believe C-014?" in three clicks.
+**Acceptance** — a person answers "why does the system believe C-014?" in three clicks. **Met in one.** The index lists every claim; one click opens its dossier, which carries what raised the confidence, what capped it, the ledger facts underneath, the question it answers, the design locked before it ran, the seeds, the numbers the verdict came from, every objection with its discriminating test, and how the forecasts that were locked beforehand actually scored.
+
+**Static files, not a server** — the shape `docs/01-critique.md` §24 argued for. A dashboard is a read model over an event log; serving it needs a process running at the moment someone asks, while a directory of HTML can be opened from a clone, attached to an issue, committed beside the results it describes, and diffed against the last one. For a project whose whole argument is that its record survives inspection, the artifact that travels beats the one that must be hosted. `nullius report build` exits **non-zero** on a broken chain, a ledger that does not reconcile, or a claim carrying a confidence the ledger no longer supports.
+
+**The report re-derives rather than displays.** Confidence is not read out of the `claims` row and printed; it is recomputed from the same ledger facts `compute_confidence` consumes and compared against the stored value. Disagreements are listed first on the front page. That is only possible because M5 built every input to be a checkable fact rather than an opinion — and the first thing it did when pointed at a real ledger was find three places where that had quietly stopped being true.
+
+**Three bugs, found by re-deriving instead of displaying.** All pinned by tests.
+
+1. **The computed confidence never reached the ledger.** `create_claim` writes `speculative`; the kernel computed the real level, returned it in `KernelOutcome`, and never wrote it back. Every `claims` row in every ledger this project has ever produced said `speculative` — including claims that had been independently replicated and were reported as `well_supported`. It stayed invisible because the benchmark read the in-memory value, which is exactly why something had to read from the *store* instead. The kernel now promotes through `promote_claim`, so the ledger's own rules — evidence exists, no open critical objection, an independent reproduction before the top level — get their say rather than a column being assigned.
+2. **The Custodian named artifacts it never stored.** Every holdout `RunResult` carried a content address that resolved to no object; the `dev` results written by the harness all resolved. So the evaluation numbers — the ones the verdict is actually computed from — had no artifact behind them. An address for an artifact that was never written is worse than no address, because it reads as provenance. The Custodian now writes the measurement payload and verifies the store addresses it identically.
+3. **`provenance_complete` was asserted, not checked.** The kernel passed the literal `True`. The confidence rubric's entire design is that no input can be declared, and one of them was being declared by the system on its own behalf every time — which meant this cap had never once fired in the project's life. Now computed from the store.
+
+**M10's results are unaffected.** The benchmark read `KernelOutcome.confidence`, the correctly computed in-memory value, so `benchmark/results.lock.json` stands as measured. What changed is that the ledger now agrees with it.
+
+**Two new CI jobs.** `protocol` re-scores the committed results from their own per-item rows, so a results file whose headline numbers cannot be recomputed from the outcomes it ships with cannot be committed. `report` carries three bank items through the full institution, renders them, and fails if the generator's own integrity check trips — the report has to survive its own check on output nobody curated, and the site is uploaded as an artifact.
 
 ---
 
-### M12 · Beyond the MVP
+### M12 · Beyond the MVP ⬅ next
 Code generation (restricted op registry → constrained → free-form, measured against the compiler baseline, Docker required here), vendored literature corpus with a provenance verifier, versioned self-improving policies, template-rendered papers, and finally multiple labs.
 
 ---

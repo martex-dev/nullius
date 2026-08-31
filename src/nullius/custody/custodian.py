@@ -37,6 +37,7 @@ from nullius.db.enums import ComputedBy, Role, Split
 from nullius.db.tables import HoldoutQuery, Registration, Run
 from nullius.errors import NulliusError
 from nullius.repository import Repository
+from nullius.store.cas import ContentStore
 from nullius.util.canonical import sha256_of
 
 __all__ = ["CUSTODY_SEED_FLOOR", "BudgetExhausted", "CustodyResult", "HoldoutCustodian"]
@@ -107,9 +108,9 @@ def custody_seed(registration_id: uuid.UUID, seed: int) -> int:
 class HoldoutCustodian:
     """Holds the evaluation split and rations access to it."""
 
-    __slots__ = ("_repo",)
+    __slots__ = ("_repo", "_store")
 
-    def __init__(self, repo: Repository) -> None:
+    def __init__(self, repo: Repository, store: ContentStore | None = None) -> None:
         if repo.role is not Role.CUSTODIAN:
             raise NulliusError(
                 f"the Custodian must act as {Role.CUSTODIAN.value!r}, not "
@@ -117,6 +118,17 @@ class HoldoutCustodian:
                 "role's identity onto holdout metrics."
             )
         self._repo = repo
+        self._store = store
+        """Where the measurement payload is written.
+
+        Optional only so that the invariant suite can construct a Custodian
+        without a filesystem. When it is absent the holdout results still carry
+        their content address and the object behind it is simply not written —
+        which the confidence rubric then reads as incomplete provenance, caps
+        the claim for, and the report shows. That is the correct behaviour for
+        a measurement nobody can reproduce, so the fallback degrades into
+        honesty rather than into silence.
+        """
 
     # ----------------------------------------------------------- accounting
 
@@ -190,12 +202,26 @@ class HoldoutCustodian:
 
         # Seed keys are stringified for hashing: canonical JSON refuses non-string
         # mapping keys, because their ordering is not stable across types.
-        artifact_hash = sha256_of(
-            {
-                "registration": registration_id,
-                "per_seed": {str(seed): metrics for seed, metrics in per_seed.items()},
-            }
-        )
+        payload = {
+            "registration": registration_id,
+            "per_seed": {str(seed): metrics for seed, metrics in per_seed.items()},
+        }
+        artifact_hash = sha256_of(payload)
+        if self._store is not None:
+            # The evaluation numbers are the ones the verdict is computed from,
+            # and until M11 they were named by a hash with nothing behind it:
+            # every holdout result carried a content address that resolved to
+            # no object. An address for an artifact that was never stored is
+            # worse than no address, because it reads as provenance. Writing it
+            # makes the measurement re-derivable and makes the rubric's
+            # `provenance_complete` a fact rather than an assertion.
+            stored = self._store.put_json(payload)
+            if stored != artifact_hash:
+                raise NulliusError(
+                    f"the custody payload hashes to {artifact_hash} but the store "
+                    f"addressed it as {stored}; two content addresses for one object "
+                    "means the evidence chain cannot be followed"
+                )
         self._record_query(
             registration_id,
             granted=True,

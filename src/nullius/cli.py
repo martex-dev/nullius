@@ -102,7 +102,9 @@ benchmark_app = typer.Typer(
 app.add_typer(bank_app, name="bank")
 app.add_typer(cost_app, name="cost")
 app.add_typer(economy_app, name="economy")
+report_app = typer.Typer(help="Generate the static report over the ledger.", no_args_is_help=True)
 app.add_typer(benchmark_app, name="benchmark")
+app.add_typer(report_app, name="report")
 
 DatabaseOption = Annotated[
     Path,
@@ -794,6 +796,55 @@ def benchmark_run(
         "provider, so these arms describe the mock and not a model.[/dim]"
     )
     console.print()
+
+
+@report_app.command("build")
+def report_build(
+    database: DatabaseOption = Path(DEFAULT_DATABASE_FILENAME),
+    store: StoreOption = Path("objects"),
+    out: Annotated[Path, typer.Option(help="Directory to write the report into.")] = Path("site"),
+) -> None:
+    """Render the ledger as a directory of static HTML.
+
+    Exits non-zero when the report has something a reader must not miss: a
+    broken hash chain, a ledger that does not reconcile, or a claim carrying a
+    confidence the ledger no longer supports. A report generator that exits
+    zero while rendering a page saying the record is compromised is a report
+    generator nobody will read carefully.
+    """
+    from nullius.db.base import create_engine, session_factory
+    from nullius.ledger.ledger import Ledger
+    from nullius.report.render import write_site
+    from nullius.store.cas import ContentStore
+
+    engine = create_engine(database)
+    with session_factory(engine)() as session:
+        site = write_site(
+            session,
+            out,
+            database=database,
+            store=ContentStore(store),
+            ledger=Ledger(session),
+        )
+
+    console.print()
+    console.print(f"  {site}")
+    console.print(f"  open [bold]{site.index}[/bold]")
+    console.print()
+
+    if not site.integrity_ok:
+        console.print(
+            "  [red]the ledger does not verify; the report says so on its front page[/red]"
+        )
+        console.print()
+        raise typer.Exit(code=1)
+    if site.disputed:
+        console.print(
+            f"  [yellow]{site.disputed} claim(s) carry a confidence the ledger does not "
+            "support; they are listed first on the front page[/yellow]"
+        )
+        console.print()
+        raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":  # pragma: no cover

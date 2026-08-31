@@ -109,6 +109,66 @@ jobs:
       - name: report composition
         run: uv run nullius bank stats
 
+  protocol:
+    name: benchmark protocol and results
+    runs-on: ubuntu-latest
+    # The registered protocol must still describe the bank it was registered
+    # against, and the committed results must re-score from their own per-item
+    # rows. A results file whose headline numbers cannot be recomputed from the
+    # outcomes it ships with is a screenshot, and this is what stops one being
+    # committed.
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv sync --all-extras --dev
+      - name: the protocol still describes this bank
+        run: uv run nullius benchmark verify
+      - name: the committed results re-score to their own summary
+        run: |
+          uv run python -c "
+          from nullius.benchmark.metrics import read_results
+          report, runs = read_results()
+          print(report.prediction_reason)
+          for contrast in report.prediction_contrasts:
+              print(contrast)
+          "
+
+  report:
+    name: the report builds and refuses a bad ledger
+    runs-on: ubuntu-latest
+    # M11's report exits non-zero on a ledger that does not verify or a claim
+    # carrying a confidence the ledger no longer supports. Building a real
+    # ledger here and rendering it is what keeps that promise honest: the
+    # generator has to survive its own check on output nobody curated.
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv sync --all-extras --dev
+      - name: carry three bank items through the full institution
+        run: |
+          uv run python -c "
+          from pathlib import Path
+          from nullius.bank.items import BANK_V1
+          from nullius.benchmark import arm_named, run_arm
+          root = Path('.nullius/ci')
+          run_arm(arm_named('B6'), database=root / 'b6.sqlite',
+                  workroot=root / 'b6', items=BANK_V1[:3])
+          "
+      - name: render it, and fail if the ledger does not hold up
+        run: >
+          uv run nullius report build
+          -d .nullius/ci/b6.sqlite
+          -s .nullius/ci/b6/objects
+          --out .nullius/ci/site
+      - uses: actions/upload-artifact@v4
+        with:
+          name: report
+          path: .nullius/ci/site
+
   clean-clone:
     name: reproducible from a clean clone
     runs-on: ubuntu-latest

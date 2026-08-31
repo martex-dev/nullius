@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% block title %}Claim &mdash; {{ d.claim.statement | truncate(60) }}{% endblock %}
+{% block body %}
+
+<h1>{{ d.claim.statement }}</h1>
+<p class="faint mono">{{ d.claim.claim_id }}</p>
+
+{% if d.problems %}
+<div class="panel" style="border-color:var(--bad)">
+  <h3 style="margin-top:0;color:var(--bad)">Read this first</h3>
+  <ul class="plain">
+    {% for problem in d.problems %}<li class="note bad">{{ problem }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<h2>Why the system believes it</h2>
+<div class="panel">
+  <div>
+    <span class="pill {{ d.recomputed.confidence.value | confidence_class }}">{{ d.recomputed.confidence.value }}</span>
+    <span class="muted">recomputed from the ledger</span>
+    {% if d.confidence_disputed %}
+      &nbsp;&mdash;&nbsp;
+      <span class="pill no">the claim carries {{ d.stored.value }}</span>
+    {% endif %}
+  </div>
+
+  {% if d.recomputed.raised_by %}
+  <h3>What raised it</h3>
+  <ul class="plain">
+    {% for reason in d.recomputed.raised_by %}<li>&#43; {{ reason }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if d.recomputed.capped_by %}
+  <h3>What capped it</h3>
+  <ul class="plain">
+    {% for reason in d.recomputed.capped_by %}<li class="muted">&minus; {{ reason }}</li>{% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">Nothing capped it.</p>
+  {% endif %}
+
+  <h3>The facts that produced that level</h3>
+  <div class="scroll">
+  <table>
+    <tbody>
+    {% for key, value in d.recomputed.inputs.as_dict().items() %}
+    <tr><td class="muted">{{ key.replace('_', ' ') }}</td><td class="num">{{ value | num }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="faint" style="margin-bottom:0">
+    Every row above is a fact about the ledger. There is no field anywhere in this
+    system where an agent states how confident it is.
+  </p>
+</div>
+
+<h2>The question it answers</h2>
+{% if d.hypothesis %}
+<div class="panel">
+  <p style="margin-top:0">{{ d.hypothesis.statement }}</p>
+  <div class="scroll">
+  <table>
+    <tbody>
+      <tr><td class="muted">mechanism</td><td>{{ d.hypothesis.mechanism }}</td></tr>
+      <tr><td class="muted">falsified if</td><td>{{ d.hypothesis.falsification_condition }}</td></tr>
+      <tr><td class="muted">primary metric</td><td class="mono">{{ d.hypothesis.primary_metric }}</td></tr>
+      <tr><td class="muted">direction</td><td class="mono">{{ d.hypothesis.direction }}</td></tr>
+      <tr><td class="muted">claimed effect</td><td class="num">{{ d.hypothesis.mde }}</td></tr>
+      <tr><td class="muted">state</td><td><span class="pill mid">{{ d.hypothesis.state.value }}</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+{% if ancestry %}
+<h3>Where the question came from</h3>
+<ul class="plain">
+  {% for parent in ancestry %}
+  <li class="muted">&#8593; {{ parent.derivation.value }} of &mdash; {{ parent.statement | truncate(100) }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% else %}
+<p class="muted">This claim names no hypothesis.</p>
+{% endif %}
+
+<h2>What was locked before it ran</h2>
+{% if d.registration %}
+<div class="panel">
+  <div class="scroll">
+  <table>
+    <tbody>
+      <tr><td class="muted">spec hash</td><td class="mono">{{ d.registration.spec_hash }}</td></tr>
+      <tr><td class="muted">registered</td><td class="mono">{{ d.registration.registered_at }}</td></tr>
+      <tr><td class="muted">locked</td><td>
+        {% if d.registration.locked %}<span class="pill ok">yes</span>
+        {% else %}<span class="pill no">no</span>{% endif %}</td></tr>
+      <tr><td class="muted">seed root</td><td class="mono">{{ d.registration.seed_root }}</td></tr>
+      <tr><td class="muted">seeds declared</td><td class="num">{{ d.registration.n_seeds }}</td></tr>
+      <tr><td class="muted">holdout budget</td><td class="num">{{ d.registration.holdout_query_budget }}</td></tr>
+      <tr><td class="muted">holdout queries used</td><td class="num">{{ d.holdout_queries }}</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="faint" style="margin-bottom:0">
+    The spec hash covers the design and the analysis plan together. Changing how the data
+    would be analysed is changing the experiment, and produces a different registration.
+  </p>
+</div>
+{% else %}
+<p class="muted">Nothing was registered. This claim was not preregistered.</p>
+{% endif %}
+
+<h2>The numbers the verdict was computed from</h2>
+{% if d.analysis %}
+<div class="panel">
+  <div class="scroll">
+  <table>
+    <tbody>
+    {% for key in ['difference', 'ci_low', 'ci_high', 'baseline_mean', 'treatment_mean',
+                   'standard_error', 'effect_size', 'n_seeds', 'method', 'resamples', 'alpha'] %}
+      {% if key in d.analysis %}
+      <tr><td class="muted">{{ key.replace('_', ' ') }}</td><td class="num">{{ d.analysis[key] | num }}</td></tr>
+      {% endif %}
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="faint" style="margin-bottom:0">
+    Computed by code from the evaluation split. No model was asked what the result was.
+  </p>
+</div>
+{% else %}
+<p class="muted">No analysis is recorded on this claim's evidence.</p>
+{% endif %}
+
+<h2>Seeds that executed</h2>
+{% if d.runs %}
+<div class="scroll">
+<table>
+  <thead><tr><th class="num">seed</th><th>status</th><th>executed by</th><th>environment</th></tr></thead>
+  <tbody>
+  {% for run in d.runs %}
+  <tr>
+    <td class="num">{{ run.seed }}</td>
+    <td>{% if run.status.value == 'completed' %}<span class="pill ok">{{ run.status.value }}</span>
+        {% else %}<span class="pill no">{{ run.status.value }}</span>{% endif %}</td>
+    <td class="muted">{{ run.executed_by.value }}</td>
+    <td class="mono faint">{{ run.environment_hash[:16] }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="muted">No runs recorded.</p>
+{% endif %}
+
+<h2>Independent replication</h2>
+{% if d.replications %}
+<div class="scroll">
+<table>
+  <thead><tr><th>outcome</th><th>executed by</th><th>concordance</th></tr></thead>
+  <tbody>
+  {% for r in d.replications %}
+  <tr>
+    <td>{% if r.outcome.value == 'replicated' %}<span class="pill ok">{{ r.outcome.value }}</span>
+        {% else %}<span class="pill no">{{ r.outcome.value }}</span>{% endif %}</td>
+    <td class="muted">{{ r.executed_by.value }}</td>
+    <td class="mono faint">{{ r.concordance }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="muted">None. A claim reaches <code>well_supported</code> only after independent reproduction.</p>
+{% endif %}
+
+<h2>Objections</h2>
+{% if d.objections %}
+<div class="scroll">
+<table>
+  <thead><tr><th>severity</th><th>type</th><th>objection</th><th>status</th></tr></thead>
+  <tbody>
+  {% for objection, status in d.objections %}
+  <tr>
+    <td>{% if objection.severity.value == 'critical' %}<span class="pill no">{{ objection.severity.value }}</span>
+        {% else %}<span class="pill mid">{{ objection.severity.value }}</span>{% endif %}</td>
+    <td class="mono faint">{{ objection.type.value }}</td>
+    <td>{{ objection.statement }}
+        <div class="faint mono">discriminating test: {{ objection.discriminating_test }}</div></td>
+    <td>{% if status.value == 'open' %}<span class="pill mid">open</span>
+        {% else %}<span class="pill ok">{{ status.value }}</span>{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="faint">
+  An objection with no discriminating test is refused at the write path. Criticism no
+  experiment could settle cannot block a claim, however well written.
+</p>
+{% else %}
+<p class="muted">Nobody objected.</p>
+{% endif %}
+
+<h2>Forecasts, locked before execution</h2>
+{% if d.forecasts %}
+<div class="scroll">
+<table>
+  <thead><tr>
+    <th>role</th><th class="num">P(effect &gt; MDE)</th><th class="num">predicted</th>
+    <th class="num">realised</th><th class="num">Brier</th>
+  </tr></thead>
+  <tbody>
+  {% for forecast, score in d.forecasts %}
+  <tr>
+    <td class="muted">{{ forecast.role.value }}</td>
+    <td class="num">{{ '%.3f' | format(forecast.p_effect_exceeds_mde) }}</td>
+    <td class="num">{{ '%.4f' | format(forecast.predictive_mean) }}</td>
+    <td class="num">{% if score %}{{ '%.4f' | format(score.realised_effect) }}{% else %}&mdash;{% endif %}</td>
+    <td class="num">{% if score %}{{ '%.4f' | format(score.brier_score) }}{% else %}&mdash;{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="faint">
+  Every role states a distribution before anything runs and is graded against it afterwards.
+  A role cannot raise its experiment's priority without committing to a prediction.
+</p>
+{% else %}
+<p class="muted">No forecasts were locked for this registration.</p>
+{% endif %}
+
+<h2>Cost</h2>
+<p class="mono">${{ '%.8f' | format(d.usd) }} <span class="faint">across this claim's programme</span></p>
+
+{% endblock %}

@@ -467,7 +467,7 @@ class ResearchKernel:
         # 7 - Custody: one look at the evaluation split, covering every seed ---
         holdout_queries = 0
         if mechanisms.custody:
-            custodian = HoldoutCustodian(self._repo.as_role(Role.CUSTODIAN))
+            custodian = HoldoutCustodian(self._repo.as_role(Role.CUSTODIAN), self._store)
             custody = custodian.evaluate(
                 registration_id=registration_id,
                 runs=[(o.run_id, compile_spec(spec, seed=o.seed)) for o in completed],
@@ -760,9 +760,24 @@ class ResearchKernel:
                 open_critical_objections=blocking,
                 preregistered=preregistered,
                 holdout_queries_consumed=holdout_queries,
-                provenance_complete=True,
+                provenance_complete=self._provenance_resolves(outcomes),
                 n_seeds=analysis.n_seeds,
             )
+        )
+
+        # Computing a confidence and not storing it leaves the ledger asserting
+        # `speculative` about everything, which is what M11's report found by
+        # re-deriving instead of displaying. Promotion goes through the write
+        # path rather than assigning the column, so the ledger's own rules --
+        # evidence must exist, no open critical objection, an independent
+        # reproduction before the top level -- get their say. The rubric and the
+        # write path were built to agree: `compute_confidence` caps at
+        # `contested` exactly when an objection is open, and reaches
+        # `well_supported` only with a replication, which are the two conditions
+        # `promote_claim` enforces. If they ever disagree, this raises rather
+        # than silently keeping the lower value.
+        self._repo.as_role(Role.DIRECTOR).promote_claim(
+            claim.claim_id, confidence.confidence, program_id=program_id
         )
         return claim.claim_id, confidence
 
@@ -842,7 +857,7 @@ class ResearchKernel:
             )
             return 0
 
-        custody = HoldoutCustodian(self._repo.as_role(Role.CUSTODIAN)).evaluate(
+        custody = HoldoutCustodian(self._repo.as_role(Role.CUSTODIAN), self._store).evaluate(
             registration_id=registration.registration_id,
             runs=[(o.run_id, compile_spec(replication_spec, seed=o.seed)) for o in completed],
             program_id=program_id,
@@ -868,6 +883,25 @@ class ResearchKernel:
             program_id=program_id,
         )
         return 1 if agreed else 0
+
+    def _provenance_resolves(self, outcomes: list[SeedOutcome]) -> bool:
+        """Whether every artifact on the evidence chain is actually in the store.
+
+        This used to be the literal ``True``. The confidence rubric's whole
+        design is that each of its inputs is a fact an agent cannot declare, and
+        one of them was being declared -- by the kernel, on the system's own
+        behalf, every time. M11's report caught it by re-deriving from the
+        ledger, and what it found underneath was that the Custodian had been
+        naming holdout artifacts it never wrote, so the cap this input exists to
+        apply had never once fired.
+        """
+        hashes = {
+            row.artifact_hash
+            for outcome in outcomes
+            for row in self._repo.results_for_run(outcome.run_id)
+            if row.artifact_hash
+        }
+        return all(self._store.exists(digest) for digest in hashes)
 
     def _bundle_id(self, spec: ExperimentSpec) -> uuid.UUID:
         bundle = self._repo.as_role(Role.SYSTEM).record_code_bundle(

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Nullius &mdash; overview{% endblock %}
+{% block body %}
+
+<h1>What this institution believes</h1>
+<p class="muted">
+  {{ overview.claims | length }} claim(s) across {{ overview.programs | length }} programme(s).
+  Open a claim to see the case for it: the design that was locked before it ran, the seeds
+  that executed, the numbers the verdict was computed from, and every objection filed.
+</p>
+
+<h2>Integrity</h2>
+<div class="panel">
+  <div>
+    {% if overview.chain_ok %}<span class="pill ok">chain intact</span>
+    {% else %}<span class="pill no">chain broken</span>{% endif %}
+    <span class="muted mono">{{ overview.chain_detail }}</span>
+  </div>
+  <div style="margin-top:.5rem">
+    {% if overview.reconciliation.ok %}<span class="pill ok">reconciles</span>
+    {% else %}<span class="pill no">does not reconcile</span>{% endif %}
+    <span class="muted mono">{{ overview.reconciliation }}</span>
+  </div>
+</div>
+
+{% if overview.disputed_claims %}
+<h2>Claims the ledger no longer supports</h2>
+<div class="note bad">
+  {{ overview.disputed_claims | length }} claim(s) carry a confidence level that recomputing
+  from the ledger does not produce. This is listed first deliberately: a report that knows a
+  claim is overstated and buries it is worse than one that never checked.
+</div>
+<ul class="plain">
+  {% for c in overview.disputed_claims %}
+  <li><a href="claims/{{ c.claim_id }}.html">{{ c.statement | truncate(110) }}</a></li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+<h2>Scale</h2>
+<div class="grid cols">
+  <div class="panel stat"><div class="n">{{ overview.n_events }}</div><div class="k">events</div></div>
+  <div class="panel stat"><div class="n">{{ overview.n_registrations }}</div><div class="k">registrations</div></div>
+  <div class="panel stat"><div class="n">{{ overview.n_runs }}</div><div class="k">runs</div></div>
+  <div class="panel stat"><div class="n">${{ '%.5f' | format(overview.usd) }}</div><div class="k">spent</div></div>
+</div>
+
+<h2>Claims</h2>
+{% if overview.claims %}
+<div class="scroll">
+<table>
+  <thead><tr>
+    <th>claim</th><th>confidence</th><th class="num">evidence</th><th class="num">open critical</th>
+  </tr></thead>
+  <tbody>
+  {% for c in overview.claims %}
+  <tr>
+    <td><a href="claims/{{ c.claim_id }}.html">{{ c.statement | truncate(96) }}</a></td>
+    <td>
+      <span class="pill {{ c.confidence.value | confidence_class }}">{{ c.confidence.value }}</span>
+      {% if c.confidence_disputed %}<span class="pill no">disputed</span>{% endif %}
+    </td>
+    <td class="num">{{ c.n_evidence }}</td>
+    <td class="num">{{ c.open_critical }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="muted">No claims in this ledger yet.</p>
+{% endif %}
+
+<h2>Programmes</h2>
+<div class="scroll">
+<table>
+  <thead><tr>
+    <th>question</th><th>lab</th><th class="num">hypotheses</th><th class="num">claims</th><th class="num">spent</th>
+  </tr></thead>
+  <tbody>
+  {% for p in overview.programs %}
+  <tr>
+    <td>{{ p.question | truncate(88) }}</td>
+    <td class="muted">{{ p.lab_name }}</td>
+    <td class="num">{{ p.n_hypotheses }}</td>
+    <td class="num">{{ p.n_claims }}</td>
+    <td class="num">${{ '%.5f' | format(p.usd) }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+{% endblock %}

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Nullius{% endblock %}</title>
+<style>
+  :root {
+    --ink: #17191c; --dim: #5d646d; --faint: #8b939c;
+    --rule: #dfe3e7; --panel: #f6f7f9; --page: #ffffff;
+    --good: #1c6b3f; --warn: #8a5a10; --bad: #97231f;
+    --good-bg: #eaf4ee; --warn-bg: #fbf2e0; --bad-bg: #fbeceb;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #e6e9ec; --dim: #a3abb4; --faint: #767e88;
+      --rule: #2c3138; --panel: #191c20; --page: #101214;
+      --good: #6cc493; --warn: #d9a94e; --bad: #e2807a;
+      --good-bg: #16241c; --warn-bg: #251f12; --bad-bg: #271817;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #e6e9ec; --dim: #a3abb4; --faint: #767e88;
+    --rule: #2c3138; --panel: #191c20; --page: #101214;
+    --good: #6cc493; --warn: #d9a94e; --bad: #e2807a;
+    --good-bg: #16241c; --warn-bg: #251f12; --bad-bg: #271817;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--page); color: var(--ink);
+    font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 62rem; margin: 0 auto; padding: 2.5rem 1.5rem 6rem; }
+  header.top { border-bottom: 1px solid var(--rule); margin-bottom: 2rem; padding-bottom: 1rem; }
+  header.top a.home { color: var(--ink); text-decoration: none; font-weight: 600; letter-spacing: -0.01em; }
+  header.top .sub { color: var(--faint); font-size: 0.82rem; margin-top: 0.15rem; }
+  h1 { font-size: 1.55rem; line-height: 1.25; margin: 0 0 0.4rem; letter-spacing: -0.02em; text-wrap: balance; }
+  h2 { font-size: 1.0rem; margin: 2.2rem 0 0.7rem; letter-spacing: 0.04em;
+       text-transform: uppercase; color: var(--dim); font-weight: 600; }
+  h3 { font-size: 0.95rem; margin: 1.4rem 0 0.4rem; }
+  a { color: inherit; }
+  code, .mono { font-family: var(--mono); font-size: 0.86em; }
+  .muted { color: var(--dim); }
+  .faint { color: var(--faint); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+  .scroll { overflow-x: auto; }
+  th, td { text-align: left; padding: 0.45rem 0.7rem 0.45rem 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { color: var(--dim); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); }
+  .panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 1rem 1.1rem; }
+  .grid { display: grid; gap: 0.9rem; }
+  .cols { grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
+  .stat .n { font-family: var(--mono); font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+  .stat .k { color: var(--faint); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .pill { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px;
+          font-size: 0.74rem; font-weight: 600; letter-spacing: 0.02em; white-space: nowrap; }
+  .ok   { background: var(--good-bg); color: var(--good); }
+  .mid  { background: var(--warn-bg); color: var(--warn); }
+  .no   { background: var(--bad-bg);  color: var(--bad);  }
+  .note { border-left: 3px solid var(--rule); padding: 0.15rem 0 0.15rem 0.85rem; margin: 0.5rem 0; color: var(--dim); }
+  .note.bad { border-left-color: var(--bad); color: var(--bad); }
+  ul.plain { list-style: none; padding: 0; margin: 0.3rem 0; }
+  ul.plain li { padding: 0.2rem 0; }
+  pre { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px;
+        padding: 0.8rem 1rem; overflow-x: auto; font-family: var(--mono); font-size: 0.8rem; }
+  footer { margin-top: 4rem; padding-top: 1rem; border-top: 1px solid var(--rule);
+           color: var(--faint); font-size: 0.8rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="home" href="{{ root }}index.html">Nullius</a>
+    <div class="sub">a read model over the event ledger &mdash; every number here is re-derived, not asserted</div>
+  </header>
+  {% block body %}{% endblock %}
+  <footer>
+    Generated from the ledger at <span class="mono">{{ database }}</span>.
+    Confidence levels on this page are <strong>recomputed</strong> from ledger facts and
+    compared against what each claim carries; disagreements are shown, not reconciled.
+  </footer>
+</div>
+</body>
+</html>

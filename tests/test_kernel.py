@@ -565,3 +565,23 @@ def test_preregistration_is_a_switch_the_confidence_rubric_reads(tmp_path: Path)
         locked.confidence.confidence
     )
     assert any("not registered" in reason for reason in unlocked.confidence.capped_by)
+
+
+@pytest.mark.slow
+def test_the_computed_confidence_reaches_the_ledger(tmp_path: Path) -> None:
+    """A confidence that exists only in memory is a belief the institution
+    cannot be held to.
+
+    Found by M11: the kernel computed a level, returned it, and never wrote it,
+    so every ``claims`` row in every ledger read ``speculative`` — including
+    claims that had been independently replicated. The benchmark was unaffected
+    because it read the in-memory value, which is exactly what made it invisible
+    until something re-derived from the store instead of displaying it.
+    """
+    outcome, repo = _isolated_pass(tmp_path / "stored.sqlite", mechanisms=Mechanisms())
+
+    assert outcome.confidence is not None
+    assert outcome.claim_id is not None
+    stored = repo.session.get(Claim, outcome.claim_id)
+    assert stored is not None
+    assert stored.confidence is outcome.confidence.confidence
