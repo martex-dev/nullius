@@ -208,6 +208,22 @@ jobs:
           name: report
           path: .nullius/ci/site
 
+  reproducible:
+    name: a custodied arm reproduces exactly
+    runs-on: ubuntu-latest
+    # The claim the README makes, checked on a clean machine. Until M15 it was
+    # false for every arm that queries the Custodian: identifiers were random,
+    # so the evaluation seed differed on every run and no custodied result could
+    # be reproduced at all.
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv sync --all-extras --dev
+      - name: run the same arms twice and compare
+        run: uv run pytest tests/test_reproducibility.py -q
+
   paper:
     name: the paper builds from committed sources
     runs-on: ubuntu-latest

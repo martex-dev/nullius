@@ -10,7 +10,7 @@ Every number below was produced under the **mock** provider.
 > Institutional structure - preregistration, adversarial challenge, independent replication, and evidence-typed memory - improves the accuracy and calibration of autonomous empirical research relative to an unstructured agent, at a measurable cost in compute and tokens.
 
 Across 6 registered protocols, **2
-predictions were refuted** and **2 upheld**.
+predictions were refuted** and **3 upheld**.
 
 ## Every registered protocol, in order
 
@@ -20,7 +20,7 @@ predictions were refuted** and **2 upheld**.
 | v2 | `254be687163b` | 8 | 60 | refuted |
 | v3 | `9eb8e1e16e79` | 8 | 60 | refuted |
 | v4 | `b46bdef334c9` | 9 | 60 | upheld |
-| v5 | `6bfaa13661c6` | 9 | 60 | registered, not yet run |
+| v5 | `6bfaa13661c6` | 9 | 60 | upheld |
 | v6 | `9acad59c27a4` | 10 | 60 | registered, not yet run |
 
 None was edited after registration. Where running one exposed a flaw in it, the fix is a new
@@ -116,11 +116,30 @@ benjamini-hochberg at alpha 0.05 —
 
 - `B1 − B0` = -0.267, 95% CI [-0.450, -0.067] *(model-dependent)*- `B2 − B0` = -0.267, 95% CI [-0.450, -0.067] *(model-dependent)*- `B3 − B0` = +0.033, 95% CI [-0.167, +0.233]- `B4 − B0` = +0.167, 95% CI [-0.017, +0.350]- `B5 − B0` = +0.167, 95% CI [-0.017, +0.367]- `B6 − B0` = +0.100, 95% CI [-0.100, +0.283]- `B7 − B0` = +0.100, 95% CI [-0.083, +0.283]- `B8 − B0` = +0.283, 95% CI [+0.083, +0.483]
 \* behaviour dominated by the language model. Under a mock provider these arms describe the
-mock and not a model, and no claim about mechanism rests on them.### Protocol v5 — registered, not yet run
+mock and not a model, and no claim about mechanism rests on them.### Protocol v5 — upheld
 
 > **Registered prediction.** Replication narrows the ladder rather than reordering it. Averaging three custody draws per arm leaves B8 - B6 on coverage positive with an interval still excluding zero, and leaves B4 - B3 on verdict accuracy spanning zero - the contrast that flipped between the v3 and v4 single draws. If B4 - B3 separates under replication, the v4 reading was right and this protocol's caution was wrong.
 
-Registered, not yet run.### Protocol v6 — registered, not yet run
+**coverage (B8-B6) = +0.1222, 95% CI [+0.0444, +0.2111]; interval excludes zero; prediction upheld**
+
+| arm | | n | acc | coverage | answered | brier | fdr | $/correct |
+|---|---|---|---|---|---|---|---|---|
+| B0 | Oracle-null | 1 | 0.45 | 1.00 | 0.45 | — | 0.00 | 0.00000 |
+| B1 \*  | Single-shot | 1 | 0.18 | 1.00 | 0.18 | 0.197 | 0.45 | 0.00293 |
+| B2 \*  | Single-agent + loop | 1 | 0.18 | 1.00 | 0.18 | 0.197 | 0.45 | 0.00830 |
+| B3 | Multi-role, no adversary | 1 | 0.48 | 0.75 | 0.64 | 0.203 | 0.00 | 0.01343 |
+| B4 | B3 + preregistration + custodian | 3 | 0.52 | 0.74 | 0.70 | 0.136 | 0.00 | 0.01242 |
+| B5 | B4 + Skeptic | 3 | 0.55 | 0.78 | 0.71 | 0.150 | 0.00 | 0.01179 |
+| B6 | Full institution | 3 | 0.53 | 0.74 | 0.71 | 0.111 | 0.00 | 0.01249 |
+| B7 | Full - memory | 3 | 0.57 | 0.76 | 0.76 | 0.121 | 0.00 | 0.01151 |
+| B8 | Full + adaptive seeding | 3 | 0.72 | 0.87 | 0.83 | 0.090 | 0.00 | 0.00971 |
+Against the registered baseline `B0`, corrected with
+benjamini-hochberg at alpha 0.05 —
+3 of 8 survive:
+
+- `B1 − B0` = -0.267, 95% CI [-0.450, -0.067] *(model-dependent)*- `B2 − B0` = -0.267, 95% CI [-0.450, -0.067] *(model-dependent)*- `B3 − B0` = +0.033, 95% CI [-0.167, +0.233]- `B4 − B0` = +0.072, 95% CI [-0.106, +0.244]- `B5 − B0` = +0.100, 95% CI [-0.078, +0.289]- `B6 − B0` = +0.078, 95% CI [-0.117, +0.261]- `B7 − B0` = +0.122, 95% CI [-0.056, +0.311]- `B8 − B0` = +0.267, 95% CI [+0.094, +0.439]
+\* behaviour dominated by the language model. Under a mock provider these arms describe the
+mock and not a model, and no claim about mechanism rests on them.### Protocol v6 — registered, not yet run
 
 > **Registered prediction.** Sizing the escalation from an upper bound on the noise rather than a point estimate raises coverage. B9 abstains on fewer bank items than B8 does, and the 95% interval on that difference excludes zero. It should also cost more per item, because a bound that errs towards more data buys more data; if cost per correct claim rises without coverage improving, the bound is only expensive.
 

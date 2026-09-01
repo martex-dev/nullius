@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M18 complete (v5 and v6 ladders pending); M15's v5 ladder is running (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M19 complete; v5 landed, v6 registered and not yet run (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -478,6 +478,38 @@ That closes the one place this project was asking to be taken on trust. A reposi
 **The design documents are annotated, not rewritten.** `docs/04-evaluation.md` staked out the headline prediction in advance — *B4 will capture most of the gain over B3* — and a reader had no way to learn it was refuted. It now carries a note saying so, with the intervals, and pointing at the generated record. The document itself is unchanged, on the same principle that keeps a superseded protocol on disk: the design is a historical record, and editing it to match the result would destroy the thing that makes the result meaningful.
 
 `docs/00-README.md` carries the same warning at the top of the set.
+
+---
+
+### M15b · The v5 ladder ✅ — replication resolves the contrast that flipped
+`benchmark/results.v5.lock.json`, protocol `6bfaa136…`, 9 arms, 60 items, three passes per custodied arm.
+
+| arm | n | acc | coverage | answered | null | brier | ece | $/correct |
+|---|---|---|---|---|---|---|---|---|
+| B0 | 1 | 0.45 | 1.00 | 0.45 | 1.00 | — | — | 0.00000 |
+| B3 | 1 | 0.48 | 0.75 | 0.64 | 0.33 | 0.203 | 0.450 | 0.01343 |
+| B4 | 3 | 0.52 | 0.74 | 0.70 | 0.41 | 0.136 | 0.333 | 0.01242 |
+| B5 | 3 | 0.55 | 0.78 | 0.71 | 0.42 | 0.150 | 0.329 | 0.01179 |
+| B6 | 3 | 0.53 | 0.74 | 0.71 | 0.42 | 0.111 | 0.285 | 0.01249 |
+| B7 | 3 | 0.57 | 0.76 | 0.76 | 0.51 | 0.121 | 0.299 | 0.01151 |
+| **B8** | 3 | **0.72** | **0.87** | **0.83** | **0.64** | **0.090** | **0.250** | **0.00971** |
+
+**Both clauses of the prediction hold, and the second is the point.** Coverage B8 − B6 = **+0.122, CI [+0.044, +0.211]**, p = 0.002 — upheld. And B4 − B3 = **+0.039, CI [−0.056, +0.133]** — still spanning zero, exactly as registered.
+
+That settles the contrast that flipped. v3's single draw said +0.033 spanning zero; v4's said **+0.133 excluding** it. Averaged over three custody draws it reads +0.039 and does not separate. **The v4 reading was the noise**, and the protocol that predicted so in advance was right to be cautious. This is the clearest thing replication has bought: a contrast that a single draw would have published.
+
+**B8 remains the only arm that beats the do-nothing baseline** — +0.267, CI [+0.094, +0.439], p = 0.003, surviving Benjamini–Hochberg — now on three passes rather than one, and still the cheapest institutional arm per correct claim.
+
+**Memory has now failed to show a contribution across four protocols.** B6 − B7 = −0.044, CI [−0.106, +0.011]; the point estimate is on the wrong side of zero.
+
+---
+
+### M19 · The reproducibility claim, verified rather than asserted ✅
+The README claims results trace to hashed artifacts and the repo rebuilds from a clean clone. **Until M15 that was false for every custodied arm** — identifiers were random UUIDs, so the Custodian's evaluation seed differed on every run and no custodied result could be reproduced at all. It held only for arms that never query the Custodian, which is exactly why running the ladder twice left B0–B3 identical and moved everything above.
+
+Measured now: running a custodied arm twice gives **bit-identical verdicts and realised effects to nine decimals**. Every scientific field matches. **Only `usd` differs, by about 0.2%** — compute is billed from wall-clock seconds actually consumed, which no seeding makes deterministic. Reporting it as reproducible would be the comfortable lie; dropping compute from the cost would make the economy measure half of what a run spends. A tenth CI job runs the comparison on a clean machine.
+
+**Two display and reconstruction bugs, both found by reading the output rather than trusting it.** The results table had lost the `n` header while still emitting the value, so every column after `arm` was shifted by one and the whole table misread — my own first summary of v5 was wrong because of it. And `read_results` rebuilt outcomes field by field without `replicate`, so a three-pass arm reported itself as one-pass, which is the single number telling a reader how much replication is behind the figures. That is the fourth time a reconstruction path drifted from its schema, so the fix is a round-trip test comparing whole dicts rather than another named field.
 
 **A wiring bug worth recording.** The first v4 ladder ran eight arms under a nine-arm protocol: a `ruff format` pass had collapsed the `run_ladder(...)` call onto one line before an edit meant to add `arms=` to it, so the replacement matched nothing and the runner silently used its eight-arm default. It produced a complete-looking results file — seven of seven baseline comparisons, no halted items — and nothing objected except the adjudication, which happened to name the missing arm by id. `score_ladder` now refuses any run whose arms do not match the protocol's, in either direction. The eight completed arms were reused from their checkpoints, so the correction cost one arm's compute rather than nine.
 

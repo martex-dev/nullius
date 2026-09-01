@@ -777,6 +777,7 @@ def benchmark_run(
     table = Table(box=None, padding=(0, 2, 0, 0))
     for column in (
         "arm",
+        "n",
         "acc",
         "cover",
         "when answered",

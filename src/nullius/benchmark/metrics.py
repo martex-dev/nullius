@@ -742,6 +742,12 @@ def read_results(path: Path = DEFAULT_RESULTS_PATH) -> tuple[LadderReport, list[
                     n_seeds=row["n_seeds"],
                     replications=row["replications"],
                     findings=row["findings"],
+                    # `.get` because v1 to v4 predate replication. Without this
+                    # line every restored outcome came back as replicate zero,
+                    # so a three-pass arm reported itself as one-pass -- the
+                    # single number telling a reader how much replication was
+                    # behind the figures.
+                    replicate=row.get("replicate", 0),
                     halted=row["halted"],
                 )
                 for row in entry["outcomes"]

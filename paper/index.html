@@ -60,7 +60,7 @@
 <div class="wrap">
 
 <h1>Does institutional structure improve autonomous research?</h1>
-<p class="sub">Five preregistered protocols, 4 of them run, on a
+<p class="sub">Five preregistered protocols, 5 of them run, on a
 synthetic question bank with planted ground truth. Every number below was produced under the
 <strong>mock</strong> provider.</p>
 
@@ -75,7 +75,7 @@ adversarial detectors, independent replication and evidence-typed memory, each s
 and measured against a question bank whose ground truth was planted and locked before any of
 it ran. Across 6 registered protocols,
 <strong>2</strong> predictions were refuted and
-<strong>2</strong> upheld.
+<strong>3</strong> upheld.
 </p>
 <p>
 The headline result reversed twice under measurement, both times because running a protocol
@@ -561,11 +561,117 @@ baseline B0</p>
 9 arms &middot; 60 items &middot;
 baseline B0</p>
 
-<div class="prediction ">
+<div class="prediction upheld">
   <p style="margin-bottom:.4rem"><strong>Registered prediction.</strong> Replication narrows the ladder rather than reordering it. Averaging three custody draws per arm leaves B8 - B6 on coverage positive with an interval still excluding zero, and leaves B4 - B3 on verdict accuracy spanning zero - the contrast that flipped between the v3 and v4 single draws. If B4 - B3 separates under replication, the v4 reading was right and this protocol&#39;s caution was wrong.</p>
-  <p style="margin:0"><span class="pill mid">registered, not yet run</span></p>
+  <p style="margin:0">
+    <span class="pill ok">upheld</span>
+    <span class="muted mono">coverage (B8-B6) = +0.1222, 95% CI [+0.0444, +0.2111]; interval excludes zero; prediction upheld</span>
+  </p>
 </div>
 
+<div class="scroll">
+<table>
+  <thead><tr><th>arm</th><th class="num">n</th><th class="num">acc</th><th class="num">cover</th>
+  <th class="num">answered</th><th class="num">brier</th><th class="num">fdr</th>
+  <th class="num">$/correct</th></tr></thead>
+  <tbody>
+  <tr>
+    <td>B0        <span class="faint">Oracle-null</span></td>
+    <td class="num">1</td>
+    <td class="num">0.450</td>
+    <td class="num">1.000</td>
+    <td class="num">0.450</td>
+    <td class="num">—</td>
+    <td class="num">0.000</td>
+    <td class="num">0.00000</td>
+  </tr>
+  <tr>
+    <td>B1 <span class="faint">*</span>        <span class="faint">Single-shot</span></td>
+    <td class="num">1</td>
+    <td class="num">0.183</td>
+    <td class="num">1.000</td>
+    <td class="num">0.183</td>
+    <td class="num">0.197</td>
+    <td class="num">0.450</td>
+    <td class="num">0.00293</td>
+  </tr>
+  <tr>
+    <td>B2 <span class="faint">*</span>        <span class="faint">Single-agent + loop</span></td>
+    <td class="num">1</td>
+    <td class="num">0.183</td>
+    <td class="num">1.000</td>
+    <td class="num">0.183</td>
+    <td class="num">0.197</td>
+    <td class="num">0.450</td>
+    <td class="num">0.00830</td>
+  </tr>
+  <tr>
+    <td>B3        <span class="faint">Multi-role, no adversary</span></td>
+    <td class="num">1</td>
+    <td class="num">0.483</td>
+    <td class="num">0.750</td>
+    <td class="num">0.644</td>
+    <td class="num">0.203</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01343</td>
+  </tr>
+  <tr>
+    <td>B4        <span class="faint">B3 + preregistration + custodian</span></td>
+    <td class="num">3</td>
+    <td class="num">0.522</td>
+    <td class="num">0.744</td>
+    <td class="num">0.701</td>
+    <td class="num">0.136</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01242</td>
+  </tr>
+  <tr>
+    <td>B5        <span class="faint">B4 + Skeptic</span></td>
+    <td class="num">3</td>
+    <td class="num">0.550</td>
+    <td class="num">0.778</td>
+    <td class="num">0.707</td>
+    <td class="num">0.150</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01179</td>
+  </tr>
+  <tr>
+    <td>B6        <span class="faint">Full institution</span></td>
+    <td class="num">3</td>
+    <td class="num">0.528</td>
+    <td class="num">0.744</td>
+    <td class="num">0.709</td>
+    <td class="num">0.111</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01249</td>
+  </tr>
+  <tr>
+    <td>B7        <span class="faint">Full - memory</span></td>
+    <td class="num">3</td>
+    <td class="num">0.572</td>
+    <td class="num">0.756</td>
+    <td class="num">0.757</td>
+    <td class="num">0.121</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01151</td>
+  </tr>
+  <tr>
+    <td>B8        <span class="faint">Full + adaptive seeding</span></td>
+    <td class="num">3</td>
+    <td class="num">0.717</td>
+    <td class="num">0.867</td>
+    <td class="num">0.827</td>
+    <td class="num">0.090</td>
+    <td class="num">0.000</td>
+    <td class="num">0.00971</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+<p class="faint">
+  * behaviour dominated by the language model; under a mock provider these arms describe the
+  mock and not a model, and no claim about mechanism rests on them.
+</p>
 <h3>Protocol v6 <span class="faint mono">9acad59c27a47aff</span></h3>
 <p class="faint mono">registered 2026-09-01 &middot;
 10 arms &middot; 60 items &middot;

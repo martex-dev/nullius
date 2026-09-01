@@ -25,6 +25,7 @@ from nullius.benchmark.metrics import (
     read_results,
     score_arm,
     score_ladder,
+    write_results,
 )
 from nullius.benchmark.protocol import (
     V2_PROTOCOL_PATH,
@@ -546,3 +547,57 @@ def test_only_custodied_arms_are_worth_replicating() -> None:
             assert not arm.custodian, arm.arm_id
         else:
             assert arm.custodian, arm.arm_id
+
+
+def test_a_results_file_round_trips_every_field(tmp_path: Path) -> None:
+    """The reconstruction path had drifted from the schema three fields at a time.
+
+    `read_results` rebuilds ArmOutcome field by field, and each time the outcome
+    gained one the reader had to be told separately. It was not told about
+    `replicate`, so every restored outcome came back as pass zero and a
+    three-pass arm reported itself as one-pass — the single number that tells a
+    reader how much replication is behind the figures.
+
+    Comparing the dicts rather than listing fields is what makes this catch the
+    next one too.
+    """
+    run = ArmRun(
+        arm=arm_named("B8"),
+        outcomes=tuple(
+            replace(
+                outcome(
+                    arm_id="B8",
+                    item_id=f"C{index:02d}",
+                    verdict=Verdict.SUPPORTED,
+                    truth=Verdict.SUPPORTED,
+                ),
+                replicate=index % 3,
+                n_seeds=5 + index,
+                findings=index,
+                replications=1,
+            )
+            for index in range(6)
+        ),
+    )
+    protocol = read_protocol(V5_PROTOCOL_PATH)
+    ladder = [
+        ArmRun(arm=arm_named(a), outcomes=(outcome(arm_id=a, item_id="C00"),))
+        for a in ("B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7")
+    ] + [run]
+
+    path = write_results(
+        score_ladder(ladder, protocol), ladder, tmp_path / "r.json", provider="mock"
+    )
+    _, restored = read_results(path)
+
+    original = {r.arm.arm_id: [o.as_dict() for o in r.outcomes] for r in ladder}
+    round_tripped = {r.arm.arm_id: [o.as_dict() for o in r.outcomes] for r in restored}
+    assert original == round_tripped
+
+
+def test_the_replicate_count_survives_a_results_file(tmp_path: Path) -> None:
+    """The specific consequence, asserted on the committed v5 run."""
+    _, runs = read_results(Path("benchmark/results.v5.lock.json"))
+    by_arm = {r.arm.arm_id: r for r in runs}
+    assert by_arm["B3"].n_replicates == 1  # uncustodied, never replicated
+    assert by_arm["B8"].n_replicates == 3  # custodied, three passes
