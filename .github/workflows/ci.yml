@@ -139,15 +139,30 @@ jobs:
       - run: uv sync --all-extras --dev
       - name: every registered protocol still describes its own bank
         run: |
-          uv run nullius benchmark verify
-          uv run nullius benchmark verify --protocol benchmark/protocol.v2.lock.json
+          uv run python -c "
+          import sys
+          from pathlib import Path
+          from nullius.benchmark.protocol import PROTOCOL_VERSIONS, verify_protocol
+          # Enumerated from the registry rather than listed here, so a protocol
+          # registered later cannot be left unverified by forgetting a line.
+          failed = False
+          for version, settings in sorted(PROTOCOL_VERSIONS.items()):
+              path = Path(settings['path'])
+              if not path.exists():
+                  print(f'v{version}: {path} not committed'); failed = True; continue
+              result = verify_protocol(path)
+              print(f'v{version}: {result}')
+              failed = failed or not result.ok
+          sys.exit(1 if failed else 0)
+          "
       - name: every committed results file re-scores to its own summary
         run: |
           uv run python -c "
           from pathlib import Path
           from nullius.benchmark.metrics import read_results
           for path in (Path('benchmark/results.lock.json'),
-                       Path('benchmark/results.v2.lock.json')):
+                       Path('benchmark/results.v2.lock.json'),
+                       Path('benchmark/results.v3.lock.json')):
               report, runs = read_results(path)
               print(f'{path.name}: protocol {report.protocol_hash[:16]}, {len(runs)} arms')
               print('  ' + report.prediction_reason)

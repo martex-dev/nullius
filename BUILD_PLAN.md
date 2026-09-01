@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M11, M12a, M12b complete and M13 in progress (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M13 complete (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -347,7 +347,7 @@ Every parameter was found by measuring a 311-point sweep of the generator and se
 
 ---
 
-### M13 · Abstention is not an answer ◐ instrument done, ladder running
+### M13 · Abstention is not an answer ✅
 The metric flaw M12b exposed, fixed at the representation rather than with a new scoring rule.
 
 **Acceptance** — an abstention can never be scored as a correct answer; coverage and accuracy-when-answering are reported beside the headline; the ladder re-runs under a protocol that registers all three.
@@ -363,6 +363,38 @@ The metric flaw M12b exposed, fixed at the representation rather than with a new
 **Protocol v3** registers the vocabulary and adds `coverage` and `assertion_accuracy` beside the headline. Neither is primary: an arm reaches assertion accuracy 1.0 by answering only what it is sure of, and coverage is what stops that reading as success. `verdict_accuracy` still counts an abstention as incorrect — v1's first exclusion rule refuses to pay an arm for declining the questions it found hardest, and separating abstention from error is not forgiving it.
 
 Per-version metric tuples were needed to do this without vandalism: adding two entries to the shared `METRICS` constant would have changed the hash of two protocols that are supposed to be immutable. v1 and v2 both still verify and still rebuild identically.
+
+---
+
+### M13b · The v3 ladder ✅ — and M12b's headline does not survive
+`benchmark/results.v3.lock.json`, protocol `9eb8e1e1…`, 60 items, mock provider.
+
+| arm | | acc | coverage | when answered | null | brier | ece | fdr |
+|---|---|---|---|---|---|---|---|---|
+| B0 | oracle-null | 0.45 | 1.00 | 0.45 | 1.00 | — | — | 0.00 |
+| B1 * | single-shot | 0.18 | 1.00 | 0.18 | 0.00 | 0.197 | 0.217 | 0.45 |
+| B2 * | + loop | 0.18 | 1.00 | 0.18 | 0.00 | 0.197 | 0.217 | 0.45 |
+| B3 | multi-role | 0.48 | 0.75 | 0.64 | 0.33 | 0.203 | 0.450 | 0.00 |
+| B4 | + prereg + custodian | 0.52 | 0.77 | 0.67 | 0.41 | 0.142 | 0.297 | 0.00 |
+| B5 | + Skeptic | 0.55 | 0.75 | 0.73 | 0.44 | 0.132 | 0.350 | 0.00 |
+| B6 | full institution | 0.57 | 0.78 | 0.72 | 0.41 | **0.117** | 0.294 | 0.00 |
+| B7 | full − memory | 0.57 | 0.73 | **0.77** | 0.48 | 0.118 | **0.292** | 0.00 |
+
+**Every institutional arm lost accuracy, and the non-abstaining arms lost none.** B3 −0.117, B4 −0.150, B5 −0.067, B6 −0.150, B7 −0.133; B0, B1 and B2 unchanged to three decimals. That is the control: those three never abstain, so the vocabulary change cannot touch them. The drop is the correction, not run-to-run variation.
+
+**M12b's headline is retracted.** It said *only the full institution beats the do-nothing baseline*, on B6−B0 = +0.267 [+0.050, +0.450]. Scored correctly, **B6 − B0 = +0.117, CI [−0.083, +0.317]** — it spans zero. After Benjamini–Hochberg only two of seven contrasts survive, and both are the *negative* model-dependent ones. **At this power, nothing in the institution beats answering `no_effect` about everything.**
+
+**The one contrast that separates decisively is coverage, in the direction that costs the institution.** B6 − B0 = **−0.217, CI [−0.317, −0.117]**. The institution answers about a fifth less of the bank than the constant does. It is right more often when it does answer (B6 0.72 against B0 0.45), but that gap does not separate either: **B6 − B0 when answered = +0.213, CI [−0.043, +0.468]** over the 47 items both were willing to call.
+
+So the institution trades coverage for accuracy, and at sixty items neither side of that trade is resolvable. Only the trade itself is visible.
+
+**Calibration remains the one robust signal, across all three protocols.** Brier 0.203 → 0.142 → 0.132 → 0.117 → 0.118 down B3→B7. It survived the bank getting harder and the metric getting fixed, which is more than the accuracy ordering did.
+
+**The registered prediction is refuted, and the way it was adjudicated is a flaw I introduced.** The prediction had two clauses. The first — *separating abstention from finding lowers every arm's verdict accuracy* — is **true**. The second — *the institutional arms separate on coverage, B6 answering more of the bank than B3, interval excluding zero* — is **false**: B6 − B3 coverage = +0.033, CI [−0.050, +0.117].
+
+But the run reported "refuted" without testing either clause. Protocol v3 inherited v2's `adjudication: interval_excludes_zero`, which computes B4 − B3 on **accuracy**, while v3's prediction text is about **coverage**. The verdict is right and was reached by measuring something the prediction does not mention. **A registered prediction and a registered adjudication rule that measure different quantities is a fifth protocol flaw, and this one is purely mine** — I wrote new prediction text and left the rule key at its inherited value. A v4 must derive the adjudicated quantity from the prediction rather than storing them independently.
+
+The prediction did at least say in advance how to read its own failure: *"If coverage does not separate, the institution's advantage is in what it says and not in how much it is able to say."* On these numbers that is the reading — the advantage is in calibration and in declining to answer, not in answering more.
 
 ---
 
