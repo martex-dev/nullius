@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import json
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from itertools import pairwise
@@ -463,6 +463,7 @@ def _adjudicate(
     metrics: Sequence[ArmMetrics],
     contrasts: Sequence[Comparison] = (),
     rule: str = "point_estimates",
+    named: dict[str, str] | None = None,
 ) -> tuple[bool | None, str]:
     """Was the registered prediction right?
 
@@ -478,6 +479,37 @@ def _adjudicate(
     accuracy, which is a live possibility since B3 is scored on the split it
     tuned on — refutes the prediction rather than being explained.
     """
+    if rule == "named_contrast":
+        # The protocol names the arms, the quantity and the direction, and the
+        # verdict is computed from those. v3 registered a prediction about
+        # coverage and inherited a rule that tested accuracy, so it reported
+        # "refuted" after measuring something the prediction never mentioned --
+        # right by accident. A rule stored apart from its prediction can drift
+        # from it silently; a rule derived from it cannot.
+        if named is None:
+            return None, "not adjudicable: this protocol names no adjudicated contrast"
+        found = next(
+            (
+                c
+                for c in contrasts
+                if (c.arm_id, c.baseline_arm_id, c.metric)
+                == (named["treatment"], named["baseline"], named["quantity"])
+            ),
+            None,
+        )
+        if found is None:
+            return None, (
+                f"not adjudicable: this run produced no "
+                f"{named['treatment']}-{named['baseline']} contrast on {named['quantity']}"
+            )
+        upheld = found.ci_low > 0.0 if named["direction"] == "greater" else found.ci_high < 0.0
+        return upheld, (
+            f"{named['quantity']} ({named['treatment']}-{named['baseline']}) = "
+            f"{found.difference:+.4f}, 95% CI [{found.ci_low:+.4f}, {found.ci_high:+.4f}]; "
+            f"interval {'excludes' if upheld else 'does not exclude'} zero; "
+            f"prediction {'upheld' if upheld else 'refuted'}"
+        )
+
     if rule == "interval_excludes_zero":
         found = next((c for c in contrasts if (c.arm_id, c.baseline_arm_id) == ("B4", "B3")), None)
         if found is None:
@@ -505,6 +537,15 @@ def _adjudicate(
     )
 
 
+#: How a named quantity is read off one item's outcome. The adjudicated
+#: quantity is registered by name in the protocol, so the mapping from that
+#: name to a per-item boolean has to live somewhere both sides agree on.
+QUANTITIES: dict[str, Callable[[ArmOutcome], bool]] = {
+    "verdict_accuracy": lambda o: o.correct,
+    "coverage": lambda o: not o.abstained,
+}
+
+
 def _contrast(
     runs: Sequence[ArmRun],
     treatment_id: str,
@@ -512,6 +553,7 @@ def _contrast(
     protocol: Protocol,
     *,
     seed: int,
+    quantity: str = "verdict_accuracy",
 ) -> Comparison | None:
     """One paired arm-against-arm interval, or None if either arm is missing."""
     by_id = {run.arm.arm_id: run for run in runs}
@@ -521,9 +563,10 @@ def _contrast(
     theirs = {o.item_id: o for o in treatment.outcomes}
     ours = {o.item_id: o for o in baseline.outcomes}
     shared = [i for i in ours if i in theirs]
+    read = QUANTITIES[quantity]
     difference, low, high, p_value = _paired_bootstrap(
-        [theirs[i].correct for i in shared],
-        [ours[i].correct for i in shared],
+        [read(theirs[i]) for i in shared],
+        [read(ours[i]) for i in shared],
         resamples=int(protocol.statistics["resamples"]),
         alpha=float(protocol.statistics["alpha"]),
         seed=seed,
@@ -531,7 +574,7 @@ def _contrast(
     return Comparison(
         arm_id=treatment_id,
         baseline_arm_id=baseline_id,
-        metric=protocol.primary_metric,
+        metric=quantity,
         difference=difference,
         ci_low=low,
         ci_high=high,
@@ -550,14 +593,34 @@ def score_ladder(
     """Score every arm and settle the registered prediction."""
     metrics = tuple(score_arm(run, protocol) for run in runs)
     comparisons, correction = compare_to_baseline(runs, protocol, seed=seed)
+    wanted: list[tuple[str, ...]] = [tuple(pair) for pair in PREDICTION_CONTRASTS]
+    named = protocol.statistics.get("adjudicated")
+    if named:
+        # Always compute the contrast the protocol adjudicates on, whatever it
+        # is, so the verdict can never be reported without the interval it
+        # rests on.
+        wanted.append((str(named["treatment"]), str(named["baseline"]), str(named["quantity"])))
     contrasts = tuple(
         found
-        for offset, (treatment, baseline) in enumerate(PREDICTION_CONTRASTS)
-        if (found := _contrast(runs, treatment, baseline, protocol, seed=seed + 100 + offset))
+        for offset, entry in enumerate(wanted)
+        if (
+            found := _contrast(
+                runs,
+                entry[0],
+                entry[1],
+                protocol,
+                seed=seed + 100 + offset,
+                quantity=entry[2] if len(entry) > 2 else "verdict_accuracy",
+            )
+        )
         is not None
     )
+    adjudicated = protocol.statistics.get("adjudicated")
     upheld, reason = _adjudicate(
-        metrics, contrasts, str(protocol.statistics.get("adjudication", "point_estimates"))
+        metrics,
+        contrasts,
+        str(protocol.statistics.get("adjudication", "point_estimates")),
+        named={k: str(v) for k, v in adjudicated.items()} if adjudicated else None,
     )
     return LadderReport(
         protocol_hash=protocol.protocol_hash,

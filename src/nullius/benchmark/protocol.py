@@ -37,8 +37,9 @@ from typing import Any
 from nullius.bank.items import BANK_V1, BANK_V2
 from nullius.bank.lock import DEFAULT_LOCK_PATH as TRUTH_LOCK_PATH
 from nullius.bank.lock import V2_LOCK_PATH as V2_TRUTH_LOCK_PATH
-from nullius.benchmark.arms import LADDER
+from nullius.benchmark.arms import LADDER, LADDER_V4, Arm
 from nullius.db.enums import CONFIDENCE_ORDER, ClaimConfidence, Verdict
+from nullius.kernel import ADAPTIVE_SEED_CEILING
 from nullius.util.canonical import canonical_json, sha256_of
 
 __all__ = [
@@ -49,6 +50,7 @@ __all__ = [
     "PROTOCOL_VERSIONS",
     "V2_PROTOCOL_PATH",
     "V3_PROTOCOL_PATH",
+    "V4_PROTOCOL_PATH",
     "Protocol",
     "ProtocolVerification",
     "build_protocol",
@@ -99,10 +101,43 @@ METRICS = (
 )
 
 
-LATEST_PROTOCOL_VERSION = "3"
+ARM_FIELDS_V1 = (
+    "arm_id",
+    "label",
+    "isolates",
+    "kind",
+    "preregistered",
+    "custodian",
+    "adversary",
+    "replication",
+    "reviewer",
+    "memory",
+    "iterations",
+    "model_dependent",
+)
+"""The arm fields protocols v1 to v3 registered.
+
+Pinned as a list rather than taken from ``Arm.as_dict()`` because adding a
+field to that method changed the hash of three protocols that are supposed to
+be immutable, the first time an arm gained one. The verification added in M12a
+caught it; this is the fix. A protocol records the arms *as they were
+described when it was registered*, and a later field is a later registration.
+"""
+
+ARM_FIELDS_V4 = (*ARM_FIELDS_V1, "adaptive_seeds")
+
+
+def _project(arm: Arm, fields: tuple[str, ...]) -> dict[str, Any]:
+    """One arm, reduced to the fields a given protocol registered."""
+    full = arm.as_dict()
+    return {name: full[name] for name in fields}
+
+
+LATEST_PROTOCOL_VERSION = "4"
 
 V2_PROTOCOL_PATH = Path("benchmark/protocol.v2.lock.json")
 V3_PROTOCOL_PATH = Path("benchmark/protocol.v3.lock.json")
+V4_PROTOCOL_PATH = Path("benchmark/protocol.v4.lock.json")
 
 V2_PREDICTION = (
     "The mechanism contrast B4 - B3 is positive and its 95% interval excludes "
@@ -171,7 +206,61 @@ V3_EXCLUSION_RULES = (
 )
 
 
+V4_PREDICTION = (
+    "Adaptive seeding raises coverage. B8 abstains on fewer bank items than B6 "
+    "does, and the 95% interval on that difference excludes zero."
+)
+
+V4_ADJUDICATED = {
+    "treatment": "B8",
+    "baseline": "B6",
+    "quantity": "coverage",
+    "direction": "greater",
+}
+"""The quantity the prediction is about, named so the rule cannot drift from it.
+
+v3 registered a prediction about coverage and inherited an adjudication rule
+that tested accuracy, so the run reported "refuted" after measuring something
+the prediction did not mention. It was right by accident. Storing the arms, the
+quantity and the direction as data — and deriving the verdict from them —
+is what stops a prediction and its test being edited apart.
+"""
+
+V4_EXCLUSION_RULES = (
+    *V3_EXCLUSION_RULES,
+    "The adjudicated quantity is named in the protocol and the verdict is "
+    "computed from it. A protocol whose prediction and whose adjudication rule "
+    "describe different quantities has not registered anything, however "
+    "precise either one is on its own.",
+    "Adaptive seeding may only spend seeds the registration already declared. "
+    "The full seed set is derived from seed_root at registration and has length "
+    "max_seeds; escalation chooses how far down that list to go and never which "
+    "seeds are on it.",
+    "The escalation decision reads the development split only. Deciding how "
+    "much more data to collect by looking at the quantity the verdict will be "
+    "computed from is optional stopping, and would buy significance rather "
+    "than resolution.",
+)
+
 PROTOCOL_VERSIONS: dict[str, dict[str, Any]] = {
+    "4": {
+        "items": BANK_V2,
+        "truth_lock": V2_TRUTH_LOCK_PATH,
+        "path": V4_PROTOCOL_PATH,
+        "baseline_arm": "B0",
+        "prediction": V4_PREDICTION,
+        "exclusion_rules": V4_EXCLUSION_RULES,
+        "metrics": V3_METRICS,
+        "arms": LADDER_V4,
+        "arm_fields": ARM_FIELDS_V4,
+        "extra_statistics": {
+            "calibration_scope": "asserted_effects",
+            "adjudication": "named_contrast",
+            "adjudicated": dict(V4_ADJUDICATED),
+            "verdict_vocabulary": [v.value for v in Verdict],
+            "adaptive_seed_ceiling": ADAPTIVE_SEED_CEILING,
+        },
+    },
     "1": {
         "items": BANK_V1,
         "truth_lock": TRUTH_LOCK_PATH,
@@ -180,6 +269,8 @@ PROTOCOL_VERSIONS: dict[str, dict[str, Any]] = {
         "prediction": REGISTERED_PREDICTION,
         "exclusion_rules": EXCLUSION_RULES,
         "metrics": METRICS,
+        "arms": LADDER,
+        "arm_fields": ARM_FIELDS_V1,
         "extra_statistics": {},
     },
     "3": {
@@ -190,6 +281,8 @@ PROTOCOL_VERSIONS: dict[str, dict[str, Any]] = {
         "prediction": V3_PREDICTION,
         "exclusion_rules": V3_EXCLUSION_RULES,
         "metrics": V3_METRICS,
+        "arms": LADDER,
+        "arm_fields": ARM_FIELDS_V1,
         "extra_statistics": {
             "calibration_scope": "asserted_effects",
             "adjudication": "interval_excludes_zero",
@@ -204,6 +297,8 @@ PROTOCOL_VERSIONS: dict[str, dict[str, Any]] = {
         "prediction": V2_PREDICTION,
         "exclusion_rules": V2_EXCLUSION_RULES,
         "metrics": METRICS,
+        "arms": LADDER,
+        "arm_fields": ARM_FIELDS_V1,
         "extra_statistics": {
             "calibration_scope": "asserted_effects",
             "adjudication": "interval_excludes_zero",
@@ -326,7 +421,7 @@ def build_protocol(
         prediction=settings["prediction"],
         primary_metric=PRIMARY_METRIC,
         metrics=settings["metrics"],
-        arms=tuple(arm.as_dict() for arm in LADDER),
+        arms=tuple(_project(arm, settings["arm_fields"]) for arm in settings["arms"]),
         confidence_as_probability=dict(CONFIDENCE_AS_PROBABILITY),
         statistics={
             "pairing": "paired over bank items",

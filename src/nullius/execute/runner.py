@@ -29,12 +29,14 @@ a holdout metric from anyone but the Custodian in any case.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 from nullius.build.compiler import compile_spec
 from nullius.db.enums import Role, RunStatus, Split
 from nullius.design.spec import ExperimentSpec
+from nullius.errors import InvariantViolation
 from nullius.execute.manifest import environment_hash, environment_manifest
 from nullius.execute.sandbox import SandboxBackend, SandboxLimits, SandboxResult
 from nullius.llm.pricing import usd_for_compute
@@ -94,12 +96,29 @@ class ExperimentRunner:
         dataset_id: uuid.UUID,
         program_id: uuid.UUID | None = None,
         git_commit: str = "0" * 40,
+        seeds: Sequence[int] | None = None,
     ) -> list[SeedOutcome]:
-        """Run every declared seed and record each one."""
+        """Run the declared seeds and record each one.
+
+        ``seeds`` selects a subset, and every member must be one the
+        registration already declared. That check is the whole safety of
+        adaptive seeding: escalation may decide *how many* of the preregistered
+        seeds to spend, never *which*, and never one that was not named before
+        anything ran.
+        """
         limits = SandboxLimits(wall_seconds=spec.compute_budget_seconds)
         outcomes: list[SeedOutcome] = []
 
-        for seed in spec.seeds():
+        declared = spec.seeds()
+        chosen = tuple(declared) if seeds is None else tuple(seeds)
+        undeclared = set(chosen) - set(declared)
+        if undeclared:
+            raise InvariantViolation(
+                f"seeds {sorted(undeclared)} are not in this registration's declared "
+                f"set; running an undeclared seed is running an unregistered experiment"
+            )
+
+        for seed in chosen:
             plan = compile_spec(spec, seed=seed)
             env_hash = environment_hash(plan=plan, isolation_tier=self._backend.tier.value)
 

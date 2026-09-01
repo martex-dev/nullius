@@ -35,7 +35,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-__all__ = ["LADDER", "Arm", "ArmKind", "arm_named", "mechanism_arms"]
+__all__ = ["LADDER", "LADDER_V4", "Arm", "ArmKind", "arm_named", "mechanism_arms"]
 
 
 class ArmKind(StrEnum):
@@ -88,6 +88,9 @@ class Arm:
     iterations: int = 1
     """How many times the agent may revise before committing. B2's only change."""
 
+    adaptive_seeds: bool = False
+    """Spend seeds where they would change the answer, to a declared ceiling."""
+
     model_dependent: bool = False
     """Whether this arm's behaviour is dominated by the language model.
 
@@ -108,6 +111,7 @@ class Arm:
             "reviewer": self.reviewer,
             "memory": self.memory,
             "iterations": self.iterations,
+            "adaptive_seeds": self.adaptive_seeds,
             "model_dependent": self.model_dependent,
         }
 
@@ -187,15 +191,45 @@ LADDER: tuple[Arm, ...] = (
 )
 """The ladder of ``docs/04-evaluation.md`` §3, in order.
 
+Frozen at eight arms, because protocols v1 to v3 hash it. Extending the ladder
+is extending a registration, so v4 uses :data:`LADDER_V4` and the earlier
+protocols keep verifying against the arms they were registered with.
+
 B7 differs from B6 in exactly one field. That is the whole point of expressing
 arms as switches: an ablation that differs in one boolean cannot accidentally
 differ in anything else.
 """
 
 
-def arm_named(arm_id: str) -> Arm:
+LADDER_V4: tuple[Arm, ...] = (
+    *LADDER,
+    Arm(
+        arm_id="B8",
+        label="Full + adaptive seeding",
+        isolates="whether spending seeds where they matter beats spending them evenly",
+        kind=ArmKind.INSTITUTIONAL,
+        preregistered=True,
+        custodian=True,
+        adversary=True,
+        replication=True,
+        reviewer=True,
+        memory=True,
+        adaptive_seeds=True,
+    ),
+)
+"""The ladder with the M14 arm, registered under protocol v4.
+
+B8 differs from B6 in one boolean, which is the same discipline every other
+rung follows. It exists because v3 measured a quarter of every institutional
+arm's answers as abstentions at a seed count the linter had passed as
+adequately powered — the design was powered to *detect* the claimed effect and
+not to *exclude* a smaller one, and those are different questions.
+"""
+
+
+def arm_named(arm_id: str, ladder: tuple[Arm, ...] = LADDER_V4) -> Arm:
     """Look an arm up by id, raising rather than guessing."""
-    for arm in LADDER:
+    for arm in ladder:
         if arm.arm_id == arm_id:
             return arm
     raise KeyError(f"no such arm {arm_id!r}; the ladder is {[a.arm_id for a in LADDER]}")

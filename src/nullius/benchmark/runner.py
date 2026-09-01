@@ -88,6 +88,7 @@ def mechanisms_for(arm: Arm) -> Mechanisms:
         adversary=arm.adversary,
         replication=arm.replication,
         memory=arm.memory,
+        adaptive_seeds=arm.adaptive_seeds,
     )
 
 

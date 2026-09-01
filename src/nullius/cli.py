@@ -746,7 +746,8 @@ def benchmark_run(
     console.print()
 
     console.print(
-        f"  protocol v{bank}: {len(settings['items'])} items, "
+        f"  protocol v{bank}: {len(settings['arms'])} arms over "
+        f"{len(settings['items'])} items, "
         f"baseline arm {registered.statistics['baseline_arm']}"
     )
     console.print()

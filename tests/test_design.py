@@ -6,7 +6,12 @@ import pytest
 from pydantic import ValidationError
 
 from nullius.design.linter import Severity, lint
-from nullius.design.power import minimum_detectable_effect, power_for, required_seeds
+from nullius.design.power import (
+    minimum_detectable_effect,
+    power_for,
+    required_seeds,
+    seeds_to_resolve,
+)
 from nullius.design.spec import ArmSpec, DatasetSpec, EstimatorSpec, ExperimentSpec, TransformSpec
 
 LOGREG = EstimatorSpec(op="logistic_regression")
@@ -239,3 +244,63 @@ def test_required_seeds_finds_the_smallest_adequate_n() -> None:
 
 def test_an_unreachable_effect_returns_the_cap() -> None:
     assert required_seeds(effect=1e-9, sd=1.0, cap=50) == 50
+
+
+# ---------------------------------------------------------------------------
+# M14 — adaptive seeding, preregistered as a rule rather than a number
+# ---------------------------------------------------------------------------
+
+
+def test_the_whole_seed_set_is_named_before_anything_runs() -> None:
+    """A ceiling declares more seeds; it never renumbers the ones already there.
+
+    ``n_seeds`` is immutable on a Registration by database trigger, so the only
+    honest way to spend more compute on a hard question is to preregister a
+    rule. That works precisely because escalation chooses how far down an
+    already-declared list to go, never which seeds are on it.
+    """
+    fixed = _spec(n_seeds=5)
+    adaptive = _spec(n_seeds=5, max_seeds=24)
+
+    assert len(fixed.seeds()) == 5
+    assert len(adaptive.seeds()) == 24
+    assert adaptive.seeds()[:5] == fixed.seeds()
+    assert adaptive.mandatory_seeds() == fixed.seeds()
+
+
+def test_a_ceiling_below_the_floor_is_refused() -> None:
+    with pytest.raises(ValidationError, match="below n_seeds"):
+        _spec(n_seeds=10, max_seeds=5)
+
+
+def test_no_ceiling_means_no_escalation_is_permitted() -> None:
+    spec = _spec(n_seeds=7)
+    assert spec.max_seeds == 0
+    assert spec.seed_ceiling == 7
+    assert spec.seeds() == spec.mandatory_seeds()
+
+
+def test_escalation_targets_exclusion_not_detection() -> None:
+    """Power analysis asks whether an effect can be detected. A verdict needs
+    the interval to fit inside one region, which is a stricter question and the
+    one v3 measured a quarter of every arm failing."""
+    sd = 0.00348
+    # Comfortably inside the null band: little extra needed.
+    assert seeds_to_resolve(estimate=0.002, sd=sd, mde=0.02) <= 5
+    # Pressed against the edge of the null band: more.
+    assert seeds_to_resolve(estimate=0.007, sd=sd, mde=0.02) > 5
+    # Far past the claimed effect: trivial.
+    assert seeds_to_resolve(estimate=0.05, sd=sd, mde=0.02) < 5
+    # Sitting exactly on a boundary is unresolvable at any price, and says so.
+    assert seeds_to_resolve(estimate=0.02, sd=sd, mde=0.02, cap=200) == 200
+
+
+def test_a_design_powered_to_detect_can_still_fail_to_exclude() -> None:
+    """The gap M14 exists to close, stated as an assertion.
+
+    At five seeds the design has ample power to detect an effect of 0.02, and
+    cannot place an interval inside the null band for an item sitting at 0.007.
+    """
+    sd = 0.00348
+    assert power_for(effect=0.02, sd=sd, n=5) > 0.9
+    assert seeds_to_resolve(estimate=0.007, sd=sd, mde=0.02) > 5

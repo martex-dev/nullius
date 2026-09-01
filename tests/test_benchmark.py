@@ -11,6 +11,8 @@ from nullius.benchmark.arms import LADDER, Arm, ArmKind, arm_named, mechanism_ar
 from nullius.benchmark.protocol import (
     CONFIDENCE_AS_PROBABILITY,
     V2_PROTOCOL_PATH,
+    V3_PROTOCOL_PATH,
+    V4_PROTOCOL_PATH,
     ProtocolVerification,
     build_protocol,
     read_protocol,
@@ -287,3 +289,65 @@ def test_v1_carries_none_of_the_keys_v2_registered() -> None:
     v1 = read_protocol()
     assert "calibration_scope" not in v1.statistics
     assert "adjudication" not in v1.statistics
+
+
+# ---------------------------------------------------------------------------
+# M14 — a ninth arm, and a protocol that adjudicates what it predicted
+# ---------------------------------------------------------------------------
+
+
+def test_extending_the_ladder_leaves_the_earlier_protocols_verifying() -> None:
+    """Adding `adaptive_seeds` to Arm.as_dict changed the arms payload of three
+    protocols that are supposed to be immutable, and `rebuilds_identically`
+    caught it. A protocol records the arms as they were described when it was
+    registered; a later field is a later registration."""
+    from pathlib import Path
+
+    from nullius.benchmark.protocol import PROTOCOL_VERSIONS
+
+    for version, settings in sorted(PROTOCOL_VERSIONS.items()):
+        result = verify_protocol(Path(settings["path"]))
+        assert result.ok, f"v{version}: {result}"
+        assert result.rebuilds_identically, f"v{version}"
+
+
+def test_only_v4_registered_the_adaptive_field() -> None:
+    earlier = (V2_PROTOCOL_PATH, V3_PROTOCOL_PATH)
+    for older in (read_protocol(), *(read_protocol(p) for p in earlier)):
+        assert len(older.arms) == 8
+        assert all("adaptive_seeds" not in arm for arm in older.arms)
+
+    v4 = read_protocol(V4_PROTOCOL_PATH)
+    assert len(v4.arms) == 9
+    assert all("adaptive_seeds" in arm for arm in v4.arms)
+
+
+def test_the_adaptive_arm_differs_from_the_full_institution_in_one_boolean() -> None:
+    six = arm_named("B6")
+    eight = arm_named("B8")
+    assert eight.adaptive_seeds and not six.adaptive_seeds
+    for field in ("preregistered", "custodian", "adversary", "replication", "reviewer", "memory"):
+        assert getattr(six, field) == getattr(eight, field), field
+
+
+def test_v4_names_the_quantity_it_adjudicates() -> None:
+    """v3 registered a prediction about coverage and inherited a rule that
+    tested accuracy, so it reported a verdict after measuring something the
+    prediction never mentioned. Storing the contrast as data is the fix."""
+    v4 = read_protocol(V4_PROTOCOL_PATH)
+    named = v4.statistics["adjudicated"]
+
+    assert v4.statistics["adjudication"] == "named_contrast"
+    assert named["quantity"] == "coverage"
+    assert (named["treatment"], named["baseline"]) == ("B8", "B6")
+    # And the prediction text is about the same quantity the rule will test.
+    assert "coverage" in v4.prediction.lower()
+    assert named["treatment"] in v4.prediction and named["baseline"] in v4.prediction
+
+
+def test_v4_records_the_escalation_ceiling_it_ran_under() -> None:
+    """The ceiling is part of what was preregistered, not a runtime choice."""
+    from nullius.kernel import ADAPTIVE_SEED_CEILING
+
+    v4 = read_protocol(V4_PROTOCOL_PATH)
+    assert v4.statistics["adaptive_seed_ceiling"] == ADAPTIVE_SEED_CEILING

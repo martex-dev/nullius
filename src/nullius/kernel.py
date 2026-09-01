@@ -39,6 +39,7 @@ inserting one would be a decision procedure with one option.
 from __future__ import annotations
 
 import math
+import statistics
 import uuid
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -61,6 +62,7 @@ from nullius.db.enums import (
     Role,
 )
 from nullius.design.linter import LintReport, lint
+from nullius.design.power import seeds_to_resolve
 from nullius.design.spec import ArmSpec, DatasetSpec, EstimatorSpec, ExperimentSpec, TransformSpec
 from nullius.execute.runner import ExperimentRunner, SeedOutcome
 from nullius.execute.sandbox import SandboxBackend
@@ -118,6 +120,14 @@ class Mechanisms:
     memory: bool = False
     """Show the Theorist what this programme already believes."""
 
+    adaptive_seeds: bool = False
+    """Spend seeds where they would change the answer, up to the declared ceiling.
+
+    Off, every design runs exactly its declared ``n_seeds``. On, it runs those
+    first, reads the *development* split, and then decides once how far down
+    the preregistered seed list to continue.
+    """
+
 
 FULL_INSTITUTION = Mechanisms(
     custody=True, preregistered=True, adversary=True, replication=True, memory=True
@@ -126,6 +136,18 @@ FULL_INSTITUTION = Mechanisms(
 _DEFAULT = Mechanisms()
 
 FORECASTING_ROLES = (Role.THEORIST, Role.DESIGNER, Role.ANALYST)
+
+ADAPTIVE_SEED_CEILING = 24
+"""How far an adaptive design may escalate, declared at registration.
+
+Twenty-four rather than the two hundred the spec permits, because the point is
+to buy resolution where it changes an answer and not to outspend the question.
+Measured against bank v2 at the observed paired standard error of 0.00348:
+thirty-four of sixty items resolve at five seeds or fewer, fifteen more inside
+ten, and eight more inside twenty. A ceiling of twenty-four reaches all but
+three, and those three are items no affordable seed count settles — which the
+institution should answer by abstaining rather than by spending.
+"""
 
 
 def _dev_values(outcomes: list[SeedOutcome], arm: str, metric: str) -> list[float]:
@@ -352,7 +374,7 @@ class ResearchKernel:
                 halted="designer failed",
             )
 
-        spec = self._build_spec(item, draft, design)
+        spec = self._build_spec(item, draft, design, adaptive=mechanisms.adaptive_seeds)
 
         # 3 - Lint. Errors block registration, and that is the point ---------
         report = lint(spec)
@@ -439,13 +461,28 @@ class ResearchKernel:
 
         # 6 - Execute ---------------------------------------------------------
         runner = ExperimentRunner(self._repo, self._backend, self._store, self._workroot)
+        bundle_id = self._bundle_id(spec)
+        dataset_id = self._dataset_id(item)
         outcomes = runner.run(
             spec,
             registration_id=registration_id,
-            bundle_id=self._bundle_id(spec),
-            dataset_id=self._dataset_id(item),
+            bundle_id=bundle_id,
+            dataset_id=dataset_id,
             program_id=program_id,
+            seeds=spec.mandatory_seeds() if mechanisms.adaptive_seeds else None,
         )
+
+        # 6b - Escalate, once, on what the development split shows -------------
+        if mechanisms.adaptive_seeds:
+            outcomes += self._escalate(
+                spec,
+                runner,
+                outcomes,
+                registration_id=registration_id,
+                bundle_id=bundle_id,
+                dataset_id=dataset_id,
+                program_id=program_id,
+            )
         self._repo.as_role(Role.DIRECTOR).advance_hypothesis(
             hypothesis_id, HypothesisState.EXECUTED
         )
@@ -525,6 +562,7 @@ class ResearchKernel:
                 original_registration_id=registration_id,
                 program_id=program_id,
                 original_verdict=verdict,
+                adaptive=mechanisms.adaptive_seeds,
             )
 
         # 9 - The Analyst interprets, in words ---------------------------------
@@ -654,7 +692,12 @@ class ResearchKernel:
         return spent
 
     def _build_spec(
-        self, item: BankItem, draft: HypothesisDraft, proposal: DesignProposal
+        self,
+        item: BankItem,
+        draft: HypothesisDraft,
+        proposal: DesignProposal,
+        *,
+        adaptive: bool = False,
     ) -> ExperimentSpec:
         """Assemble the specification the Designer described.
 
@@ -697,6 +740,10 @@ class ResearchKernel:
             mde=draft.mde,
             prior_sd=draft.prior_sd,
             n_seeds=proposal.n_seeds,
+            # Declared here, before the registration is locked, so the ceiling
+            # is part of what was preregistered rather than a decision taken
+            # once the first results were in.
+            max_seeds=ADAPTIVE_SEED_CEILING if adaptive else 0,
             seed_root=seed_for(item.item_id),
             tuning_budget=proposal.tuning_budget,
             compute_budget_seconds=300.0,
@@ -781,6 +828,69 @@ class ResearchKernel:
         )
         return claim.claim_id, confidence
 
+    def _escalate(
+        self,
+        spec: ExperimentSpec,
+        runner: ExperimentRunner,
+        done: list[SeedOutcome],
+        *,
+        registration_id: uuid.UUID,
+        bundle_id: uuid.UUID,
+        dataset_id: uuid.UUID,
+        program_id: uuid.UUID,
+    ) -> list[SeedOutcome]:
+        """Buy more seeds, once, if the development split says they would help.
+
+        **Why this is not optional stopping.** The decision reads the
+        development split, which the experiment is entitled to see and which
+        the Custodian's firewall exists to separate from the evaluation split.
+        The verdict is computed later, from a single custody query taken over
+        whatever seeds this returns. Nothing looks at the scored quantity and
+        then decides whether to keep going, which is the thing that inflates
+        error rates.
+
+        **And it happens once.** Not a loop that re-checks after every seed and
+        stops when the interval finally cooperates. One look, one target, one
+        additional batch — an internal pilot design, so the escalation is a
+        function of the nuisance parameters and the development estimate rather
+        than of how the answer is turning out.
+
+        Every seed it can reach was named in the registration. The ceiling is
+        ``spec.max_seeds`` and the runner refuses anything outside the declared
+        set, so the worst this can do is spend the whole preregistered budget.
+        """
+        completed = [o for o in done if o.ok]
+        if len(completed) < 2 or spec.seed_ceiling <= len(done):
+            return []
+
+        baseline = _dev_values(completed, spec.baseline_arm, spec.primary_metric)
+        treatment = _dev_values(completed, spec.treatment_arm, spec.primary_metric)
+        if len(baseline) < 2 or len(baseline) != len(treatment):
+            return []
+
+        differences = [t - b for b, t in zip(baseline, treatment, strict=True)]
+        estimate = statistics.fmean(differences)
+        sd = statistics.stdev(differences)
+        if sd <= 0:
+            return []
+
+        target = seeds_to_resolve(estimate=estimate, sd=sd, mde=spec.mde)
+        wanted = min(target, spec.seed_ceiling)
+        if wanted <= len(done):
+            return []
+
+        extra = spec.seeds()[len(done) : wanted]
+        if not extra:
+            return []
+        return runner.run(
+            spec,
+            registration_id=registration_id,
+            bundle_id=bundle_id,
+            dataset_id=dataset_id,
+            program_id=program_id,
+            seeds=extra,
+        )
+
     def _replicate(
         self,
         spec: ExperimentSpec,
@@ -790,6 +900,7 @@ class ResearchKernel:
         original_registration_id: uuid.UUID,
         program_id: uuid.UUID,
         original_verdict: VerdictReport,
+        adaptive: bool = False,
     ) -> int:
         """Re-register the design and run it again, independently.
 
@@ -839,13 +950,33 @@ class ResearchKernel:
 
         replicator = self._repo.as_role(Role.REPLICATOR)
         runner = ExperimentRunner(replicator, self._backend, self._store, self._workroot)
+        bundle_id = self._bundle_id(replication_spec)
+        dataset_id = self._dataset_id(item)
         outcomes = runner.run(
             replication_spec,
             registration_id=registration.registration_id,
-            bundle_id=self._bundle_id(replication_spec),
-            dataset_id=self._dataset_id(item),
+            bundle_id=bundle_id,
+            dataset_id=dataset_id,
             program_id=program_id,
+            seeds=replication_spec.mandatory_seeds() if adaptive else None,
         )
+        if adaptive:
+            # The replication follows the same escalation rule on its own data.
+            # Without this it ran the entire declared ceiling, because the
+            # runner's default is every seed the spec names -- which under an
+            # adaptive spec is the ceiling rather than the floor. That spent the
+            # full budget on every replication regardless of need, and made B8
+            # look expensive for a reason that had nothing to do with adaptive
+            # seeding.
+            outcomes += self._escalate(
+                replication_spec,
+                runner,
+                outcomes,
+                registration_id=registration.registration_id,
+                bundle_id=bundle_id,
+                dataset_id=dataset_id,
+                program_id=program_id,
+            )
         completed = [o for o in outcomes if o.ok]
         if not completed:
             self._repo.as_role(Role.REPLICATOR).record_replication(

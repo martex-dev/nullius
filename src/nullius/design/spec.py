@@ -128,6 +128,23 @@ class ExperimentSpec(_Frozen):
 
     split: SplitSpec = Field(default_factory=SplitSpec)
     n_seeds: int = Field(ge=1, le=200)
+    """Seeds that always run. The floor, not the plan."""
+
+    max_seeds: int = Field(default=0, ge=0, le=200)
+    """Ceiling for adaptive escalation. Zero means no escalation is permitted.
+
+    The whole seed *set* is derived from ``seed_root`` at registration and has
+    length ``max(n_seeds, max_seeds)``, so every seed that could ever run was
+    named before any of them ran. Escalation only decides how far down an
+    already-declared list to go — it can never reach a seed the
+    preregistration did not contain.
+
+    This is what makes adaptive seeding compatible with a locked
+    registration. ``n_seeds`` is immutable on a ``Registration`` by database
+    trigger; the way to spend more compute on a hard question is therefore to
+    preregister a *rule* rather than to revise a number.
+    """
+
     seed_root: int = Field(ge=0)
     tuning_budget: int = Field(default=0, ge=0)
     """Identical for every arm. An under-tuned baseline is not a baseline."""
@@ -159,17 +176,38 @@ class ExperimentSpec(_Frozen):
         return self
 
     @model_validator(mode="after")
+    def _escalation_ceiling_is_reachable(self) -> ExperimentSpec:
+        if self.max_seeds and self.max_seeds < self.n_seeds:
+            raise ValueError(
+                f"max_seeds {self.max_seeds} is below n_seeds {self.n_seeds}; a "
+                "ceiling under the floor would declare an escalation that cannot "
+                "happen while implying one that can"
+            )
+        return self
+
+    @model_validator(mode="after")
     def _splits_leave_room_to_train(self) -> ExperimentSpec:
         if self.split.dev_fraction + self.split.holdout_fraction >= 0.9:
             raise ValueError("dev and holdout fractions leave under 10% for training")
         return self
 
+    @property
+    def seed_ceiling(self) -> int:
+        """How many seeds this design is permitted to draw at most."""
+        return max(self.n_seeds, self.max_seeds)
+
     def seeds(self) -> tuple[int, ...]:
-        """The seeds this experiment will use, derived from ``seed_root``.
+        """Every seed this experiment may use, derived from ``seed_root``.
 
         Deterministic and part of the registration, so the set of seeds is
         fixed before any of them runs — which is what makes reporting all of
         them checkable rather than trust-based.
+
+        Length is :attr:`seed_ceiling`. When no escalation is permitted that
+        equals ``n_seeds`` and this is exactly what it always was; the first
+        ``n_seeds`` entries are unchanged either way, because the generator is
+        drawn in order from the same root. A design that adds a ceiling
+        therefore does not renumber the seeds it already had.
 
         Drawn below :data:`~nullius.util.ids.EXPERIMENT_SEED_CEILING`, so an
         experiment can never land on a seed the bank's oracle used.
@@ -180,8 +218,12 @@ class ExperimentSpec(_Frozen):
 
         generator = np.random.default_rng(self.seed_root)
         return tuple(
-            int(s) for s in generator.integers(0, EXPERIMENT_SEED_CEILING, size=self.n_seeds)
+            int(s) for s in generator.integers(0, EXPERIMENT_SEED_CEILING, size=self.seed_ceiling)
         )
+
+    def mandatory_seeds(self) -> tuple[int, ...]:
+        """The seeds that run whatever happens."""
+        return self.seeds()[: self.n_seeds]
 
     def arm(self, name: str) -> ArmSpec:
         for arm in self.arms:
