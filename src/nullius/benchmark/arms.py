@@ -39,11 +39,32 @@ __all__ = [
     "LADDER",
     "LADDER_V4",
     "LADDER_V6",
+    "MODEL_MEDIATED",
     "Arm",
     "ArmKind",
     "arm_named",
     "mechanism_arms",
 ]
+
+
+MODEL_MEDIATED: frozenset[str] = frozenset({"memory", "iterations"})
+"""Switches that can only act by changing what a model writes.
+
+Everything else on an :class:`Arm` changes what the *system* does — whether a
+design is locked, whether a Custodian holds the evaluation split, whether
+detectors run, how many seeds are bought. Those act whatever the provider is.
+These two do not. Memory adds recalled claims to the Theorist's view and
+iteration hands an agent its own previous answer, and if the provider ignores
+its input then both are delivered perfectly and change nothing.
+
+That is not hypothetical. Under this project's mock the canned response is
+byte-identical with and without ``established_claims`` in the view, so B6 minus
+B7 measured the difference between two custody draws and was reported as
+memory's contribution across protocols v1 to v5. B1 and B2 were labelled
+``model_dependent`` from the start for exactly this reason; memory was not, and
+four registered protocols carried a null result for a mechanism that could not
+have produced any other.
+"""
 
 
 class ArmKind(StrEnum):
@@ -126,6 +147,22 @@ class Arm:
             "conservative_escalation": self.conservative_escalation,
             "model_dependent": self.model_dependent,
         }
+
+    def differs_only_by_model(self, other: Arm) -> bool:
+        """Whether the only switches separating these two arms act through a model.
+
+        A contrast between such a pair is uninterpretable under a provider whose
+        output does not depend on its input, because the mechanism is delivered
+        and then discarded. The report labels it rather than printing an
+        interval that looks like a measurement.
+        """
+        mine, theirs = self.as_dict(), other.as_dict()
+        differing = {
+            key
+            for key in mine
+            if key not in ("arm_id", "label", "isolates") and mine[key] != theirs[key]
+        }
+        return bool(differing) and differing <= MODEL_MEDIATED
 
     def __str__(self) -> str:
         return f"{self.arm_id} {self.label}"

@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M19 complete; v5 landed, v6 registered and not yet run (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M20 complete; v5 landed, v6 running (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -510,6 +510,23 @@ The README claims results trace to hashed artifacts and the repo rebuilds from a
 Measured now: running a custodied arm twice gives **bit-identical verdicts and realised effects to nine decimals**. Every scientific field matches. **Only `usd` differs, by about 0.2%** — compute is billed from wall-clock seconds actually consumed, which no seeding makes deterministic. Reporting it as reproducible would be the comfortable lie; dropping compute from the cost would make the economy measure half of what a run spends. A tenth CI job runs the comparison on a clean machine.
 
 **Two display and reconstruction bugs, both found by reading the output rather than trusting it.** The results table had lost the `n` header while still emitting the value, so every column after `arm` was shifted by one and the whole table misread — my own first summary of v5 was wrong because of it. And `read_results` rebuilt outcomes field by field without `replicate`, so a three-pass arm reported itself as one-pass, which is the single number telling a reader how much replication is behind the figures. That is the fourth time a reconstruction path drifted from its schema, so the fix is a round-trip test comparing whole dicts rather than another named field.
+
+---
+
+### M20 · A null result was reported for a mechanism that could not have acted ✅
+Memory has failed to show a contribution across five protocols. That is not a finding about memory.
+
+**Memory can only act by changing what a model writes.** It adds recalled claims to the Theorist's view; nothing else. The mock's response is byte-identical with and without them — verified directly. So B6 − B7, whose arms differ in that one switch, measured **the difference between two custody draws** and was reported as memory's contribution in v1 through v5.
+
+B1 and B2 were labelled `model_dependent` from the start for exactly this reason. Memory was not, and four registered protocols carried a null result for a switch that was delivered and discarded.
+
+**The fix is general, not a special case for memory.** `MODEL_MEDIATED` names the switches that act only through a model — `memory` and `iterations` — and `Arm.differs_only_by_model` detects any contrast separated by nothing else. Contrasts so identified are labelled **not interpretable** rather than printed as intervals. The rule independently re-derives B2 − B1, which was already flagged, and leaves B4 − B3, B8 − B6, B6 − B4 and B9 − B8 interpretable, so it is narrow enough not to excuse every null.
+
+Re-scored across all five committed results it flags **exactly one contrast per protocol, the same one**. No adjudicated prediction was ever made on B6 − B7, so no headline moves. This is a reporting correction, not a new analysis plan, and it needs no protocol v7.
+
+**A false alarm worth recording.** The first diagnosis was that `recall()` returned nothing because each bank item runs in its own programme. It returned nothing *when I called it* — with the default `scope="program"`. The kernel calls it with `scope="lab"`, which returns ten claims. I had started editing `recall` to "fix" something that worked. Checking what the caller actually passes is what stopped it.
+
+**Three malformed lists that had been shipping since M18.** Jinja's `trim_blocks` eats the newline after a block tag, so every Markdown bullet whose line ended with an inline `{% endif %}` silently joined the next — the baseline comparisons, the new contrasts, and the limitations all rendered as single run-on lines. **The CI drift check could not see it**: that check verifies the committed file matches the generator, and both were wrong in the same way. A consistency check is not a correctness check. Two structural tests now assert the generated Markdown is well formed — one caught two of the three lists on its first run, and the table test encodes the shifted-column bug from M19.
 
 **A wiring bug worth recording.** The first v4 ladder ran eight arms under a nine-arm protocol: a `ruff format` pass had collapsed the `run_ladder(...)` call onto one line before an edit meant to add `arms=` to it, so the replacement matched nothing and the runner silently used its eight-arm default. It produced a complete-looking results file — seven of seven baseline comparisons, no halted items — and nothing objected except the adjudication, which happened to name the missing arm by id. `score_ladder` now refuses any run whose arms do not match the protocol's, in either direction. The eight completed arms were reused from their checkpoints, so the correction cost one arm's compute rather than nine.
 

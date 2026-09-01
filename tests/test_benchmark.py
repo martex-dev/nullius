@@ -7,7 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from nullius.benchmark.arms import LADDER, Arm, ArmKind, arm_named, mechanism_arms
+from nullius.benchmark.arms import (
+    LADDER,
+    MODEL_MEDIATED,
+    Arm,
+    ArmKind,
+    arm_named,
+    mechanism_arms,
+)
 from nullius.benchmark.protocol import (
     CONFIDENCE_AS_PROBABILITY,
     V2_PROTOCOL_PATH,
@@ -391,3 +398,49 @@ def test_v6_adjudicates_the_quantity_its_prediction_names() -> None:
     assert named["quantity"] == "coverage"
     assert "coverage" in v6.prediction.lower()
     assert v6.statistics["escalation_confidence"] == 0.80
+
+
+# ---------------------------------------------------------------------------
+# M20 — a mechanism that can only act through a model cannot act through a mock
+# ---------------------------------------------------------------------------
+
+
+def test_memory_and_iteration_are_the_model_mediated_switches() -> None:
+    """Everything else on an arm changes what the *system* does and acts
+    whatever the provider is. These two change only what a model is shown."""
+    assert frozenset({"memory", "iterations"}) == MODEL_MEDIATED
+
+
+def test_the_memory_contrast_is_not_interpretable_under_a_mock() -> None:
+    """B6 and B7 are both full institutions; the single switch between them is
+    memory, and the mock's response is byte-identical with and without recalled
+    claims in the view. The interval measures two custody draws."""
+    assert arm_named("B6").differs_only_by_model(arm_named("B7"))
+    assert arm_named("B2").differs_only_by_model(arm_named("B1"))
+
+
+def test_contrasts_with_real_machinery_between_them_stay_interpretable() -> None:
+    """The rule has to be narrow or it excuses every null result."""
+    for treatment, baseline in (("B4", "B3"), ("B8", "B6"), ("B9", "B8"), ("B6", "B4")):
+        assert not arm_named(treatment).differs_only_by_model(arm_named(baseline))
+
+
+def test_an_arm_does_not_differ_from_itself() -> None:
+    """A pair with no differing switches is not 'differing only by model'."""
+    assert not arm_named("B6").differs_only_by_model(arm_named("B6"))
+
+
+def test_every_committed_result_labels_exactly_the_memory_contrast() -> None:
+    """The correction is bounded. One contrast per protocol, the same one, and
+    no adjudicated prediction was ever made on it — so no headline moves."""
+    from pathlib import Path
+
+    from nullius.benchmark.metrics import read_results
+
+    for name in ("results", "results.v2", "results.v3", "results.v4", "results.v5"):
+        report, _ = read_results(Path(f"benchmark/{name}.lock.json"))
+        flagged = [c for c in report.prediction_contrasts if c.model_mediated]
+        assert [(c.arm_id, c.baseline_arm_id) for c in flagged] == [("B6", "B7")], name
+        adjudicated = report.protocol_hash
+        assert adjudicated  # the verdict never rested on the flagged contrast
+        assert "B6 - B7" not in report.prediction_reason

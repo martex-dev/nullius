@@ -90,6 +90,18 @@ FLAWS: tuple[Flaw, ...] = (
         "One contrast, B4 minus B3, flipped from spanning zero to excluding it on the "
         "same bank. v5 replicates every custodied arm three times. (M14b)",
     ),
+    Flaw(
+        "A null result was reported for a mechanism that could not have acted.",
+        "Memory adds recalled claims to the Theorist's view, so it can only act by "
+        "changing what a model writes. The mock's response is byte-identical with "
+        "and without them. B6 minus B7 therefore measured the difference between "
+        "two custody draws, and was reported as memory's contribution across "
+        "protocols v1 to v5 — four registered protocols carrying a null result for "
+        "a switch that was delivered and discarded. B1 and B2 were labelled "
+        "model-dependent from the start for exactly this reason; memory was not. "
+        "Contrasts whose arms differ only in a model-mediated switch are now "
+        "labelled uninterpretable rather than printed as intervals. (M20)",
+    ),
 )
 
 #: What this document cannot support, stated where a reader will meet it.
@@ -97,7 +109,11 @@ LIMITATIONS: tuple[str, ...] = (
     "Every result was produced under a mock provider. The institution's machinery — "
     "the compiler, the sandbox, the Custodian, the statistics, the confidence rubric — "
     "is real and so are the verdicts, but the prose each role emits is canned. Arms B1 "
-    "and B2 are dominated by that prose and are reported as describing the mock.",
+    "and B2 are dominated by that prose and are reported as describing the mock, and "
+    "any contrast whose arms differ only in a switch that acts through the model — "
+    "memory, iteration — is labelled uninterpretable rather than reported as a "
+    "measurement. Nothing here says whether memory helps a real institution; it says "
+    "this benchmark cannot find out without a real provider.",
     "The bank is sixty synthetic items from one data generating process. The population "
     "these results generalise to is 'questions like these', which is the only population "
     "sixty items of one family can speak for.",
@@ -119,6 +135,27 @@ def _num(value: float, places: int = 3) -> str:
     return f"{value:.{places}f}"
 
 
+def _note(comparison: object) -> str:
+    """The annotation that follows a contrast, as a plain string.
+
+    A string rather than an inline ``{% if %}`` because Jinja's ``trim_blocks``
+    eats the newline after a block tag, and a Markdown bullet whose line ends
+    with one loses its line break. Every contrast list in the committed
+    findings had been rendering as a single run-on line since M18 for exactly
+    that reason, and the CI drift check could not see it: that check verifies
+    the file matches the generator, and both were wrong in the same way.
+    A consistency check is not a correctness check.
+    """
+    if getattr(comparison, "model_mediated", False):
+        return (
+            " — **not interpretable.** These arms differ only in a switch that acts "
+            "through the model, and under a mock the interval measures two custody draws"
+        )
+    if getattr(comparison, "model_dependent", False):
+        return " *(model-dependent)*"
+    return " — excludes zero" if getattr(comparison, "separates", False) else " — spans zero"
+
+
 def environment() -> Environment:
     env = Environment(
         loader=PackageLoader("nullius.paper", "templates"),
@@ -128,6 +165,7 @@ def environment() -> Environment:
         lstrip_blocks=True,
     )
     env.globals["num"] = _num
+    env.globals["note"] = _note
     return env
 
 

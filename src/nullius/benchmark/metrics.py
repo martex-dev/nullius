@@ -277,10 +277,26 @@ class Comparison:
     model_dependent: bool
     """True if either side of this comparison is dominated by the model."""
 
+    model_mediated: bool = False
+    """True when the *only* switches separating the arms act through a model.
+
+    Distinct from ``model_dependent``, which is about an arm. This is about the
+    contrast: B6 and B7 are both institutional arms with real machinery, and the
+    single thing between them is memory, which can act only by changing what the
+    Theorist writes. Under a provider whose output does not depend on its input,
+    the mechanism is delivered and discarded, and the interval below measures two
+    custody draws.
+    """
+
     @property
     def separates(self) -> bool:
         """Whether the interval excludes no difference at all."""
         return self.ci_low > 0.0 or self.ci_high < 0.0
+
+    @property
+    def interpretable(self) -> bool:
+        """Whether this interval can be read as evidence about a mechanism."""
+        return not self.model_mediated
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -294,12 +310,19 @@ class Comparison:
             "resamples": self.resamples,
             "separates": self.separates,
             "model_dependent": self.model_dependent,
+            "model_mediated": self.model_mediated,
+            "interpretable": self.interpretable,
         }
 
     def __str__(self) -> str:
+        note = (
+            " (not interpretable: differs only in a model-mediated switch)"
+            if (self.model_mediated)
+            else ""
+        )
         return (
             f"{self.arm_id} - {self.baseline_arm_id}: {self.difference:+.3f} "
-            f"[{self.ci_low:+.3f}, {self.ci_high:+.3f}] p={self.p_value:.4f}"
+            f"[{self.ci_low:+.3f}, {self.ci_high:+.3f}] p={self.p_value:.4f}{note}"
         )
 
 
@@ -571,6 +594,7 @@ def _contrast(
     *,
     seed: int,
     quantity: str = "verdict_accuracy",
+    mock_provider: bool = True,
 ) -> Comparison | None:
     """One paired arm-against-arm interval, or None if either arm is missing."""
     by_id = {run.arm.arm_id: run for run in runs}
@@ -601,6 +625,9 @@ def _contrast(
         p_value=p_value,
         resamples=int(protocol.statistics["resamples"]),
         model_dependent=treatment.arm.model_dependent or baseline.arm.model_dependent,
+        # Under a provider that ignores its input, a contrast whose arms differ
+        # only in model-mediated switches is not a measurement of anything.
+        model_mediated=(mock_provider and treatment.arm.differs_only_by_model(baseline.arm)),
     )
 
 

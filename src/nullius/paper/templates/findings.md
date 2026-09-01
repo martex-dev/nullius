@@ -43,15 +43,23 @@ Against the registered baseline `{{ c.protocol.statistics['baseline_arm'] }}`, c
 {{ c.report.correction.n_rejected }} of {{ c.report.comparisons | length }} survive:
 
 {% for comp in c.report.comparisons -%}
-- `{{ comp.arm_id }} − {{ comp.baseline_arm_id }}` = {{ '%+.3f' | format(comp.difference) }}, 95% CI [{{ '%+.3f' | format(comp.ci_low) }}, {{ '%+.3f' | format(comp.ci_high) }}]{% if comp.model_dependent %} *(model-dependent)*{% endif %}
+- `{{ comp.arm_id }} − {{ comp.baseline_arm_id }}` = {{ '%+.3f' | format(comp.difference) }}, 95% CI [{{ '%+.3f' | format(comp.ci_low) }}, {{ '%+.3f' | format(comp.ci_high) }}]{{ note(comp) }}
+{% endfor %}
+{%- endif %}
+{% if c.report.prediction_contrasts %}
+
+The contrasts the ladder was built to make:
+
+{% for comp in c.report.prediction_contrasts -%}
+- `{{ comp.arm_id }} − {{ comp.baseline_arm_id }}` on {{ comp.metric }} = {{ '%+.3f' | format(comp.difference) }}, 95% CI [{{ '%+.3f' | format(comp.ci_low) }}, {{ '%+.3f' | format(comp.ci_high) }}]{{ note(comp) }}
 {% endfor %}
 {%- endif %}
 
 \* behaviour dominated by the language model. Under a mock provider these arms describe the
 mock and not a model, and no claim about mechanism rests on them.
-{%- else -%}
+{%- else %}
 Registered, not yet run.
-{%- endif %}
+{% endif %}
 {% endfor %}
 
 ## The question bank
@@ -82,7 +90,7 @@ fixed before anything is published.
 
 {% for limitation in limitations %}
 - {{ limitation }}
-{%- endfor %}
+{% endfor %}
 
 ## Provenance
 

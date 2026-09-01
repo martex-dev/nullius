@@ -47,7 +47,20 @@ Against the registered baseline `B1`, corrected with
 benjamini-hochberg at alpha 0.05 —
 5 of 7 survive:
 
-- `B0 − B1` = +0.250, 95% CI [-0.100, +0.550] *(model-dependent)*- `B2 − B1` = +0.000, 95% CI [+0.000, +0.000] *(model-dependent)*- `B3 − B1` = +0.700, 95% CI [+0.450, +0.900] *(model-dependent)*- `B4 − B1` = +0.750, 95% CI [+0.550, +0.900] *(model-dependent)*- `B5 − B1` = +0.750, 95% CI [+0.550, +0.900] *(model-dependent)*- `B6 − B1` = +0.700, 95% CI [+0.450, +0.900] *(model-dependent)*- `B7 − B1` = +0.750, 95% CI [+0.500, +0.950] *(model-dependent)*
+- `B0 − B1` = +0.250, 95% CI [-0.100, +0.550] *(model-dependent)*
+- `B2 − B1` = +0.000, 95% CI [+0.000, +0.000] *(model-dependent)*
+- `B3 − B1` = +0.700, 95% CI [+0.450, +0.900] *(model-dependent)*
+- `B4 − B1` = +0.750, 95% CI [+0.550, +0.900] *(model-dependent)*
+- `B5 − B1` = +0.750, 95% CI [+0.550, +0.900] *(model-dependent)*
+- `B6 − B1` = +0.700, 95% CI [+0.450, +0.900] *(model-dependent)*
+- `B7 − B1` = +0.750, 95% CI [+0.500, +0.950] *(model-dependent)*
+
+The contrasts the ladder was built to make:
+
+- `B4 − B3` on verdict_accuracy = +0.050, 95% CI [+0.000, +0.150] — spans zero
+- `B6 − B4` on verdict_accuracy = -0.050, 95% CI [-0.150, +0.000] — spans zero
+- `B6 − B7` on verdict_accuracy = -0.050, 95% CI [-0.150, +0.000] — **not interpretable.** These arms differ only in a switch that acts through the model, and under a mock the interval measures two custody draws
+
 \* behaviour dominated by the language model. Under a mock provider these arms describe the
 mock and not a model, and no claim about mechanism rests on them.### Protocol v2 — refuted
 
@@ -69,7 +82,20 @@ Against the registered baseline `B0`, corrected with
 benjamini-hochberg at alpha 0.05 —
 4 of 7 survive:
 
-- `B1 − B0` = -0.267, 95% CI [-0.450, -0.067] *(model-dependent)*- `B2 − B0` = -0.267, 95% CI [-0.450, -0.067] *(model-dependent)*- `B3 − B0` = +0.150, 95% CI [-0.067, +0.350]- `B4 − B0` = +0.217, 95% CI [+0.000, +0.417]- `B5 − B0` = +0.167, 95% CI [-0.033, +0.383]- `B6 − B0` = +0.267, 95% CI [+0.050, +0.450]- `B7 − B0` = +0.250, 95% CI [+0.050, +0.467]
+- `B1 − B0` = -0.267, 95% CI [-0.450, -0.067] *(model-dependent)*
+- `B2 − B0` = -0.267, 95% CI [-0.450, -0.067] *(model-dependent)*
+- `B3 − B0` = +0.150, 95% CI [-0.067, +0.350] — spans zero
+- `B4 − B0` = +0.217, 95% CI [+0.000, +0.417] — spans zero
+- `B5 − B0` = +0.167, 95% CI [-0.033, +0.383] — spans zero
+- `B6 − B0` = +0.267, 95% CI [+0.050, +0.450] — excludes zero
+- `B7 − B0` = +0.250, 95% CI [+0.050, +0.467] — excludes zero
+
+The contrasts the ladder was built to make:
+
+- `B4 − B3` on verdict_accuracy = +0.067, 95% CI [-0.033, +0.167] — spans zero
+- `B6 − B4` on verdict_accuracy = +0.050, 95% CI [-0.050, +0.167] — spans zero
+- `B6 − B7` on verdict_accuracy = +0.017, 95% CI [-0.050, +0.083] — **not interpretable.** These arms differ only in a switch that acts through the model, and under a mock the interval measures two custody draws
+
 \* behaviour dominated by the language model. Under a mock provider these arms describe the
 mock and not a model, and no claim about mechanism rests on them.### Protocol v3 — refuted
 
@@ -91,7 +117,20 @@ Against the registered baseline `B0`, corrected with
 benjamini-hochberg at alpha 0.05 —
 2 of 7 survive:
 
-- `B1 − B0` = -0.267, 95% CI [-0.450, -0.067] *(model-dependent)*- `B2 − B0` = -0.267, 95% CI [-0.450, -0.067] *(model-dependent)*- `B3 − B0` = +0.033, 95% CI [-0.167, +0.233]- `B4 − B0` = +0.067, 95% CI [-0.117, +0.250]- `B5 − B0` = +0.100, 95% CI [-0.100, +0.300]- `B6 − B0` = +0.117, 95% CI [-0.083, +0.317]- `B7 − B0` = +0.117, 95% CI [-0.067, +0.300]
+- `B1 − B0` = -0.267, 95% CI [-0.450, -0.067] *(model-dependent)*
+- `B2 − B0` = -0.267, 95% CI [-0.450, -0.067] *(model-dependent)*
+- `B3 − B0` = +0.033, 95% CI [-0.167, +0.233] — spans zero
+- `B4 − B0` = +0.067, 95% CI [-0.117, +0.250] — spans zero
+- `B5 − B0` = +0.100, 95% CI [-0.100, +0.300] — spans zero
+- `B6 − B0` = +0.117, 95% CI [-0.083, +0.317] — spans zero
+- `B7 − B0` = +0.117, 95% CI [-0.067, +0.300] — spans zero
+
+The contrasts the ladder was built to make:
+
+- `B4 − B3` on verdict_accuracy = +0.033, 95% CI [-0.050, +0.117] — spans zero
+- `B6 − B4` on verdict_accuracy = +0.050, 95% CI [-0.067, +0.167] — spans zero
+- `B6 − B7` on verdict_accuracy = +0.000, 95% CI [-0.117, +0.117] — **not interpretable.** These arms differ only in a switch that acts through the model, and under a mock the interval measures two custody draws
+
 \* behaviour dominated by the language model. Under a mock provider these arms describe the
 mock and not a model, and no claim about mechanism rests on them.### Protocol v4 — upheld
 
@@ -114,7 +153,22 @@ Against the registered baseline `B0`, corrected with
 benjamini-hochberg at alpha 0.05 —
 3 of 8 survive:
 
-- `B1 − B0` = -0.267, 95% CI [-0.450, -0.067] *(model-dependent)*- `B2 − B0` = -0.267, 95% CI [-0.450, -0.067] *(model-dependent)*- `B3 − B0` = +0.033, 95% CI [-0.167, +0.233]- `B4 − B0` = +0.167, 95% CI [-0.017, +0.350]- `B5 − B0` = +0.167, 95% CI [-0.017, +0.367]- `B6 − B0` = +0.100, 95% CI [-0.100, +0.283]- `B7 − B0` = +0.100, 95% CI [-0.083, +0.283]- `B8 − B0` = +0.283, 95% CI [+0.083, +0.483]
+- `B1 − B0` = -0.267, 95% CI [-0.450, -0.067] *(model-dependent)*
+- `B2 − B0` = -0.267, 95% CI [-0.450, -0.067] *(model-dependent)*
+- `B3 − B0` = +0.033, 95% CI [-0.167, +0.233] — spans zero
+- `B4 − B0` = +0.167, 95% CI [-0.017, +0.350] — spans zero
+- `B5 − B0` = +0.167, 95% CI [-0.017, +0.367] — spans zero
+- `B6 − B0` = +0.100, 95% CI [-0.100, +0.283] — spans zero
+- `B7 − B0` = +0.100, 95% CI [-0.083, +0.283] — spans zero
+- `B8 − B0` = +0.283, 95% CI [+0.083, +0.483] — excludes zero
+
+The contrasts the ladder was built to make:
+
+- `B4 − B3` on verdict_accuracy = +0.133, 95% CI [+0.033, +0.233] — excludes zero
+- `B6 − B4` on verdict_accuracy = -0.067, 95% CI [-0.183, +0.050] — spans zero
+- `B6 − B7` on verdict_accuracy = +0.000, 95% CI [-0.117, +0.117] — **not interpretable.** These arms differ only in a switch that acts through the model, and under a mock the interval measures two custody draws
+- `B8 − B6` on coverage = +0.183, 95% CI [+0.083, +0.300] — excludes zero
+
 \* behaviour dominated by the language model. Under a mock provider these arms describe the
 mock and not a model, and no claim about mechanism rests on them.### Protocol v5 — upheld
 
@@ -137,13 +191,29 @@ Against the registered baseline `B0`, corrected with
 benjamini-hochberg at alpha 0.05 —
 3 of 8 survive:
 
-- `B1 − B0` = -0.267, 95% CI [-0.450, -0.067] *(model-dependent)*- `B2 − B0` = -0.267, 95% CI [-0.450, -0.067] *(model-dependent)*- `B3 − B0` = +0.033, 95% CI [-0.167, +0.233]- `B4 − B0` = +0.072, 95% CI [-0.106, +0.244]- `B5 − B0` = +0.100, 95% CI [-0.078, +0.289]- `B6 − B0` = +0.078, 95% CI [-0.117, +0.261]- `B7 − B0` = +0.122, 95% CI [-0.056, +0.311]- `B8 − B0` = +0.267, 95% CI [+0.094, +0.439]
+- `B1 − B0` = -0.267, 95% CI [-0.450, -0.067] *(model-dependent)*
+- `B2 − B0` = -0.267, 95% CI [-0.450, -0.067] *(model-dependent)*
+- `B3 − B0` = +0.033, 95% CI [-0.167, +0.233] — spans zero
+- `B4 − B0` = +0.072, 95% CI [-0.106, +0.244] — spans zero
+- `B5 − B0` = +0.100, 95% CI [-0.078, +0.289] — spans zero
+- `B6 − B0` = +0.078, 95% CI [-0.117, +0.261] — spans zero
+- `B7 − B0` = +0.122, 95% CI [-0.056, +0.311] — spans zero
+- `B8 − B0` = +0.267, 95% CI [+0.094, +0.439] — excludes zero
+
+The contrasts the ladder was built to make:
+
+- `B4 − B3` on verdict_accuracy = +0.039, 95% CI [-0.056, +0.133] — spans zero
+- `B6 − B4` on verdict_accuracy = +0.006, 95% CI [-0.056, +0.067] — spans zero
+- `B6 − B7` on verdict_accuracy = -0.044, 95% CI [-0.106, +0.011] — **not interpretable.** These arms differ only in a switch that acts through the model, and under a mock the interval measures two custody draws
+- `B8 − B6` on coverage = +0.122, 95% CI [+0.044, +0.211] — excludes zero
+
 \* behaviour dominated by the language model. Under a mock provider these arms describe the
 mock and not a model, and no claim about mechanism rests on them.### Protocol v6 — registered, not yet run
 
 > **Registered prediction.** Sizing the escalation from an upper bound on the noise rather than a point estimate raises coverage. B9 abstains on fewer bank items than B8 does, and the 95% interval on that difference excludes zero. It should also cost more per item, because a bound that errs towards more data buys more data; if cost per correct claim rises without coverage improving, the bound is only expensive.
 
 Registered, not yet run.
+
 ## The question bank
 
 Ground truth is planted, not judged. The oracle measures each item's true effect at forty
@@ -169,10 +239,16 @@ fixed before anything is published.
 4. **Abstention was scored as an answer, and sometimes as a correct one.** One verdict value meant both 'the effect is real and smaller than claimed' and 'the interval is too wide to say anything'. Because the first is a real truth value in this bank, an arm that could say nothing was credited with a correct answer whenever the truth happened to be that value. Every arm's accuracy was inflated, unevenly, by four to nine items in sixty. v3 split the verdict; 'underpowered' is never a truth, so an abstention can no longer be scored correct by accident. (M13)
 5. **A prediction and its adjudication rule described different quantities.** v3 registered a prediction about coverage and inherited a rule that tested accuracy, so the run reported a verdict after measuring something the prediction did not mention. It was right by accident. v4 stores the adjudicated contrast as data — treatment, baseline, quantity, direction — and derives the verdict from it, so the two cannot be edited apart. (M13b)
 6. **A single custody draw cannot support the contrasts being measured.** Arms B0 to B7 ran twice, under v3 and again under v4. The four uncustodied arms returned identical results to three decimals; every custodied arm moved, by up to 0.100 — six times the metric's resolution — because the Custodian derives its evaluation seed from the registration id and draws a fresh holdout each run. One contrast, B4 minus B3, flipped from spanning zero to excluding it on the same bank. v5 replicates every custodied arm three times. (M14b)
+7. **A null result was reported for a mechanism that could not have acted.** Memory adds recalled claims to the Theorist's view, so it can only act by changing what a model writes. The mock's response is byte-identical with and without them. B6 minus B7 therefore measured the difference between two custody draws, and was reported as memory's contribution across protocols v1 to v5 — four registered protocols carrying a null result for a switch that was delivered and discarded. B1 and B2 were labelled model-dependent from the start for exactly this reason; memory was not. Contrasts whose arms differ only in a model-mediated switch are now labelled uninterpretable rather than printed as intervals. (M20)
 
 ## Limitations
 
-- Every result was produced under a mock provider. The institution's machinery — the compiler, the sandbox, the Custodian, the statistics, the confidence rubric — is real and so are the verdicts, but the prose each role emits is canned. Arms B1 and B2 are dominated by that prose and are reported as describing the mock.- The bank is sixty synthetic items from one data generating process. The population these results generalise to is 'questions like these', which is the only population sixty items of one family can speak for.- Cost is measured in real token counts priced as if a named model had produced them, because the mock is free and a cost-per-correct-claim whose numerator is identically zero ranks nothing. Compute cost is not substituted; those seconds were burned.- The comparison holds the science fixed and varies the mechanism. It therefore measures what each mechanism buys given a fixed research design, and not how a mechanism might change the design an institution chooses in the first place.- No result here has been replicated across independent implementations. The replication reported is of runs, not of the system.
+- Every result was produced under a mock provider. The institution's machinery — the compiler, the sandbox, the Custodian, the statistics, the confidence rubric — is real and so are the verdicts, but the prose each role emits is canned. Arms B1 and B2 are dominated by that prose and are reported as describing the mock, and any contrast whose arms differ only in a switch that acts through the model — memory, iteration — is labelled uninterpretable rather than reported as a measurement. Nothing here says whether memory helps a real institution; it says this benchmark cannot find out without a real provider.
+- The bank is sixty synthetic items from one data generating process. The population these results generalise to is 'questions like these', which is the only population sixty items of one family can speak for.
+- Cost is measured in real token counts priced as if a named model had produced them, because the mock is free and a cost-per-correct-claim whose numerator is identically zero ranks nothing. Compute cost is not substituted; those seconds were burned.
+- The comparison holds the science fixed and varies the mechanism. It therefore measures what each mechanism buys given a fixed research design, and not how a mechanism might change the design an institution chooses in the first place.
+- No result here has been replicated across independent implementations. The replication reported is of runs, not of the system.
+
 ## Provenance
 
 | protocol | hash | bank items | truth lock |

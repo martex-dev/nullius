@@ -127,7 +127,7 @@ def test_nothing_is_left_unsubstituted(tmp_path: Path) -> None:
 def test_the_prose_sections_are_the_only_hand_written_content() -> None:
     """Declared as data so they can be counted and checked in one place. Each
     flaw names the milestone whose commit records it."""
-    assert len(FLAWS) == 6
+    assert len(FLAWS) == 7
     assert len(LIMITATIONS) == 5
     for flaw in FLAWS:
         assert flaw.title.endswith(".")
@@ -181,3 +181,42 @@ def test_the_readme_points_at_the_findings() -> None:
     one place this project would be asking to be taken on trust."""
     readme = Path("README.md").read_text(encoding="utf-8")
     assert "FINDINGS.md" in readme
+
+
+def test_the_generated_markdown_is_structurally_sound() -> None:
+    """The drift check cannot see this, which is the point of having both.
+
+    CI verifies that the committed file matches what the generator produces. It
+    passed for three commits while every contrast list rendered as a single
+    run-on line, because the file and the generator were wrong in the same way.
+    A consistency check is not a correctness check.
+    """
+    lines = Path("FINDINGS.md").read_text(encoding="utf-8").split("\n")
+
+    for number, line in enumerate(lines, start=1):
+        # Jinja's trim_blocks eats the newline after a block tag, so a bullet
+        # whose line ends with one silently joins the next.
+        assert line.count("- `") <= 1, f"line {number}: bullets collapsed onto one line"
+        assert not (line.startswith("#") and line.count("#") > 6), f"line {number}"
+
+    for number, line in enumerate(lines[1:], start=2):
+        if line.startswith(("#", "|", "- ")) and lines[number - 2].strip():
+            previous = lines[number - 2]
+            if line.startswith("#"):
+                assert not previous.strip(), f"line {number}: heading needs a blank line before it"
+
+
+def test_the_findings_table_headers_match_their_rows() -> None:
+    """The results table shipped a shifted column for a whole release because a
+    header was dropped while the row still emitted the value."""
+    lines = Path("FINDINGS.md").read_text(encoding="utf-8").split("\n")
+    for number, line in enumerate(lines):
+        if not line.startswith("|") or number + 1 >= len(lines):
+            continue
+        if not lines[number + 1].startswith("|---"):
+            continue
+        width = line.count("|")
+        for row in lines[number + 2 :]:
+            if not row.startswith("|"):
+                break
+            assert row.count("|") == width, f"line {number}: row has {row.count('|')} cells"
