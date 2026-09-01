@@ -16,7 +16,13 @@ import pytest
 
 from nullius.benchmark.protocol import PROTOCOL_VERSIONS
 from nullius.paper.model import assemble, results_path
-from nullius.paper.render import FLAWS, LIMITATIONS, environment, write_paper
+from nullius.paper.render import (
+    FLAWS,
+    LIMITATIONS,
+    environment,
+    render_findings,
+    write_paper,
+)
 
 
 def _text(path: Path) -> str:
@@ -133,3 +139,45 @@ def test_every_flaw_is_about_a_protocol_that_exists() -> None:
     history in the one place it is allowed to use prose."""
     paper = assemble()
     assert len(FLAWS) >= len(paper.run_chapters)
+
+
+# --------------------------------------------- the findings on the front door
+
+
+def test_the_findings_render_deterministically() -> None:
+    """CI regenerates FINDINGS.md and fails on any difference, so the render has
+    to be a pure function of the committed inputs."""
+    assert render_findings() == render_findings()
+
+
+def test_the_committed_findings_are_the_generated_ones() -> None:
+    """The repository's front door states results. If it can drift from them it
+    will, and a project whose thesis is 'take nobody's word for it' cannot ask a
+    reader to take its README's word for it.
+    """
+    committed = Path("FINDINGS.md")
+    assert committed.exists(), "FINDINGS.md is not committed"
+    assert committed.read_text(encoding="utf-8") == render_findings()
+
+
+def test_the_findings_carry_every_protocol_and_every_refutation() -> None:
+    paper = assemble()
+    text = render_findings(paper)
+    for chapter in paper.chapters:
+        assert chapter.protocol.protocol_hash[:12] in text
+        assert chapter.verdict in text
+    assert "refuted" in text
+
+
+def test_the_findings_name_the_provider_and_the_limitations() -> None:
+    text = render_findings()
+    assert "mock" in text
+    for limitation in LIMITATIONS:
+        assert limitation.split(".")[0][:50] in text
+
+
+def test_the_readme_points_at_the_findings() -> None:
+    """A README that states results without linking the generated record is the
+    one place this project would be asking to be taken on trust."""
+    readme = Path("README.md").read_text(encoding="utf-8")
+    assert "FINDINGS.md" in readme

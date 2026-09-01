@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M17 complete (v5 and v6 ladders pending); M15's v5 ladder is running (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M18 complete (v5 and v6 ladders pending); M15's v5 ladder is running (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -465,6 +465,19 @@ It lands **under half the true value 8.9% of the time**. When it does, the escal
 **A third instance of the same bug shape.** The paper's results-path table was a dict keyed by protocol version, and it raised a `KeyError` the moment v6 was registered. That is the third time something keyed by protocol version was maintained beside the registry instead of computed from it — after the CI job that listed protocols by hand, and the ladder that ran eight arms under a nine-arm plan. It is derived now.
 
 All six protocols verify and rebuild identically. **v6 has not been run**: at roughly double B8's escalation it is a ~6-hour ladder, and the v5 run has to finish first.
+
+---
+
+### M18 · The front door states the findings, and cannot drift from them ✅
+The README said *"That may turn out to be false. The benchmark is designed to be able to say so."* It had said so, four times, and the front door did not mention it.
+
+**`FINDINGS.md` is generated**, by the same assembled record the HTML paper renders — a second rendering, not a second account, so the two cannot disagree. CI regenerates it on every push and fails on `git diff --exit-code`. The check was verified in both directions: stable across regeneration, and it catches a one-line hand edit.
+
+That closes the one place this project was asking to be taken on trust. A repository whose thesis is *take nobody's word for it* cannot ask a reader to take its README's word for it.
+
+**The design documents are annotated, not rewritten.** `docs/04-evaluation.md` staked out the headline prediction in advance — *B4 will capture most of the gain over B3* — and a reader had no way to learn it was refuted. It now carries a note saying so, with the intervals, and pointing at the generated record. The document itself is unchanged, on the same principle that keeps a superseded protocol on disk: the design is a historical record, and editing it to match the result would destroy the thing that makes the result meaningful.
+
+`docs/00-README.md` carries the same warning at the top of the set.
 
 **A wiring bug worth recording.** The first v4 ladder ran eight arms under a nine-arm protocol: a `ruff format` pass had collapsed the `run_ladder(...)` call onto one line before an edit meant to add `arms=` to it, so the replacement matched nothing and the runner silently used its eight-arm default. It produced a complete-looking results file — seven of seven baseline comparisons, no halted items — and nothing objected except the adjudication, which happened to name the missing arm by id. `score_ladder` now refuses any run whose arms do not match the protocol's, in either direction. The eight completed arms were reused from their checkpoints, so the correction cost one arm's compute rather than nine.
 

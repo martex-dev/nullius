@@ -88,6 +88,18 @@ Every arm runs on the identical bank items, identical compute cap, identical mod
 
 The interesting prediction, worth stating in advance so the project can be wrong about it: **B4 will capture most of the gain over B3.** If true, the paper's finding is "cheap mechanisms beat expensive agents", which is a more useful result than "more agents are better" and is exactly the kind of thing this testbed exists to establish. Register that prediction before running.
 
+> **What happened.** This prediction was registered as written and is **refuted**. It was
+> upheld under protocol v1, whose rule compared two point estimates on a twenty-item bank
+> where one item is 0.05; v2 required the interval to exclude zero and the same data then
+> refuted it. Under v3, B4 − B3 = +0.033 with a 95% interval of [−0.050, +0.117]; under v4
+> the same contrast on the same bank read +0.133 [+0.033, +0.233], and that flip is itself
+> the finding — a single custody draw cannot support a contrast this size.
+>
+> The mechanism that did separate is not on this ladder at all: adaptive seeding, added as
+> B8 in v4, is the only arm to beat a do-nothing baseline with an interval excluding zero.
+> The design documents are left as written; see **[FINDINGS.md](../FINDINGS.md)** for the
+> generated record.
+
 Statistics: paired over bank items, bootstrap CIs over items and seeds, FDR control across arms, minimum bank size determined by a power analysis for the smallest effect worth caring about (target: detect a 10-point accuracy difference, which at ~60 items and paired comparison is feasible).
 
 ## 4. Evaluating agents individually

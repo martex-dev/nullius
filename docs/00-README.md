@@ -3,6 +3,11 @@
 Status: **architecture & feasibility analysis only. No implementation.**
 Date: 2026-08-30
 
+> These documents are the original design and are deliberately left as written. Several
+> of their predictions have since been tested and refuted, and where that happened the
+> document carries a note pointing at the result. The generated record of what was
+> actually found is **[FINDINGS.md](../FINDINGS.md)**.
+
 Read in order:
 
 | Doc | Covers | Spec items answered |

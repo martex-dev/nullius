@@ -9,7 +9,15 @@ it reads the committed protocols and results and prints what it finds.
 from __future__ import annotations
 
 from nullius.paper.model import BankProfile, Chapter, Paper, assemble, bank_profile
-from nullius.paper.render import FLAWS, LIMITATIONS, Flaw, environment, write_paper
+from nullius.paper.render import (
+    FLAWS,
+    LIMITATIONS,
+    Flaw,
+    environment,
+    render_findings,
+    write_findings,
+    write_paper,
+)
 
 __all__ = [
     "FLAWS",
@@ -21,5 +29,7 @@ __all__ = [
     "assemble",
     "bank_profile",
     "environment",
+    "render_findings",
+    "write_findings",
     "write_paper",
 ]

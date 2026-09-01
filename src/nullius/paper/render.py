@@ -18,7 +18,15 @@ from jinja2 import Environment, PackageLoader, StrictUndefined, select_autoescap
 
 from nullius.paper.model import MEASURED_EXPERIMENT_SE, Paper, assemble
 
-__all__ = ["FLAWS", "LIMITATIONS", "Flaw", "environment", "write_paper"]
+__all__ = [
+    "FLAWS",
+    "LIMITATIONS",
+    "Flaw",
+    "environment",
+    "render_findings",
+    "write_findings",
+    "write_paper",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,20 +131,50 @@ def environment() -> Environment:
     return env
 
 
+def _context(paper: Paper) -> dict[str, object]:
+    return {
+        "paper": paper,
+        "flaws": FLAWS,
+        "limitations": LIMITATIONS,
+        "measured_se": f"{MEASURED_EXPERIMENT_SE:.5f}",
+    }
+
+
+def render_findings(paper: Paper | None = None, *, strict: bool = True) -> str:
+    """The findings as Markdown, for the front of the repository.
+
+    A second rendering of the same assembled record rather than a second
+    account of it. The HTML paper and this file cannot disagree, because
+    neither of them contains a number that the other had to be told about.
+    """
+    paper = paper or assemble(strict=strict)
+    body = environment().get_template("findings.md").render(**_context(paper))
+    # Collapse the runs of blank lines that block-level Jinja tags leave
+    # behind, so the committed file is stable enough for CI to diff.
+    lines = body.replace("\r\n", "\n").split("\n")
+    out: list[str] = []
+    for line in lines:
+        if not line.strip() and out and not out[-1].strip():
+            continue
+        out.append(line.rstrip())
+    return "\n".join(out).strip() + "\n"
+
+
+def write_findings(out: Path, *, paper: Paper | None = None, strict: bool = True) -> Path:
+    """Write ``FINDINGS.md``. CI regenerates this and fails on any difference."""
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(render_findings(paper, strict=strict), encoding="utf-8")
+    return out
+
+
 def write_paper(out: Path, *, paper: Paper | None = None, strict: bool = True) -> Path:
     """Render the paper to ``out`` and return the path written."""
     paper = paper or assemble(strict=strict)
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(
-        environment()
-        .get_template("paper.html")
-        .render(
-            paper=paper,
-            flaws=FLAWS,
-            limitations=LIMITATIONS,
-            measured_se=f"{MEASURED_EXPERIMENT_SE:.5f}",
-        ),
+        environment().get_template("paper.html").render(**_context(paper)),
         encoding="utf-8",
     )
     return out

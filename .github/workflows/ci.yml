@@ -221,7 +221,12 @@ jobs:
           enable-cache: true
       - run: uv sync --all-extras --dev
       - name: every protocol and every result, enumerated
-        run: uv run nullius paper build --out paper/index.html
+        run: uv run nullius paper build --out paper/index.html --markdown FINDINGS.md
+      - name: the committed findings are the generated ones
+        # The repository's front door states results. If it can drift from them
+        # it will, and a project whose thesis is "take nobody's word for it"
+        # cannot ask a reader to take its README's word for it.
+        run: git diff --exit-code -- FINDINGS.md
       - uses: actions/upload-artifact@v4
         with:
           name: paper

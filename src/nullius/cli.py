@@ -901,6 +901,10 @@ def report_build(
 @paper_app.command("build")
 def paper_build(
     out: Annotated[Path, typer.Option(help="Where to write the paper.")] = Path("paper/index.html"),
+    markdown: Annotated[
+        Path | None,
+        typer.Option("--markdown", help="Also write the findings as Markdown."),
+    ] = None,
 ) -> None:
     """Render the paper from every registered protocol and committed result.
 
@@ -908,7 +912,7 @@ def paper_build(
     re-score against the protocol it names. A paper whose inputs no longer check
     out is worse than no paper, because it looks like evidence.
     """
-    from nullius.paper import assemble, write_paper
+    from nullius.paper import assemble, write_findings, write_paper
 
     try:
         paper = assemble(strict=True)
@@ -919,6 +923,8 @@ def paper_build(
         raise typer.Exit(code=1) from exc
 
     path = write_paper(out, paper=paper)
+    if markdown is not None:
+        write_findings(markdown, paper=paper)
     console.print()
     console.print(
         f"  {len(paper.chapters)} registered protocol(s), "
@@ -934,6 +940,8 @@ def paper_build(
         )
     console.print()
     console.print(f"  written to [bold]{path}[/bold]")
+    if markdown is not None:
+        console.print(f"  written to [bold]{markdown}[/bold]")
     console.print()
 
 
