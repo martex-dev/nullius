@@ -163,7 +163,8 @@ jobs:
           for path in (Path('benchmark/results.lock.json'),
                        Path('benchmark/results.v2.lock.json'),
                        Path('benchmark/results.v3.lock.json'),
-                       Path('benchmark/results.v4.lock.json')):
+                       Path('benchmark/results.v4.lock.json'),
+                       Path('benchmark/results.v5.lock.json')):
               if not path.exists():
                   print(f'{path.name}: not committed yet'); continue
               report, runs = read_results(path)

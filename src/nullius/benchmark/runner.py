@@ -28,7 +28,7 @@ from __future__ import annotations
 import json
 import uuid
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -113,6 +113,18 @@ class ArmOutcome:
     n_seeds: int
     replications: int
     findings: int
+    replicate: int = 0
+    """Which pass over the bank this outcome came from.
+
+    Only custodied arms are run more than once. The Custodian derives its
+    evaluation seed from the registration id, so a second pass draws a fresh
+    holdout and can reach a different verdict; an uncustodied arm reads the
+    development split, which is fixed by seeds derived from the item id, and
+    returns identical results however often it runs. Measured, not assumed:
+    running the ladder twice moved every custodied arm and left B0 to B3
+    identical to three decimals.
+    """
+
     halted: str | None = None
 
     @property
@@ -172,16 +184,35 @@ class ArmOutcome:
             "findings": self.findings,
             "correct": self.correct,
             "abstained": self.abstained,
+            "replicate": self.replicate,
             "halted": self.halted,
         }
 
 
 @dataclass(frozen=True, slots=True)
 class ArmRun:
-    """Everything one arm produced over the whole bank."""
+    """Everything one arm produced over the whole bank.
+
+    Holds every replicate of that arm, so ``outcomes`` may contain each bank
+    item more than once. Scoring averages within an item before comparing
+    arms, which keeps the bootstrap resampling *items* — the population the
+    bank can speak for — while letting extra passes reduce custody noise
+    rather than inflating the sample.
+    """
 
     arm: Arm
     outcomes: tuple[ArmOutcome, ...]
+
+    @property
+    def n_replicates(self) -> int:
+        return len({o.replicate for o in self.outcomes}) or 1
+
+    def by_item(self) -> dict[str, list[ArmOutcome]]:
+        """Outcomes grouped by bank item, in bank order."""
+        grouped: dict[str, list[ArmOutcome]] = {}
+        for o in self.outcomes:
+            grouped.setdefault(o.item_id, []).append(o)
+        return grouped
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -472,6 +503,7 @@ def run_arm(
     truth_lock: Path = TRUTH_LOCK_PATH,
     budget_usd: Decimal = Decimal("100.00"),
     allowance: Decimal = Decimal("0.50"),
+    replicate: int = 0,
 ) -> ArmRun:
     """Carry every bank item through one arm, in bank order.
 
@@ -502,6 +534,7 @@ def run_arm(
     from nullius.llm.providers import MockProvider
     from nullius.roles.contracts import contracts_for
     from nullius.store.cas import ContentStore
+    from nullius.util.ids import DeterministicIds
 
     truths = read_lock(truth_lock)
     workroot.mkdir(parents=True, exist_ok=True)
@@ -513,7 +546,18 @@ def run_arm(
     outcomes: list[ArmOutcome] = []
 
     with session_factory(engine)() as session:
-        repo = Repository(session, Role.SYSTEM)
+        # Identifiers are drawn from a stream seeded by the arm and the
+        # replicate, which makes the whole pass reproducible. Until now the
+        # ladder used random UUIDs, so a registration id -- and through it the
+        # Custodian's evaluation seed -- differed on every run and no result
+        # could be reproduced at all.
+        #
+        # It does not weaken the custody guarantee. That guarantee is that a
+        # spec cannot be re-registered until a flattering holdout turns up, and
+        # the stream still issues a fresh id for every registration within a
+        # pass. What becomes reproducible is the pass as a whole, which is the
+        # thing a benchmark is supposed to be.
+        repo = Repository(session, Role.SYSTEM, ids=DeterministicIds(f"{arm.arm_id}/r{replicate}"))
         lab = repo.create_lab("Nullius", f"Benchmark arm {arm.arm_id}.")
         policy = repo.create_policy(
             f"benchmark-{arm.arm_id.lower()}", {"min_seeds": 5}, f"Ladder arm {arm}."
@@ -569,24 +613,35 @@ def run_arm(
                     allowance=allowance,
                 )
 
-            outcomes.append(outcome)
+            outcomes.append(
+                ArmOutcome(**{**_as_dict(outcome), "replicate": replicate})
+                if replicate
+                else outcome
+            )
             repo.commit()
 
     return ArmRun(arm=arm, outcomes=tuple(outcomes))
 
 
-def _checkpoint_path(root: Path, arm: Arm) -> Path:
-    return root / f"{arm.arm_id.lower()}.outcomes.json"
+def _as_dict(outcome: ArmOutcome) -> dict[str, Any]:
+    return {f.name: getattr(outcome, f.name) for f in fields(outcome)}
 
 
-def _write_checkpoint(root: Path, run: ArmRun, items_hash: str) -> None:
+def _checkpoint_path(root: Path, arm: Arm, replicate: int = 0) -> Path:
+    suffix = "" if replicate == 0 else f".r{replicate}"
+    return root / f"{arm.arm_id.lower()}{suffix}.outcomes.json"
+
+
+def _write_checkpoint(root: Path, run: ArmRun, items_hash: str, replicate: int = 0) -> None:
     payload = {"items_hash": items_hash, "run": run.as_dict()}
-    _checkpoint_path(root, run.arm).write_text(canonical_json(payload) + "\n", encoding="utf-8")
+    _checkpoint_path(root, run.arm, replicate).write_text(
+        canonical_json(payload) + "\n", encoding="utf-8"
+    )
 
 
-def _read_checkpoint(root: Path, arm: Arm, items_hash: str) -> ArmRun | None:
+def _read_checkpoint(root: Path, arm: Arm, items_hash: str, replicate: int = 0) -> ArmRun | None:
     """A completed arm from an earlier attempt, if it was run on this bank."""
-    path = _checkpoint_path(root, arm)
+    path = _checkpoint_path(root, arm, replicate)
     if not path.exists():
         return None
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -608,6 +663,7 @@ def _read_checkpoint(root: Path, arm: Arm, items_hash: str) -> ArmRun | None:
                 n_seeds=row["n_seeds"],
                 replications=row["replications"],
                 findings=row["findings"],
+                replicate=row.get("replicate", 0),
                 halted=row["halted"],
             )
             for row in payload["run"]["outcomes"]
@@ -622,12 +678,19 @@ def run_ladder(
     items: Sequence[BankItem] = BANK_V1,
     truth_lock: Path = TRUTH_LOCK_PATH,
     resume: bool = True,
+    replicates: int = 1,
 ) -> list[ArmRun]:
     """Every arm, each in its own database, over the same bank.
 
     Separate databases because arms must not see each other's ledgers: a
     shared store would let an arm's novelty check trip on another arm's
     hypotheses, and the arms would stop being independent.
+
+    ``replicates`` runs each *custodied* arm that many times. The v4 ladder
+    measured why: re-running the same arm moved its accuracy by up to 0.100,
+    six times the metric's resolution, because the Custodian draws a fresh
+    holdout per registration. One draw per arm cannot support a contrast
+    smaller than that, and the contrasts this benchmark cares about are.
 
     **Each arm is checkpointed the moment it finishes.** The first full v2
     ladder ran all eight arms over two hours and then died writing the results
@@ -642,17 +705,29 @@ def run_ladder(
 
     runs: list[ArmRun] = []
     for arm in arms:
-        cached = _read_checkpoint(root, arm, items_hash) if resume else None
-        if cached is not None:
-            runs.append(cached)
-            continue
-        run = run_arm(
-            arm,
-            database=root / f"{arm.arm_id.lower()}.sqlite",
-            workroot=root / arm.arm_id.lower(),
-            items=items,
-            truth_lock=truth_lock,
-        )
-        _write_checkpoint(root, run, items_hash)
-        runs.append(run)
+        # Only custodied arms are replicated. An uncustodied arm reads the
+        # development split, which is fixed by seeds derived from the item id,
+        # so a second pass returns exactly what the first did — running the
+        # ladder twice left B0 through B3 identical to three decimals while
+        # every custodied arm moved. Replicating a deterministic arm buys
+        # nothing and costs a full pass over the bank.
+        passes = replicates if arm.custodian else 1
+        collected: list[ArmOutcome] = []
+        for replicate in range(passes):
+            cached = _read_checkpoint(root, arm, items_hash, replicate) if resume else None
+            if cached is not None:
+                collected.extend(cached.outcomes)
+                continue
+            suffix = "" if replicate == 0 else f"-r{replicate}"
+            run = run_arm(
+                arm,
+                database=root / f"{arm.arm_id.lower()}{suffix}.sqlite",
+                workroot=root / f"{arm.arm_id.lower()}{suffix}",
+                items=items,
+                truth_lock=truth_lock,
+                replicate=replicate,
+            )
+            _write_checkpoint(root, run, items_hash, replicate)
+            collected.extend(run.outcomes)
+        runs.append(ArmRun(arm=arm, outcomes=tuple(collected)))
     return runs

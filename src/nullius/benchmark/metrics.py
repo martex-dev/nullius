@@ -149,6 +149,14 @@ class ArmMetrics:
     usd_per_correct_claim: float
     effect_size_error: float
 
+    n_replicates: int = 1
+    """Passes over the bank these numbers average.
+
+    Only custodied arms are replicated; the rest return identical results
+    however often they run, which the v3-against-v4 comparison measured rather
+    than assumed.
+    """
+
     n_scored: int = 0
     """Items the calibration metrics were computed over.
 
@@ -164,6 +172,7 @@ class ArmMetrics:
             "label": self.label,
             "model_dependent": self.model_dependent,
             "n_items": self.n_items,
+            "n_replicates": self.n_replicates,
             "n_scored": self.n_scored,
             "n_correct": self.n_correct,
             "n_halted": self.n_halted,
@@ -220,6 +229,7 @@ def score_arm(run: ArmRun, protocol: Protocol) -> ArmMetrics:
 
     answered = [o for o in outcomes if not o.abstained]
     return ArmMetrics(
+        n_replicates=run.n_replicates,
         n_scored=len(scored),
         coverage=(len(answered) / len(outcomes)) if outcomes else float("nan"),
         assertion_accuracy=_accuracy(answered),
@@ -227,7 +237,7 @@ def score_arm(run: ArmRun, protocol: Protocol) -> ArmMetrics:
         arm_id=run.arm.arm_id,
         label=run.arm.label,
         model_dependent=run.arm.model_dependent,
-        n_items=len(outcomes),
+        n_items=len(run.by_item()),
         n_correct=n_correct,
         n_halted=sum(1 for o in outcomes if o.halted is not None),
         verdict_accuracy=_accuracy(outcomes),
@@ -294,8 +304,8 @@ class Comparison:
 
 
 def _paired_bootstrap(
-    treatment: Sequence[bool],
-    baseline: Sequence[bool],
+    treatment: Sequence[bool] | Sequence[float],
+    baseline: Sequence[bool] | Sequence[float],
     *,
     resamples: int,
     alpha: float,
@@ -311,8 +321,10 @@ def _paired_bootstrap(
     correct. The protocol therefore registered ``percentile bootstrap over
     items``, and this is that.
     """
-    a = np.asarray([1.0 if x else 0.0 for x in treatment], dtype=np.float64)
-    b = np.asarray([1.0 if x else 0.0 for x in baseline], dtype=np.float64)
+    # Floats rather than booleans, because with replicates an item carries the
+    # *rate* at which an arm got it right rather than a single yes or no.
+    a = np.asarray([float(x) for x in treatment], dtype=np.float64)
+    b = np.asarray([float(x) for x in baseline], dtype=np.float64)
     if a.size != b.size:
         raise ValueError("a paired comparison needs both arms to answer the same items")
     if a.size == 0:
@@ -364,17 +376,17 @@ def compare_to_baseline(
             f"comparison"
         )
     base_run = by_id[baseline_id]
-    ordered = {o.item_id: o for o in base_run.outcomes}
+    ordered = base_run.by_item()
 
     comparisons: list[Comparison] = []
     for index, run in enumerate(runs):
         if run.arm.arm_id == baseline_id:
             continue
-        theirs = {o.item_id: o for o in run.outcomes}
+        theirs = run.by_item()
         shared = [item_id for item_id in ordered if item_id in theirs]
         difference, low, high, p_value = _paired_bootstrap(
-            [theirs[i].correct for i in shared],
-            [ordered[i].correct for i in shared],
+            [_rate(theirs[i], QUANTITIES["verdict_accuracy"]) for i in shared],
+            [_rate(ordered[i], QUANTITIES["verdict_accuracy"]) for i in shared],
             resamples=resamples,
             alpha=alpha,
             # Per-arm seeds, derived from position so the whole report is
@@ -546,6 +558,11 @@ QUANTITIES: dict[str, Callable[[ArmOutcome], bool]] = {
 }
 
 
+def _rate(outcomes: Sequence[ArmOutcome], read: Callable[[ArmOutcome], bool]) -> float:
+    """How often an arm got this item right, across its replicates."""
+    return sum(1.0 for o in outcomes if read(o)) / len(outcomes)
+
+
 def _contrast(
     runs: Sequence[ArmRun],
     treatment_id: str,
@@ -560,13 +577,16 @@ def _contrast(
     if treatment_id not in by_id or baseline_id not in by_id:
         return None
     treatment, baseline = by_id[treatment_id], by_id[baseline_id]
-    theirs = {o.item_id: o for o in treatment.outcomes}
-    ours = {o.item_id: o for o in baseline.outcomes}
+    theirs = treatment.by_item()
+    ours = baseline.by_item()
     shared = [i for i in ours if i in theirs]
     read = QUANTITIES[quantity]
+    # Averaged within an item before the arms are compared, so the bootstrap
+    # keeps resampling *items* — the population the bank can speak for — while
+    # extra replicates reduce custody noise instead of inflating the sample.
     difference, low, high, p_value = _paired_bootstrap(
-        [read(theirs[i]) for i in shared],
-        [read(ours[i]) for i in shared],
+        [_rate(theirs[i], read) for i in shared],
+        [_rate(ours[i], read) for i in shared],
         resamples=int(protocol.statistics["resamples"]),
         alpha=float(protocol.statistics["alpha"]),
         seed=seed,

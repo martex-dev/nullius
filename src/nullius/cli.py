@@ -748,6 +748,7 @@ def benchmark_run(
     console.print(
         f"  protocol v{bank}: {len(settings['arms'])} arms over "
         f"{len(settings['items'])} items, "
+        f"{registered.statistics.get('replicates', 1)} pass(es) per custodied arm, "
         f"baseline arm {registered.statistics['baseline_arm']}"
     )
     console.print()
@@ -757,6 +758,7 @@ def benchmark_run(
         arms=settings["arms"],
         items=settings["items"],
         truth_lock=settings["truth_lock"],
+        replicates=int(registered.statistics.get("replicates", 1)),
     )
     report = score_ladder(runs, registered, seed=seed)
     path = write_results(report, runs, results, provider="mock")
@@ -785,6 +787,7 @@ def benchmark_run(
         marker = " *" if row.model_dependent else ""
         table.add_row(
             f"{row.arm_id}{marker}",
+            str(row.n_replicates),
             cell(row.verdict_accuracy, 2),
             cell(row.coverage, 2),
             cell(row.assertion_accuracy, 2),

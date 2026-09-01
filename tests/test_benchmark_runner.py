@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import math
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 
@@ -18,6 +19,7 @@ import pytest
 from nullius.benchmark.arms import LADDER, arm_named
 from nullius.benchmark.metrics import (
     _adjudicate,
+    _contrast,
     _paired_bootstrap,
     compare_to_baseline,
     read_results,
@@ -28,6 +30,7 @@ from nullius.benchmark.protocol import (
     V2_PROTOCOL_PATH,
     V3_PROTOCOL_PATH,
     V4_PROTOCOL_PATH,
+    V5_PROTOCOL_PATH,
     read_protocol,
 )
 from nullius.benchmark.runner import ArmOutcome, ArmRun, mechanisms_for
@@ -98,11 +101,16 @@ def test_a_halted_item_counts_as_wrong_rather_than_missing() -> None:
     found hardest.
     """
     halted = outcome(
-        verdict=Verdict.INCONCLUSIVE, truth=Verdict.SUPPORTED, halted="every seed failed"
+        item_id="B01",
+        verdict=Verdict.INCONCLUSIVE,
+        truth=Verdict.SUPPORTED,
+        halted="every seed failed",
     )
     assert halted.correct is False
 
-    run = ArmRun(arm=arm_named("B4"), outcomes=(halted, outcome()))
+    # Two distinct items: outcomes sharing an id are replicates of one item,
+    # which is what `by_item` groups them as.
+    run = ArmRun(arm=arm_named("B4"), outcomes=(halted, outcome(item_id="B02")))
     metrics = score_arm(run, PROTOCOL)
     assert metrics.n_items == 2
     assert metrics.n_halted == 1
@@ -479,3 +487,62 @@ def test_scoring_refuses_an_arm_the_protocol_does_not_register() -> None:
     ]
     with pytest.raises(ValueError, match="does not register"):
         score_ladder(nine, v3)
+
+
+# ------------------------------------------------------------- replication
+
+
+def _replicated(arm_id: str, per_item: dict[str, list[bool]]) -> ArmRun:
+    """An arm whose items were answered differently across passes."""
+    return ArmRun(
+        arm=arm_named(arm_id),
+        outcomes=tuple(
+            replace(
+                outcome(
+                    arm_id=arm_id,
+                    item_id=item,
+                    verdict=Verdict.SUPPORTED if right else Verdict.NO_EFFECT,
+                    truth=Verdict.SUPPORTED,
+                ),
+                replicate=index,
+            )
+            for item, passes in per_item.items()
+            for index, right in enumerate(passes)
+        ),
+    )
+
+
+def test_replicates_of_one_item_are_one_item() -> None:
+    """Pooling replicates as independent observations would treat three looks
+    at one question as three questions, and shrink every interval by a factor
+    the design has not earned."""
+    run = _replicated("B6", {"C01": [True, True, False], "C02": [False, False, False]})
+
+    assert run.n_replicates == 3
+    assert len(run.outcomes) == 6
+    assert set(run.by_item()) == {"C01", "C02"}
+
+    metrics = score_arm(run, read_protocol(V5_PROTOCOL_PATH))
+    assert metrics.n_items == 2  # not six
+    assert metrics.n_replicates == 3
+
+
+def test_a_contrast_averages_within_an_item_before_comparing_arms() -> None:
+    """An arm right two passes in three scores 2/3 on that item, not two wins."""
+    better = _replicated("B8", {"C01": [True, True, True], "C02": [True, True, False]})
+    worse = _replicated("B6", {"C01": [True, False, False], "C02": [False, False, False]})
+
+    found = _contrast([better, worse], "B8", "B6", read_protocol(V5_PROTOCOL_PATH), seed=3)
+    assert found is not None
+    # (1.0 + 2/3)/2 - (1/3 + 0)/2 = 0.8333 - 0.1667
+    assert found.difference == pytest.approx(0.6667, abs=1e-3)
+
+
+def test_only_custodied_arms_are_worth_replicating() -> None:
+    """Measured in the v3-against-v4 comparison, not assumed: every arm that
+    moved between runs is a custodied one, and every arm that did not is not."""
+    for arm in LADDER:
+        if arm.arm_id in ("B0", "B1", "B2", "B3"):
+            assert not arm.custodian, arm.arm_id
+        else:
+            assert arm.custodian, arm.arm_id

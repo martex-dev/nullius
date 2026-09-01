@@ -51,6 +51,7 @@ __all__ = [
     "V2_PROTOCOL_PATH",
     "V3_PROTOCOL_PATH",
     "V4_PROTOCOL_PATH",
+    "V5_PROTOCOL_PATH",
     "Protocol",
     "ProtocolVerification",
     "build_protocol",
@@ -133,11 +134,26 @@ def _project(arm: Arm, fields: tuple[str, ...]) -> dict[str, Any]:
     return {name: full[name] for name in fields}
 
 
-LATEST_PROTOCOL_VERSION = "4"
+LATEST_PROTOCOL_VERSION = "5"
 
 V2_PROTOCOL_PATH = Path("benchmark/protocol.v2.lock.json")
 V3_PROTOCOL_PATH = Path("benchmark/protocol.v3.lock.json")
 V4_PROTOCOL_PATH = Path("benchmark/protocol.v4.lock.json")
+V5_PROTOCOL_PATH = Path("benchmark/protocol.v5.lock.json")
+
+REPLICATES = 3
+"""Passes over the bank per custodied arm, fixed before the run.
+
+The v4 ladder measured why one is not enough: re-running the same arm moved
+its accuracy by up to 0.100, six times the metric's resolution, because the
+Custodian draws a fresh holdout for every registration. A contrast smaller
+than that cannot be read from a single draw, and the contrasts this benchmark
+exists to measure are smaller than that.
+
+Three rather than more because the expensive arm costs about fifty minutes a
+pass. Registered here so that "we ran it until it looked right" is not
+available afterwards.
+"""
 
 V2_PREDICTION = (
     "The mechanism contrast B4 - B3 is positive and its 95% interval excludes "
@@ -242,7 +258,58 @@ V4_EXCLUSION_RULES = (
     "than resolution.",
 )
 
+V5_PREDICTION = (
+    "Replication narrows the ladder rather than reordering it. Averaging three "
+    "custody draws per arm leaves B8 - B6 on coverage positive with an interval "
+    "still excluding zero, and leaves B4 - B3 on verdict accuracy spanning zero "
+    "- the contrast that flipped between the v3 and v4 single draws. If B4 - B3 "
+    "separates under replication, the v4 reading was right and this protocol's "
+    "caution was wrong."
+)
+
+V5_ADJUDICATED = {
+    "treatment": "B8",
+    "baseline": "B6",
+    "quantity": "coverage",
+    "direction": "greater",
+}
+
+V5_EXCLUSION_RULES = (
+    *V4_EXCLUSION_RULES,
+    "Only custodied arms are replicated. An uncustodied arm reads the "
+    "development split, which is fixed by seeds derived from the item id, and "
+    "returns identical results however often it runs - measured, not assumed: "
+    "running the ladder twice left B0 through B3 identical to three decimals "
+    "while every custodied arm moved. Replicating a deterministic arm reports "
+    "a spread of zero as though it were evidence of stability.",
+    "Replicates are averaged within a bank item before arms are compared, so "
+    "the bootstrap continues to resample items - the population the bank can "
+    "speak for. Pooling replicates as independent observations would treat "
+    "three looks at one question as three questions and shrink every interval "
+    "by a factor the design has not earned.",
+)
+
 PROTOCOL_VERSIONS: dict[str, dict[str, Any]] = {
+    "5": {
+        "items": BANK_V2,
+        "truth_lock": V2_TRUTH_LOCK_PATH,
+        "path": V5_PROTOCOL_PATH,
+        "baseline_arm": "B0",
+        "prediction": V5_PREDICTION,
+        "exclusion_rules": V5_EXCLUSION_RULES,
+        "metrics": V3_METRICS,
+        "arms": LADDER_V4,
+        "arm_fields": ARM_FIELDS_V4,
+        "extra_statistics": {
+            "calibration_scope": "asserted_effects",
+            "adjudication": "named_contrast",
+            "adjudicated": dict(V5_ADJUDICATED),
+            "verdict_vocabulary": [v.value for v in Verdict],
+            "adaptive_seed_ceiling": ADAPTIVE_SEED_CEILING,
+            "replicates": REPLICATES,
+            "replicated_arms": "custodied",
+        },
+    },
     "4": {
         "items": BANK_V2,
         "truth_lock": V2_TRUTH_LOCK_PATH,
