@@ -208,6 +208,25 @@ jobs:
           name: report
           path: .nullius/ci/site
 
+  paper:
+    name: the paper builds from committed sources
+    runs-on: ubuntu-latest
+    # Refuses to build when a protocol fails to verify or a results file fails
+    # to re-score. That makes the paper a check on the record rather than a
+    # description of it: if the two ever diverge, this job is what says so.
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv sync --all-extras --dev
+      - name: every protocol and every result, enumerated
+        run: uv run nullius paper build --out paper/index.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paper
+          path: paper/index.html
+
   clean-clone:
     name: reproducible from a clean clone
     runs-on: ubuntu-latest

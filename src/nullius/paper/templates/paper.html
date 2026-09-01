@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nullius &mdash; does institutional structure improve autonomous research?</title>
+<style>
+  :root {
+    --ink:#1a1c1f; --dim:#5b626b; --faint:#8d949d; --rule:#dee2e7;
+    --panel:#f7f8fa; --page:#fff; --good:#1c6b3f; --bad:#97231f; --warn:#8a5a10;
+    --good-bg:#eaf4ee; --bad-bg:#fbeceb; --warn-bg:#fbf2e0;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink:#e7eaed; --dim:#a4acb5; --faint:#767e88; --rule:#2b3037;
+      --panel:#181b1f; --page:#0f1113; --good:#6cc493; --bad:#e2807a; --warn:#d9a94e;
+      --good-bg:#16241c; --bad-bg:#271817; --warn-bg:#251f12;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink:#e7eaed; --dim:#a4acb5; --faint:#767e88; --rule:#2b3037;
+    --panel:#181b1f; --page:#0f1113; --good:#6cc493; --bad:#e2807a; --warn:#d9a94e;
+    --good-bg:#16241c; --bad-bg:#271817; --warn-bg:#251f12;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--page); color:var(--ink); font:16px/1.65 var(--serif); }
+  .wrap { max-width:46rem; margin:0 auto; padding:3.5rem 1.5rem 7rem; }
+  h1 { font-size:1.9rem; line-height:1.2; letter-spacing:-0.02em; margin:0 0 .5rem; text-wrap:balance; }
+  .sub { color:var(--dim); font-size:1.02rem; margin:0 0 2rem; }
+  h2 { font-size:.82rem; text-transform:uppercase; letter-spacing:.09em; color:var(--dim);
+       margin:3rem 0 .8rem; font-family:system-ui, sans-serif; font-weight:650; }
+  h3 { font-size:1.05rem; margin:1.8rem 0 .4rem; }
+  p { margin:0 0 1rem; }
+  a { color:inherit; }
+  code,.mono { font-family:var(--mono); font-size:.85em; }
+  .muted { color:var(--dim); } .faint { color:var(--faint); }
+  .lede { font-size:1.08rem; }
+  .scroll { overflow-x:auto; margin:1rem 0; }
+  table { border-collapse:collapse; width:100%; font:13.5px/1.5 system-ui, sans-serif; }
+  th,td { text-align:left; padding:.42rem .7rem .42rem 0; border-bottom:1px solid var(--rule); vertical-align:top; }
+  th { color:var(--dim); font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; }
+  td.num,th.num { text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums; }
+  .panel { background:var(--panel); border:1px solid var(--rule); border-radius:7px;
+           padding:1rem 1.15rem; margin:1.1rem 0; }
+  .pill { display:inline-block; padding:.1rem .5rem; border-radius:999px;
+          font:600 .72rem/1.5 system-ui, sans-serif; letter-spacing:.02em; white-space:nowrap; }
+  .ok{background:var(--good-bg);color:var(--good)} .no{background:var(--bad-bg);color:var(--bad)}
+  .mid{background:var(--warn-bg);color:var(--warn)}
+  .prediction { border-left:3px solid var(--rule); padding:.1rem 0 .1rem 1rem; margin:.8rem 0; }
+  .prediction.upheld { border-left-color:var(--good); }
+  .prediction.refuted { border-left-color:var(--bad); }
+  footer { margin-top:4rem; padding-top:1.2rem; border-top:1px solid var(--rule);
+           color:var(--faint); font:13px/1.6 system-ui, sans-serif; }
+  ol.plain,ul.plain { padding-left:1.2rem; } ol.plain li,ul.plain li { margin:.5rem 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Does institutional structure improve autonomous research?</h1>
+<p class="sub">Five preregistered protocols, {{ paper.run_chapters | length }} of them run, on a
+synthetic question bank with planted ground truth. Every number below was produced under the
+<strong>{{ paper.provider }}</strong> provider.</p>
+
+{% if paper.problems %}
+<div class="panel" style="border-color:var(--bad)">
+  <strong style="color:var(--bad)">This document was built from inputs that do not check out.</strong>
+  <ul class="plain">{% for problem in paper.problems %}<li>{{ problem }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<h2>The claim under test</h2>
+<p class="lede">{{ paper.claim }}</p>
+
+<h2>Abstract</h2>
+<p>
+An artificial research institution was built with preregistration, an evaluation custodian,
+adversarial detectors, independent replication and evidence-typed memory, each switchable,
+and measured against a question bank whose ground truth was planted and locked before any of
+it ran. Across {{ paper.chapters | length }} registered protocols,
+<strong>{{ paper.predictions_refuted }}</strong> predictions were refuted and
+<strong>{{ paper.predictions_upheld }}</strong> upheld.
+</p>
+<p>
+The headline result reversed twice under measurement, both times because running a protocol
+exposed a flaw in it, and two published results are retracted by later protocols inside this
+same document. What survived every revision is not the accuracy ordering but the calibration
+ordering, and one mechanism: spending experimental seeds where they change an answer.
+</p>
+
+<h2>The question bank</h2>
+<p>
+Ground truth is planted rather than judged. Each item is a data generating process whose true
+effect the oracle measures at forty seeds of twenty thousand samples, resolving it to about
+0.0008; an experiment gets five seeds of two thousand and resolves it to about
+{{ measured_se }}. That gap is the room the bank has: an item can sit inside one
+<em>experiment</em> standard error of a verdict boundary while remaining several
+<em>oracle</em> standard errors clear of it, so the question is genuinely hard and its answer
+is not in doubt.
+</p>
+<div class="scroll">
+<table>
+  <thead><tr><th>bank</th><th class="num">items</th><th class="num">null</th>
+  <th class="num">within 1 SE</th><th class="num">within 2 SE</th><th class="num">resolution</th></tr></thead>
+  <tbody>
+  {% for b in paper.banks %}
+  <tr><td>{{ b.name }}</td><td class="num">{{ b.n_items }}</td>
+      <td class="num">{{ '%.0f' | format(b.null_fraction * 100) }}%</td>
+      <td class="num">{{ b.within_one_se }}</td><td class="num">{{ b.within_two_se }}</td>
+      <td class="num">{{ '%.3f' | format(b.resolution) }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="faint">
+Resolution is the smallest difference the primary metric can express: one item. v1's 0.050 is
+larger than most of the contrasts this benchmark exists to measure, which is why v2 exists.
+</p>
+
+<h2>Protocols, in the order they were registered</h2>
+<p>
+Each was hashed and committed before the run it governs. None was edited afterwards &mdash;
+where running one exposed a flaw, the fix is a new registration, and the old protocol stays on
+disk, still verifying, still wrong in the way it was wrong.
+</p>
+
+{% for c in paper.chapters %}
+<h3>Protocol v{{ c.version }} <span class="faint mono">{{ c.protocol.protocol_hash[:16] }}</span></h3>
+<p class="faint mono">registered {{ c.protocol.registered_at }} &middot;
+{{ c.n_arms }} arms &middot; {{ c.protocol.bank['n_items'] }} items &middot;
+baseline {{ c.protocol.statistics['baseline_arm'] }}</p>
+
+<div class="prediction {{ c.verdict if c.verdict in ('upheld', 'refuted') else '' }}">
+  <p style="margin-bottom:.4rem"><strong>Registered prediction.</strong> {{ c.protocol.prediction }}</p>
+  {% if c.report %}
+  <p style="margin:0">
+    <span class="pill {{ 'ok' if c.verdict == 'upheld' else 'no' }}">{{ c.verdict }}</span>
+    <span class="muted mono">{{ c.report.prediction_reason }}</span>
+  </p>
+  {% else %}
+  <p style="margin:0"><span class="pill mid">{{ c.verdict }}</span></p>
+  {% endif %}
+</div>
+
+{% if c.report %}
+<div class="scroll">
+<table>
+  <thead><tr><th>arm</th><th class="num">n</th><th class="num">acc</th><th class="num">cover</th>
+  <th class="num">answered</th><th class="num">brier</th><th class="num">fdr</th>
+  <th class="num">$/correct</th></tr></thead>
+  <tbody>
+  {% for m in c.report.metrics %}
+  <tr>
+    <td>{{ m.arm_id }}{% if m.model_dependent %} <span class="faint">*</span>{% endif %}
+        <span class="faint">{{ m.label }}</span></td>
+    <td class="num">{{ m.n_replicates }}</td>
+    <td class="num">{{ num(m.verdict_accuracy) }}</td>
+    <td class="num">{{ num(m.coverage) }}</td>
+    <td class="num">{{ num(m.assertion_accuracy) }}</td>
+    <td class="num">{{ num(m.brier) }}</td>
+    <td class="num">{{ num(m.false_discovery_rate) }}</td>
+    <td class="num">{{ num(m.usd_per_correct_claim, 5) }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="faint">
+  * behaviour dominated by the language model; under a mock provider these arms describe the
+  mock and not a model, and no claim about mechanism rests on them.
+</p>
+{% endif %}
+{% endfor %}
+
+<h2>What running a protocol found wrong with it</h2>
+<p>
+Each of these was discovered by executing a preregistered plan rather than by reviewing one.
+This is the part of the record a written-up-afterwards paper would not contain, because in
+that genre the flaws are fixed before anything is published.
+</p>
+<ol class="plain">
+{% for flaw in flaws %}
+  <li><strong>{{ flaw.title }}</strong> {{ flaw.body }}</li>
+{% endfor %}
+</ol>
+
+<h2>Limitations</h2>
+<ul class="plain">
+{% for limitation in limitations %}
+  <li>{{ limitation }}</li>
+{% endfor %}
+</ul>
+
+<h2>Provenance</h2>
+<div class="scroll">
+<table>
+  <thead><tr><th>protocol</th><th>hash</th><th>bank items</th><th>truth lock</th></tr></thead>
+  <tbody>
+  {% for c in paper.chapters %}
+  <tr><td>v{{ c.version }}</td>
+      <td class="mono faint">{{ c.protocol.protocol_hash[:24] }}</td>
+      <td class="mono faint">{{ c.protocol.bank['items_hash'][:16] }}</td>
+      <td class="mono faint">{{ c.protocol.bank['truth_lock_hash'][:16] }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<footer>
+Generated from the committed protocols and results. Every figure is read from a results file
+whose stored summary re-scores from its own per-item rows, and every prediction is read from a
+protocol whose hash is in the git history. Nothing here was typed by hand, and it will not
+build if any of those inputs stops checking out.
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nullius &mdash; does institutional structure improve autonomous research?</title>
+<style>
+  :root {
+    --ink:#1a1c1f; --dim:#5b626b; --faint:#8d949d; --rule:#dee2e7;
+    --panel:#f7f8fa; --page:#fff; --good:#1c6b3f; --bad:#97231f; --warn:#8a5a10;
+    --good-bg:#eaf4ee; --bad-bg:#fbeceb; --warn-bg:#fbf2e0;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink:#e7eaed; --dim:#a4acb5; --faint:#767e88; --rule:#2b3037;
+      --panel:#181b1f; --page:#0f1113; --good:#6cc493; --bad:#e2807a; --warn:#d9a94e;
+      --good-bg:#16241c; --bad-bg:#271817; --warn-bg:#251f12;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink:#e7eaed; --dim:#a4acb5; --faint:#767e88; --rule:#2b3037;
+    --panel:#181b1f; --page:#0f1113; --good:#6cc493; --bad:#e2807a; --warn:#d9a94e;
+    --good-bg:#16241c; --bad-bg:#271817; --warn-bg:#251f12;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--page); color:var(--ink); font:16px/1.65 var(--serif); }
+  .wrap { max-width:46rem; margin:0 auto; padding:3.5rem 1.5rem 7rem; }
+  h1 { font-size:1.9rem; line-height:1.2; letter-spacing:-0.02em; margin:0 0 .5rem; text-wrap:balance; }
+  .sub { color:var(--dim); font-size:1.02rem; margin:0 0 2rem; }
+  h2 { font-size:.82rem; text-transform:uppercase; letter-spacing:.09em; color:var(--dim);
+       margin:3rem 0 .8rem; font-family:system-ui, sans-serif; font-weight:650; }
+  h3 { font-size:1.05rem; margin:1.8rem 0 .4rem; }
+  p { margin:0 0 1rem; }
+  a { color:inherit; }
+  code,.mono { font-family:var(--mono); font-size:.85em; }
+  .muted { color:var(--dim); } .faint { color:var(--faint); }
+  .lede { font-size:1.08rem; }
+  .scroll { overflow-x:auto; margin:1rem 0; }
+  table { border-collapse:collapse; width:100%; font:13.5px/1.5 system-ui, sans-serif; }
+  th,td { text-align:left; padding:.42rem .7rem .42rem 0; border-bottom:1px solid var(--rule); vertical-align:top; }
+  th { color:var(--dim); font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; }
+  td.num,th.num { text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums; }
+  .panel { background:var(--panel); border:1px solid var(--rule); border-radius:7px;
+           padding:1rem 1.15rem; margin:1.1rem 0; }
+  .pill { display:inline-block; padding:.1rem .5rem; border-radius:999px;
+          font:600 .72rem/1.5 system-ui, sans-serif; letter-spacing:.02em; white-space:nowrap; }
+  .ok{background:var(--good-bg);color:var(--good)} .no{background:var(--bad-bg);color:var(--bad)}
+  .mid{background:var(--warn-bg);color:var(--warn)}
+  .prediction { border-left:3px solid var(--rule); padding:.1rem 0 .1rem 1rem; margin:.8rem 0; }
+  .prediction.upheld { border-left-color:var(--good); }
+  .prediction.refuted { border-left-color:var(--bad); }
+  footer { margin-top:4rem; padding-top:1.2rem; border-top:1px solid var(--rule);
+           color:var(--faint); font:13px/1.6 system-ui, sans-serif; }
+  ol.plain,ul.plain { padding-left:1.2rem; } ol.plain li,ul.plain li { margin:.5rem 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Does institutional structure improve autonomous research?</h1>
+<p class="sub">Five preregistered protocols, 4 of them run, on a
+synthetic question bank with planted ground truth. Every number below was produced under the
+<strong>mock</strong> provider.</p>
+
+
+<h2>The claim under test</h2>
+<p class="lede">Institutional structure - preregistration, adversarial challenge, independent replication, and evidence-typed memory - improves the accuracy and calibration of autonomous empirical research relative to an unstructured agent, at a measurable cost in compute and tokens.</p>
+
+<h2>Abstract</h2>
+<p>
+An artificial research institution was built with preregistration, an evaluation custodian,
+adversarial detectors, independent replication and evidence-typed memory, each switchable,
+and measured against a question bank whose ground truth was planted and locked before any of
+it ran. Across 5 registered protocols,
+<strong>2</strong> predictions were refuted and
+<strong>2</strong> upheld.
+</p>
+<p>
+The headline result reversed twice under measurement, both times because running a protocol
+exposed a flaw in it, and two published results are retracted by later protocols inside this
+same document. What survived every revision is not the accuracy ordering but the calibration
+ordering, and one mechanism: spending experimental seeds where they change an answer.
+</p>
+
+<h2>The question bank</h2>
+<p>
+Ground truth is planted rather than judged. Each item is a data generating process whose true
+effect the oracle measures at forty seeds of twenty thousand samples, resolving it to about
+0.0008; an experiment gets five seeds of two thousand and resolves it to about
+0.00348. That gap is the room the bank has: an item can sit inside one
+<em>experiment</em> standard error of a verdict boundary while remaining several
+<em>oracle</em> standard errors clear of it, so the question is genuinely hard and its answer
+is not in doubt.
+</p>
+<div class="scroll">
+<table>
+  <thead><tr><th>bank</th><th class="num">items</th><th class="num">null</th>
+  <th class="num">within 1 SE</th><th class="num">within 2 SE</th><th class="num">resolution</th></tr></thead>
+  <tbody>
+  <tr><td>v1</td><td class="num">20</td>
+      <td class="num">45%</td>
+      <td class="num">3</td><td class="num">6</td>
+      <td class="num">0.050</td></tr>
+  <tr><td>v2</td><td class="num">60</td>
+      <td class="num">45%</td>
+      <td class="num">20</td><td class="num">37</td>
+      <td class="num">0.017</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="faint">
+Resolution is the smallest difference the primary metric can express: one item. v1's 0.050 is
+larger than most of the contrasts this benchmark exists to measure, which is why v2 exists.
+</p>
+
+<h2>Protocols, in the order they were registered</h2>
+<p>
+Each was hashed and committed before the run it governs. None was edited afterwards &mdash;
+where running one exposed a flaw, the fix is a new registration, and the old protocol stays on
+disk, still verifying, still wrong in the way it was wrong.
+</p>
+
+<h3>Protocol v1 <span class="faint mono">1d4c76d2561e61e3</span></h3>
+<p class="faint mono">registered 2026-08-31 &middot;
+8 arms &middot; 20 items &middot;
+baseline B1</p>
+
+<div class="prediction upheld">
+  <p style="margin-bottom:.4rem"><strong>Registered prediction.</strong> B4 captures most of the gain over B3 - that is, adding preregistration and the Custodian to a role-decomposed pipeline improves verdict accuracy more than adding the Skeptic, replication, review and memory do on top of it. If true, the finding is that cheap mechanisms beat expensive agents.</p>
+  <p style="margin:0">
+    <span class="pill ok">upheld</span>
+    <span class="muted mono">mechanism (B4-B3) = +0.0500; everything else (B6-B4) = -0.0500; prediction upheld</span>
+  </p>
+</div>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>arm</th><th class="num">n</th><th class="num">acc</th><th class="num">cover</th>
+  <th class="num">answered</th><th class="num">brier</th><th class="num">fdr</th>
+  <th class="num">$/correct</th></tr></thead>
+  <tbody>
+  <tr>
+    <td>B0        <span class="faint">Oracle-null</span></td>
+    <td class="num">1</td>
+    <td class="num">0.450</td>
+    <td class="num">1.000</td>
+    <td class="num">0.450</td>
+    <td class="num">0.250</td>
+    <td class="num">0.000</td>
+    <td class="num">0.00000</td>
+  </tr>
+  <tr>
+    <td>B1 <span class="faint">*</span>        <span class="faint">Single-shot</span></td>
+    <td class="num">1</td>
+    <td class="num">0.200</td>
+    <td class="num">1.000</td>
+    <td class="num">0.200</td>
+    <td class="num">0.200</td>
+    <td class="num">0.450</td>
+    <td class="num">0.00269</td>
+  </tr>
+  <tr>
+    <td>B2 <span class="faint">*</span>        <span class="faint">Single-agent + loop</span></td>
+    <td class="num">1</td>
+    <td class="num">0.200</td>
+    <td class="num">1.000</td>
+    <td class="num">0.200</td>
+    <td class="num">0.200</td>
+    <td class="num">0.450</td>
+    <td class="num">0.00761</td>
+  </tr>
+  <tr>
+    <td>B3        <span class="faint">Multi-role, no adversary</span></td>
+    <td class="num">1</td>
+    <td class="num">0.900</td>
+    <td class="num">1.000</td>
+    <td class="num">0.900</td>
+    <td class="num">0.283</td>
+    <td class="num">0.000</td>
+    <td class="num">0.00722</td>
+  </tr>
+  <tr>
+    <td>B4        <span class="faint">B3 + preregistration + custodian</span></td>
+    <td class="num">1</td>
+    <td class="num">0.950</td>
+    <td class="num">1.000</td>
+    <td class="num">0.950</td>
+    <td class="num">0.242</td>
+    <td class="num">0.000</td>
+    <td class="num">0.00683</td>
+  </tr>
+  <tr>
+    <td>B5        <span class="faint">B4 + Skeptic</span></td>
+    <td class="num">1</td>
+    <td class="num">0.950</td>
+    <td class="num">1.000</td>
+    <td class="num">0.950</td>
+    <td class="num">0.302</td>
+    <td class="num">0.000</td>
+    <td class="num">0.00683</td>
+  </tr>
+  <tr>
+    <td>B6        <span class="faint">Full institution</span></td>
+    <td class="num">1</td>
+    <td class="num">0.900</td>
+    <td class="num">1.000</td>
+    <td class="num">0.900</td>
+    <td class="num">0.316</td>
+    <td class="num">0.000</td>
+    <td class="num">0.00732</td>
+  </tr>
+  <tr>
+    <td>B7        <span class="faint">Full - memory</span></td>
+    <td class="num">1</td>
+    <td class="num">0.950</td>
+    <td class="num">1.000</td>
+    <td class="num">0.950</td>
+    <td class="num">0.311</td>
+    <td class="num">0.000</td>
+    <td class="num">0.00693</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+<p class="faint">
+  * behaviour dominated by the language model; under a mock provider these arms describe the
+  mock and not a model, and no claim about mechanism rests on them.
+</p>
+<h3>Protocol v2 <span class="faint mono">254be687163bf805</span></h3>
+<p class="faint mono">registered 2026-08-31 &middot;
+8 arms &middot; 60 items &middot;
+baseline B0</p>
+
+<div class="prediction refuted">
+  <p style="margin-bottom:.4rem"><strong>Registered prediction.</strong> The mechanism contrast B4 - B3 is positive and its 95% interval excludes zero. Adding preregistration and the Custodian to a role-decomposed pipeline improves verdict accuracy by a margin this design can actually resolve. If it holds, cheap mechanism beats expensive agents; if the interval spans zero, the prediction fails regardless of the point estimate.</p>
+  <p style="margin:0">
+    <span class="pill no">refuted</span>
+    <span class="muted mono">mechanism (B4-B3) = +0.0667, 95% CI [-0.0333, +0.1667]; interval does not exclude zero; prediction refuted</span>
+  </p>
+</div>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>arm</th><th class="num">n</th><th class="num">acc</th><th class="num">cover</th>
+  <th class="num">answered</th><th class="num">brier</th><th class="num">fdr</th>
+  <th class="num">$/correct</th></tr></thead>
+  <tbody>
+  <tr>
+    <td>B0        <span class="faint">Oracle-null</span></td>
+    <td class="num">1</td>
+    <td class="num">0.450</td>
+    <td class="num">1.000</td>
+    <td class="num">0.450</td>
+    <td class="num">—</td>
+    <td class="num">0.000</td>
+    <td class="num">0.00000</td>
+  </tr>
+  <tr>
+    <td>B1 <span class="faint">*</span>        <span class="faint">Single-shot</span></td>
+    <td class="num">1</td>
+    <td class="num">0.183</td>
+    <td class="num">1.000</td>
+    <td class="num">0.183</td>
+    <td class="num">0.197</td>
+    <td class="num">0.450</td>
+    <td class="num">0.00293</td>
+  </tr>
+  <tr>
+    <td>B2 <span class="faint">*</span>        <span class="faint">Single-agent + loop</span></td>
+    <td class="num">1</td>
+    <td class="num">0.183</td>
+    <td class="num">1.000</td>
+    <td class="num">0.183</td>
+    <td class="num">0.197</td>
+    <td class="num">0.450</td>
+    <td class="num">0.00830</td>
+  </tr>
+  <tr>
+    <td>B3        <span class="faint">Multi-role, no adversary</span></td>
+    <td class="num">1</td>
+    <td class="num">0.600</td>
+    <td class="num">1.000</td>
+    <td class="num">0.600</td>
+    <td class="num">0.203</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01081</td>
+  </tr>
+  <tr>
+    <td>B4        <span class="faint">B3 + preregistration + custodian</span></td>
+    <td class="num">1</td>
+    <td class="num">0.667</td>
+    <td class="num">1.000</td>
+    <td class="num">0.667</td>
+    <td class="num">0.164</td>
+    <td class="num">0.000</td>
+    <td class="num">0.00973</td>
+  </tr>
+  <tr>
+    <td>B5        <span class="faint">B4 + Skeptic</span></td>
+    <td class="num">1</td>
+    <td class="num">0.617</td>
+    <td class="num">1.000</td>
+    <td class="num">0.617</td>
+    <td class="num">0.151</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01052</td>
+  </tr>
+  <tr>
+    <td>B6        <span class="faint">Full institution</span></td>
+    <td class="num">1</td>
+    <td class="num">0.717</td>
+    <td class="num">1.000</td>
+    <td class="num">0.717</td>
+    <td class="num">0.110</td>
+    <td class="num">0.000</td>
+    <td class="num">0.00919</td>
+  </tr>
+  <tr>
+    <td>B7        <span class="faint">Full - memory</span></td>
+    <td class="num">1</td>
+    <td class="num">0.700</td>
+    <td class="num">1.000</td>
+    <td class="num">0.700</td>
+    <td class="num">0.101</td>
+    <td class="num">0.000</td>
+    <td class="num">0.00940</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+<p class="faint">
+  * behaviour dominated by the language model; under a mock provider these arms describe the
+  mock and not a model, and no claim about mechanism rests on them.
+</p>
+<h3>Protocol v3 <span class="faint mono">9eb8e1e16e793b64</span></h3>
+<p class="faint mono">registered 2026-08-31 &middot;
+8 arms &middot; 60 items &middot;
+baseline B0</p>
+
+<div class="prediction refuted">
+  <p style="margin-bottom:.4rem"><strong>Registered prediction.</strong> Separating abstention from finding lowers every arm&#39;s verdict accuracy, because v2 credited an arm that could say nothing with having said the right thing whenever the truth happened to be &#39;inconclusive&#39;. The institutional arms will separate on coverage: B6 answers more of the bank than B3 does, and the interval on that difference excludes zero. If coverage does not separate, the institution&#39;s advantage is in what it says and not in how much it is able to say.</p>
+  <p style="margin:0">
+    <span class="pill no">refuted</span>
+    <span class="muted mono">mechanism (B4-B3) = +0.0333, 95% CI [-0.0500, +0.1167]; interval does not exclude zero; prediction refuted</span>
+  </p>
+</div>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>arm</th><th class="num">n</th><th class="num">acc</th><th class="num">cover</th>
+  <th class="num">answered</th><th class="num">brier</th><th class="num">fdr</th>
+  <th class="num">$/correct</th></tr></thead>
+  <tbody>
+  <tr>
+    <td>B0        <span class="faint">Oracle-null</span></td>
+    <td class="num">1</td>
+    <td class="num">0.450</td>
+    <td class="num">1.000</td>
+    <td class="num">0.450</td>
+    <td class="num">—</td>
+    <td class="num">0.000</td>
+    <td class="num">0.00000</td>
+  </tr>
+  <tr>
+    <td>B1 <span class="faint">*</span>        <span class="faint">Single-shot</span></td>
+    <td class="num">1</td>
+    <td class="num">0.183</td>
+    <td class="num">1.000</td>
+    <td class="num">0.183</td>
+    <td class="num">0.197</td>
+    <td class="num">0.450</td>
+    <td class="num">0.00293</td>
+  </tr>
+  <tr>
+    <td>B2 <span class="faint">*</span>        <span class="faint">Single-agent + loop</span></td>
+    <td class="num">1</td>
+    <td class="num">0.183</td>
+    <td class="num">1.000</td>
+    <td class="num">0.183</td>
+    <td class="num">0.197</td>
+    <td class="num">0.450</td>
+    <td class="num">0.00830</td>
+  </tr>
+  <tr>
+    <td>B3        <span class="faint">Multi-role, no adversary</span></td>
+    <td class="num">1</td>
+    <td class="num">0.483</td>
+    <td class="num">0.750</td>
+    <td class="num">0.644</td>
+    <td class="num">0.203</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01341</td>
+  </tr>
+  <tr>
+    <td>B4        <span class="faint">B3 + preregistration + custodian</span></td>
+    <td class="num">1</td>
+    <td class="num">0.517</td>
+    <td class="num">0.767</td>
+    <td class="num">0.674</td>
+    <td class="num">0.142</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01255</td>
+  </tr>
+  <tr>
+    <td>B5        <span class="faint">B4 + Skeptic</span></td>
+    <td class="num">1</td>
+    <td class="num">0.550</td>
+    <td class="num">0.750</td>
+    <td class="num">0.733</td>
+    <td class="num">0.132</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01179</td>
+  </tr>
+  <tr>
+    <td>B6        <span class="faint">Full institution</span></td>
+    <td class="num">1</td>
+    <td class="num">0.567</td>
+    <td class="num">0.783</td>
+    <td class="num">0.723</td>
+    <td class="num">0.117</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01161</td>
+  </tr>
+  <tr>
+    <td>B7        <span class="faint">Full - memory</span></td>
+    <td class="num">1</td>
+    <td class="num">0.567</td>
+    <td class="num">0.733</td>
+    <td class="num">0.773</td>
+    <td class="num">0.118</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01161</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+<p class="faint">
+  * behaviour dominated by the language model; under a mock provider these arms describe the
+  mock and not a model, and no claim about mechanism rests on them.
+</p>
+<h3>Protocol v4 <span class="faint mono">b46bdef334c9e6d4</span></h3>
+<p class="faint mono">registered 2026-09-01 &middot;
+9 arms &middot; 60 items &middot;
+baseline B0</p>
+
+<div class="prediction upheld">
+  <p style="margin-bottom:.4rem"><strong>Registered prediction.</strong> Adaptive seeding raises coverage. B8 abstains on fewer bank items than B6 does, and the 95% interval on that difference excludes zero.</p>
+  <p style="margin:0">
+    <span class="pill ok">upheld</span>
+    <span class="muted mono">coverage (B8-B6) = +0.1833, 95% CI [+0.0833, +0.3000]; interval excludes zero; prediction upheld</span>
+  </p>
+</div>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>arm</th><th class="num">n</th><th class="num">acc</th><th class="num">cover</th>
+  <th class="num">answered</th><th class="num">brier</th><th class="num">fdr</th>
+  <th class="num">$/correct</th></tr></thead>
+  <tbody>
+  <tr>
+    <td>B0        <span class="faint">Oracle-null</span></td>
+    <td class="num">1</td>
+    <td class="num">0.450</td>
+    <td class="num">1.000</td>
+    <td class="num">0.450</td>
+    <td class="num">—</td>
+    <td class="num">0.000</td>
+    <td class="num">0.00000</td>
+  </tr>
+  <tr>
+    <td>B1 <span class="faint">*</span>        <span class="faint">Single-shot</span></td>
+    <td class="num">1</td>
+    <td class="num">0.183</td>
+    <td class="num">1.000</td>
+    <td class="num">0.183</td>
+    <td class="num">0.197</td>
+    <td class="num">0.450</td>
+    <td class="num">0.00293</td>
+  </tr>
+  <tr>
+    <td>B2 <span class="faint">*</span>        <span class="faint">Single-agent + loop</span></td>
+    <td class="num">1</td>
+    <td class="num">0.183</td>
+    <td class="num">1.000</td>
+    <td class="num">0.183</td>
+    <td class="num">0.197</td>
+    <td class="num">0.450</td>
+    <td class="num">0.00830</td>
+  </tr>
+  <tr>
+    <td>B3        <span class="faint">Multi-role, no adversary</span></td>
+    <td class="num">1</td>
+    <td class="num">0.483</td>
+    <td class="num">0.750</td>
+    <td class="num">0.644</td>
+    <td class="num">0.203</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01341</td>
+  </tr>
+  <tr>
+    <td>B4        <span class="faint">B3 + preregistration + custodian</span></td>
+    <td class="num">1</td>
+    <td class="num">0.617</td>
+    <td class="num">0.800</td>
+    <td class="num">0.771</td>
+    <td class="num">0.155</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01051</td>
+  </tr>
+  <tr>
+    <td>B5        <span class="faint">B4 + Skeptic</span></td>
+    <td class="num">1</td>
+    <td class="num">0.617</td>
+    <td class="num">0.833</td>
+    <td class="num">0.740</td>
+    <td class="num">0.150</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01051</td>
+  </tr>
+  <tr>
+    <td>B6        <span class="faint">Full institution</span></td>
+    <td class="num">1</td>
+    <td class="num">0.550</td>
+    <td class="num">0.750</td>
+    <td class="num">0.733</td>
+    <td class="num">0.101</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01196</td>
+  </tr>
+  <tr>
+    <td>B7        <span class="faint">Full - memory</span></td>
+    <td class="num">1</td>
+    <td class="num">0.550</td>
+    <td class="num">0.750</td>
+    <td class="num">0.733</td>
+    <td class="num">0.118</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01196</td>
+  </tr>
+  <tr>
+    <td>B8        <span class="faint">Full + adaptive seeding</span></td>
+    <td class="num">1</td>
+    <td class="num">0.733</td>
+    <td class="num">0.933</td>
+    <td class="num">0.786</td>
+    <td class="num">0.088</td>
+    <td class="num">0.000</td>
+    <td class="num">0.00944</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+<p class="faint">
+  * behaviour dominated by the language model; under a mock provider these arms describe the
+  mock and not a model, and no claim about mechanism rests on them.
+</p>
+<h3>Protocol v5 <span class="faint mono">6bfaa13661c63f3d</span></h3>
+<p class="faint mono">registered 2026-09-01 &middot;
+9 arms &middot; 60 items &middot;
+baseline B0</p>
+
+<div class="prediction ">
+  <p style="margin-bottom:.4rem"><strong>Registered prediction.</strong> Replication narrows the ladder rather than reordering it. Averaging three custody draws per arm leaves B8 - B6 on coverage positive with an interval still excluding zero, and leaves B4 - B3 on verdict accuracy spanning zero - the contrast that flipped between the v3 and v4 single draws. If B4 - B3 separates under replication, the v4 reading was right and this protocol&#39;s caution was wrong.</p>
+  <p style="margin:0"><span class="pill mid">registered, not yet run</span></p>
+</div>
+
+
+<h2>What running a protocol found wrong with it</h2>
+<p>
+Each of these was discovered by executing a preregistered plan rather than by reviewing one.
+This is the part of the record a written-up-afterwards paper would not contain, because in
+that genre the flaws are fixed before anything is published.
+</p>
+<ol class="plain">
+  <li><strong>The baseline arm was model-dependent.</strong> v1 registered B1, a single-shot agent, as the arm everything was compared against. Under a mock provider B1&#39;s behaviour is a property of the mock, so every comparison in the registered family was uninterpretable as evidence about mechanism. v2 moved the baseline to B0, which answers without looking and cannot depend on a model at all. (M12b)</li>
+  <li><strong>The prediction was adjudicated on two point estimates.</strong> v1&#39;s rule compared B4 minus B3 against B6 minus B4 and returned &#39;upheld&#39; for a one-item difference on a twenty-item bank, where one item is 0.05. v2 required the interval to exclude zero, and the same data then refuted the prediction v1 had upheld. (M12b)</li>
+  <li><strong>Calibration was scored on a quantity the rubric does not measure.</strong> The confidence rubric measures evidence &lt;em&gt;for an effect&lt;/em&gt;, so a correct &#39;no effect&#39; answer necessarily carries weak evidence and was scored as gross underconfidence. v2 restricted Brier and calibration error to items where the arm asserted an effect, which is the subpopulation where the rubric&#39;s quantity and the scored outcome are the same quantity. (M12b)</li>
+  <li><strong>Abstention was scored as an answer, and sometimes as a correct one.</strong> One verdict value meant both &#39;the effect is real and smaller than claimed&#39; and &#39;the interval is too wide to say anything&#39;. Because the first is a real truth value in this bank, an arm that could say nothing was credited with a correct answer whenever the truth happened to be that value. Every arm&#39;s accuracy was inflated, unevenly, by four to nine items in sixty. v3 split the verdict; &#39;underpowered&#39; is never a truth, so an abstention can no longer be scored correct by accident. (M13)</li>
+  <li><strong>A prediction and its adjudication rule described different quantities.</strong> v3 registered a prediction about coverage and inherited a rule that tested accuracy, so the run reported a verdict after measuring something the prediction did not mention. It was right by accident. v4 stores the adjudicated contrast as data — treatment, baseline, quantity, direction — and derives the verdict from it, so the two cannot be edited apart. (M13b)</li>
+  <li><strong>A single custody draw cannot support the contrasts being measured.</strong> Arms B0 to B7 ran twice, under v3 and again under v4. The four uncustodied arms returned identical results to three decimals; every custodied arm moved, by up to 0.100 — six times the metric&#39;s resolution — because the Custodian derives its evaluation seed from the registration id and draws a fresh holdout each run. One contrast, B4 minus B3, flipped from spanning zero to excluding it on the same bank. v5 replicates every custodied arm three times. (M14b)</li>
+</ol>
+
+<h2>Limitations</h2>
+<ul class="plain">
+  <li>Every result was produced under a mock provider. The institution&#39;s machinery — the compiler, the sandbox, the Custodian, the statistics, the confidence rubric — is real and so are the verdicts, but the prose each role emits is canned. Arms B1 and B2 are dominated by that prose and are reported as describing the mock.</li>
+  <li>The bank is sixty synthetic items from one data generating process. The population these results generalise to is &#39;questions like these&#39;, which is the only population sixty items of one family can speak for.</li>
+  <li>Cost is measured in real token counts priced as if a named model had produced them, because the mock is free and a cost-per-correct-claim whose numerator is identically zero ranks nothing. Compute cost is not substituted; those seconds were burned.</li>
+  <li>The comparison holds the science fixed and varies the mechanism. It therefore measures what each mechanism buys given a fixed research design, and not how a mechanism might change the design an institution chooses in the first place.</li>
+  <li>No result here has been replicated across independent implementations. The replication reported is of runs, not of the system.</li>
+</ul>
+
+<h2>Provenance</h2>
+<div class="scroll">
+<table>
+  <thead><tr><th>protocol</th><th>hash</th><th>bank items</th><th>truth lock</th></tr></thead>
+  <tbody>
+  <tr><td>v1</td>
+      <td class="mono faint">1d4c76d2561e61e3c77998a1</td>
+      <td class="mono faint">c4d90bb633190a86</td>
+      <td class="mono faint">4c2ac5de66e0b751</td></tr>
+  <tr><td>v2</td>
+      <td class="mono faint">254be687163bf805ff9573f9</td>
+      <td class="mono faint">d4d1766b0f87c89d</td>
+      <td class="mono faint">8b459a6cc67b41ae</td></tr>
+  <tr><td>v3</td>
+      <td class="mono faint">9eb8e1e16e793b64250c5607</td>
+      <td class="mono faint">d4d1766b0f87c89d</td>
+      <td class="mono faint">8b459a6cc67b41ae</td></tr>
+  <tr><td>v4</td>
+      <td class="mono faint">b46bdef334c9e6d4f298388a</td>
+      <td class="mono faint">d4d1766b0f87c89d</td>
+      <td class="mono faint">8b459a6cc67b41ae</td></tr>
+  <tr><td>v5</td>
+      <td class="mono faint">6bfaa13661c63f3d5aca3c33</td>
+      <td class="mono faint">d4d1766b0f87c89d</td>
+      <td class="mono faint">8b459a6cc67b41ae</td></tr>
+  </tbody>
+</table>
+</div>
+
+<footer>
+Generated from the committed protocols and results. Every figure is read from a results file
+whose stored summary re-scores from its own per-item rows, and every prediction is read from a
+protocol whose hash is in the git history. Nothing here was typed by hand, and it will not
+build if any of those inputs stops checking out.
+</footer>
+
+</div>
+</body>
+</html>

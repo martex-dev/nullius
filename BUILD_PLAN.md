@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M14 complete (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M16 complete; M15's v5 ladder is running (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -424,6 +424,23 @@ The split is not arbitrary. B3 has no Custodian, so it reads the development spl
 So: **B4 − B3 is not a stable finding.** It was +0.033 spanning zero in v3 and +0.133 excluding zero in v4, on the same arms and the same bank. The swing is the custody draw. B8 − B6 at +0.183 is larger than any single-arm swing observed, and B8 − B0 at +0.283 is larger still, which is why those are reported as findings and B4 − B3 is not.
 
 **The next milestone is replication of the ladder itself.** One draw per arm is not enough at this resolution, and the project has now measured how much it is not enough by. Every arm should run several times and the report should carry the distribution rather than a single number.
+
+---
+
+### M16 · The paper ✅
+`nullius paper build` renders `paper/index.html` from the committed protocols and results. A roadmap item (`docs/06`, template-rendered papers) and the natural place for the record to end up.
+
+**Acceptance** — the document cannot report a flattering subset.
+
+It does not select because it does not choose. Every registered protocol appears in registration order with its prediction and its outcome: **two upheld, two refuted, one registered and not yet run** — and the unrun one is labelled as such rather than omitted, because a plan with no result is part of the record too. Two results that later protocols retracted are still in the document, under the protocols that produced them.
+
+**Nothing numeric is typed.** Every figure is read from a results file whose stored summary re-scores from its own per-item rows; every prediction is read from a protocol whose hash is in the git history; bank difficulty is computed from the locked truths. `assemble(strict=True)` refuses to build when a protocol fails to verify or a results file fails to re-score — a paper whose inputs no longer check out is worse than no paper, because it looks like evidence.
+
+**Two prose sections, declared as data.** The six flaws and five limitations are the only hand-written content, held in `render.py` as constants so they can be counted and checked in one place. Each flaw names the milestone whose commit records it, and a test enforces that.
+
+The flaw list is the section a written-up-afterwards paper would not have, because in that genre the flaws are fixed before anything is published. Here they are the record: five of them were found by *executing* a preregistered plan rather than by reviewing one.
+
+A ninth CI job builds it on every push and uploads it as an artifact.
 
 **A wiring bug worth recording.** The first v4 ladder ran eight arms under a nine-arm protocol: a `ruff format` pass had collapsed the `run_ladder(...)` call onto one line before an edit meant to add `arms=` to it, so the replacement matched nothing and the runner silently used its eight-arm default. It produced a complete-looking results file — seven of seven baseline comparisons, no halted items — and nothing objected except the adjudication, which happened to name the missing arm by id. `score_ladder` now refuses any run whose arms do not match the protocol's, in either direction. The eight completed arms were reused from their checkpoints, so the correction cost one arm's compute rather than nine.
 

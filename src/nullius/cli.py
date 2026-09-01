@@ -105,7 +105,12 @@ app.add_typer(cost_app, name="cost")
 app.add_typer(economy_app, name="economy")
 report_app = typer.Typer(help="Generate the static report over the ledger.", no_args_is_help=True)
 app.add_typer(benchmark_app, name="benchmark")
+paper_app = typer.Typer(
+    help="Generate the paper from the committed protocols and results.",
+    no_args_is_help=True,
+)
 app.add_typer(report_app, name="report")
+app.add_typer(paper_app, name="paper")
 
 DatabaseOption = Annotated[
     Path,
@@ -891,6 +896,45 @@ def report_build(
         )
         console.print()
         raise typer.Exit(code=1)
+
+
+@paper_app.command("build")
+def paper_build(
+    out: Annotated[Path, typer.Option(help="Where to write the paper.")] = Path("paper/index.html"),
+) -> None:
+    """Render the paper from every registered protocol and committed result.
+
+    Refuses to build when a protocol fails to verify or a results file fails to
+    re-score against the protocol it names. A paper whose inputs no longer check
+    out is worse than no paper, because it looks like evidence.
+    """
+    from nullius.paper import assemble, write_paper
+
+    try:
+        paper = assemble(strict=True)
+    except ValueError as exc:
+        console.print()
+        console.print(f"  [red]{exc}[/red]")
+        console.print()
+        raise typer.Exit(code=1) from exc
+
+    path = write_paper(out, paper=paper)
+    console.print()
+    console.print(
+        f"  {len(paper.chapters)} registered protocol(s), "
+        f"{len(paper.run_chapters)} run: "
+        f"[green]{paper.predictions_upheld} upheld[/green], "
+        f"[red]{paper.predictions_refuted} refuted[/red]"
+    )
+    for chapter in paper.chapters:
+        colour = {"upheld": "green", "refuted": "red"}.get(chapter.verdict, "yellow")
+        console.print(
+            f"    v{chapter.version} {chapter.protocol.protocol_hash[:12]}  "
+            f"[{colour}]{chapter.verdict}[/{colour}]"
+        )
+    console.print()
+    console.print(f"  written to [bold]{path}[/bold]")
+    console.print()
 
 
 if __name__ == "__main__":  # pragma: no cover
