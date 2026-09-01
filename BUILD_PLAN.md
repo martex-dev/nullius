@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M13 complete (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M14 complete (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -395,6 +395,37 @@ So the institution trades coverage for accuracy, and at sixty items neither side
 But the run reported "refuted" without testing either clause. Protocol v3 inherited v2's `adjudication: interval_excludes_zero`, which computes B4 − B3 on **accuracy**, while v3's prediction text is about **coverage**. The verdict is right and was reached by measuring something the prediction does not mention. **A registered prediction and a registered adjudication rule that measure different quantities is a fifth protocol flaw, and this one is purely mine** — I wrote new prediction text and left the rule key at its inherited value. A v4 must derive the adjudicated quantity from the prediction rather than storing them independently.
 
 The prediction did at least say in advance how to read its own failure: *"If coverage does not separate, the institution's advantage is in what it says and not in how much it is able to say."* On these numbers that is the reading — the advantage is in calibration and in declining to answer, not in answering more.
+
+---
+
+### M14 · Adaptive seeding ✅ — the first registered prediction this project has got right
+`benchmark/results.v4.lock.json`, protocol `b46bdef3…`, 9 arms, 60 items, mock provider.
+
+| arm | | acc | coverage | when answered | null | brier | ece | $/correct |
+|---|---|---|---|---|---|---|---|---|
+| B0 | oracle-null | 0.45 | 1.00 | 0.45 | 1.00 | — | — | 0.00000 |
+| B3 | multi-role | 0.48 | 0.75 | 0.64 | 0.33 | 0.203 | 0.450 | 0.01341 |
+| B4 | + prereg + custodian | 0.62 | 0.80 | 0.77 | 0.52 | 0.155 | 0.314 | 0.01051 |
+| B5 | + Skeptic | 0.62 | 0.83 | 0.74 | 0.48 | 0.150 | 0.311 | 0.01051 |
+| B6 | full institution | 0.55 | 0.75 | 0.73 | 0.44 | 0.101 | 0.265 | 0.01196 |
+| B7 | full − memory | 0.55 | 0.75 | 0.73 | 0.48 | 0.118 | 0.226 | 0.01196 |
+| **B8** | **+ adaptive seeding** | **0.73** | **0.93** | **0.79** | **0.56** | **0.088** | 0.248 | **0.00944** |
+
+**The prediction is upheld.** Coverage, B8 − B6 = **+0.183, 95% CI [+0.083, +0.300]**, p = 0.001 — the interval excludes zero, which is what v4 registered as the test. B8 abstains on **4 of 60** items where B6 abstains on **15**. This is the first registered prediction the project has got right, and it was adjudicated on the quantity the prediction actually named, which v3 could not do.
+
+**B8 is the only arm that beats the do-nothing baseline.** B8 − B0 = +0.283, CI [+0.083, +0.483], p = 0.009, and it survives Benjamini–Hochberg. Three of eight contrasts survive: B1−B0 and B2−B0 (negative, model-dependent) and this one.
+
+**And it is the cheapest institutional arm per correct claim** — $0.00944 against B6's $0.01196 — despite running several times the seed-runs. Total spend is only 5% higher ($0.415 against $0.395), because token cost is per role-call and does not scale with seeds; compute is nearly free next to as-if-priced tokens. Buying resolution is cheap in exactly the currency this benchmark measures.
+
+**A stability finding that qualifies everything above.** Arms B0–B7 ran twice — once under v3, once again under v4 — which is an unplanned replication of the whole ladder. B0, B1, B2 and B3 came back *identical to three decimals*; B4 moved **+0.100**, B5 +0.067, B6 and B7 −0.017.
+
+The split is not arbitrary. B3 has no Custodian, so it reads the development split, which is deterministic given seeds fixed by item id. Every arm that varies is a *custodied* arm, and the Custodian's evaluation seed is derived from the registration id — a fresh UUID per run. That is deliberate (`docs/03`: a custody seed derived from the design would let anyone re-register a spec and shop a fixed evaluation set), and the price is that **custodied arms move by up to 0.100 between runs, six times the metric's 0.017 resolution.**
+
+So: **B4 − B3 is not a stable finding.** It was +0.033 spanning zero in v3 and +0.133 excluding zero in v4, on the same arms and the same bank. The swing is the custody draw. B8 − B6 at +0.183 is larger than any single-arm swing observed, and B8 − B0 at +0.283 is larger still, which is why those are reported as findings and B4 − B3 is not.
+
+**The next milestone is replication of the ladder itself.** One draw per arm is not enough at this resolution, and the project has now measured how much it is not enough by. Every arm should run several times and the report should carry the distribution rather than a single number.
+
+**A wiring bug worth recording.** The first v4 ladder ran eight arms under a nine-arm protocol: a `ruff format` pass had collapsed the `run_ladder(...)` call onto one line before an edit meant to add `arms=` to it, so the replacement matched nothing and the runner silently used its eight-arm default. It produced a complete-looking results file — seven of seven baseline comparisons, no halted items — and nothing objected except the adjudication, which happened to name the missing arm by id. `score_ladder` now refuses any run whose arms do not match the protocol's, in either direction. The eight completed arms were reused from their checkpoints, so the correction cost one arm's compute rather than nine.
 
 ---
 

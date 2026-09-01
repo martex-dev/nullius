@@ -590,7 +590,32 @@ def score_ladder(
     *,
     seed: int = 0,
 ) -> LadderReport:
-    """Score every arm and settle the registered prediction."""
+    """Score every arm and settle the registered prediction.
+
+    Refuses a run that does not cover the arms the protocol registered. The
+    first v4 ladder ran eight arms under a nine-arm protocol -- a wiring slip
+    meant the arm list never reached the runner -- and produced a complete
+    looking results file, seven of seven baseline comparisons, and no sign
+    that the arm the protocol exists to test had never executed. Only the
+    adjudication noticed, and only because it happened to name that arm.
+    A results file is a claim about a protocol, and this is what makes the
+    claim checkable.
+    """
+    registered = {str(arm["arm_id"]) for arm in protocol.arms}
+    present = {run.arm.arm_id for run in runs}
+    if missing := registered - present:
+        raise ValueError(
+            f"protocol {protocol.protocol_hash[:16]} registers "
+            f"{len(registered)} arms and this run has {len(present)}; "
+            f"missing {sorted(missing)}. Scoring it would report a partial "
+            "ladder as though it were the registered one."
+        )
+    if unexpected := present - registered:
+        raise ValueError(
+            f"this run contains {sorted(unexpected)}, which protocol "
+            f"{protocol.protocol_hash[:16]} does not register"
+        )
+
     metrics = tuple(score_arm(run, protocol) for run in runs)
     comparisons, correction = compare_to_baseline(runs, protocol, seed=seed)
     wanted: list[tuple[str, ...]] = [tuple(pair) for pair in PREDICTION_CONTRASTS]

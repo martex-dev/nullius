@@ -752,7 +752,12 @@ def benchmark_run(
     )
     console.print()
 
-    runs = run_ladder(root=workdir, items=settings["items"], truth_lock=settings["truth_lock"])
+    runs = run_ladder(
+        root=workdir,
+        arms=settings["arms"],
+        items=settings["items"],
+        truth_lock=settings["truth_lock"],
+    )
     report = score_ladder(runs, registered, seed=seed)
     path = write_results(report, runs, results, provider="mock")
 

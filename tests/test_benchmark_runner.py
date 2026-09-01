@@ -22,8 +22,14 @@ from nullius.benchmark.metrics import (
     compare_to_baseline,
     read_results,
     score_arm,
+    score_ladder,
 )
-from nullius.benchmark.protocol import V2_PROTOCOL_PATH, V3_PROTOCOL_PATH, read_protocol
+from nullius.benchmark.protocol import (
+    V2_PROTOCOL_PATH,
+    V3_PROTOCOL_PATH,
+    V4_PROTOCOL_PATH,
+    read_protocol,
+)
 from nullius.benchmark.runner import ArmOutcome, ArmRun, mechanisms_for
 from nullius.db.enums import ClaimConfidence, Verdict
 from nullius.util.canonical import canonical_json
@@ -438,3 +444,38 @@ def test_the_headline_metric_still_counts_an_abstention_as_incorrect() -> None:
     assert metrics.coverage == 0.0
     assert math.isnan(metrics.assertion_accuracy)
     assert metrics.as_dict()["assertion_accuracy"] is None
+
+
+def test_scoring_refuses_a_ladder_missing_an_arm_the_protocol_registered() -> None:
+    """The first v4 ladder ran eight arms under a nine-arm protocol.
+
+    A wiring slip meant the arm list never reached the runner, and the result
+    was a complete-looking results file: seven of seven baseline comparisons,
+    no halted items, and no sign anywhere that the arm the protocol exists to
+    test had never executed. Only the adjudication noticed, and only because it
+    happened to name that arm by id.
+    """
+    v4 = read_protocol(V4_PROTOCOL_PATH)
+    eight = [
+        ArmRun(
+            arm=arm_named(a),
+            outcomes=(outcome(arm_id=a, verdict=Verdict.NO_EFFECT, truth=Verdict.NO_EFFECT),),
+        )
+        for a in ("B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7")
+    ]
+    with pytest.raises(ValueError, match=r"missing \['B8'\]"):
+        score_ladder(eight, v4)
+
+
+def test_scoring_refuses_an_arm_the_protocol_does_not_register() -> None:
+    """A v3 run cannot be scored under v4's plan just because it has fewer arms."""
+    v3 = read_protocol(V3_PROTOCOL_PATH)
+    nine = [
+        ArmRun(
+            arm=arm_named(a),
+            outcomes=(outcome(arm_id=a, verdict=Verdict.NO_EFFECT, truth=Verdict.NO_EFFECT),),
+        )
+        for a in ("B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8")
+    ]
+    with pytest.raises(ValueError, match="does not register"):
+        score_ladder(nine, v3)
