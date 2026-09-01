@@ -89,6 +89,7 @@ def mechanisms_for(arm: Arm) -> Mechanisms:
         replication=arm.replication,
         memory=arm.memory,
         adaptive_seeds=arm.adaptive_seeds,
+        conservative_escalation=arm.conservative_escalation,
     )
 
 

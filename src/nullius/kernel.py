@@ -128,6 +128,17 @@ class Mechanisms:
     the preregistered seed list to continue.
     """
 
+    conservative_escalation: bool = False
+    """Size the escalation from an upper bound on the noise, not a point estimate.
+
+    The escalation reads a standard deviation off five paired differences, and
+    a five-point standard deviation is a much worse estimate than it looks:
+    simulated at this project's measured 0.00348 it lands under half the true
+    value 8.9% of the time. When it does, the target comes out at four seeds
+    where eight are needed, so the arm under-buys and the item abstains anyway —
+    a failure on exactly the questions adaptive seeding exists to answer.
+    """
+
 
 FULL_INSTITUTION = Mechanisms(
     custody=True, preregistered=True, adversary=True, replication=True, memory=True
@@ -563,6 +574,7 @@ class ResearchKernel:
                 program_id=program_id,
                 original_verdict=verdict,
                 adaptive=mechanisms.adaptive_seeds,
+                conservative=mechanisms.conservative_escalation,
             )
 
         # 9 - The Analyst interprets, in words ---------------------------------
@@ -838,6 +850,7 @@ class ResearchKernel:
         bundle_id: uuid.UUID,
         dataset_id: uuid.UUID,
         program_id: uuid.UUID,
+        conservative: bool = False,
     ) -> list[SeedOutcome]:
         """Buy more seeds, once, if the development split says they would help.
 
@@ -874,7 +887,12 @@ class ResearchKernel:
         if sd <= 0:
             return []
 
-        target = seeds_to_resolve(estimate=estimate, sd=sd, mde=spec.mde)
+        target = seeds_to_resolve(
+            estimate=estimate,
+            sd=sd,
+            mde=spec.mde,
+            observations=len(differences) if conservative else 0,
+        )
         wanted = min(target, spec.seed_ceiling)
         if wanted <= len(done):
             return []
@@ -901,6 +919,7 @@ class ResearchKernel:
         program_id: uuid.UUID,
         original_verdict: VerdictReport,
         adaptive: bool = False,
+        conservative: bool = False,
     ) -> int:
         """Re-register the design and run it again, independently.
 

@@ -15,12 +15,15 @@ Nothing here is ever computed by a language model.
 
 from __future__ import annotations
 
+import math
+
 from scipy import stats
 
 __all__ = [
     "minimum_detectable_effect",
     "power_for",
     "required_seeds",
+    "sd_upper_bound",
     "seeds_to_resolve",
 ]
 
@@ -86,6 +89,31 @@ def required_seeds(
     return cap
 
 
+def sd_upper_bound(sd: float, n: int, *, confidence: float = 0.80) -> float:
+    """An upper confidence limit on a standard deviation, from ``n`` observations.
+
+    The chi-square bound: ``sd * sqrt((n-1) / chi2.ppf(1-confidence, n-1))``.
+
+    It exists because a standard deviation estimated from five points is a far
+    worse estimate than it looks. Simulated at this project's measured paired SD
+    of 0.00348, a five-point estimate lands under *half* the true value 8.9% of
+    the time and over 1.5 times it 6.0% of the time. Fed to
+    :func:`seeds_to_resolve`, the low tail asks for four seeds where eight are
+    needed — so the escalation under-buys, the item stays underpowered, and it
+    abstains. That is a failure on exactly the items adaptive seeding exists to
+    fix.
+
+    The asymmetry is the point. Over-buying costs compute, which this project
+    has measured as nearly free: B8 ran several times the seed-runs of B6 for 5%
+    more total spend, because token cost dominates and does not scale with
+    seeds. Under-buying costs an answer. When the noise is uncertain, the honest
+    direction to err is towards more data.
+    """
+    if sd <= 0 or n < 2:
+        return sd
+    return float(sd * math.sqrt((n - 1) / stats.chi2.ppf(1.0 - confidence, n - 1)))
+
+
 def seeds_to_resolve(
     *,
     estimate: float,
@@ -94,6 +122,8 @@ def seeds_to_resolve(
     null_band: float = 0.5,
     alpha: float = DEFAULT_ALPHA,
     cap: int = 200,
+    observations: int = 0,
+    confidence: float = 0.80,
 ) -> int:
     """Seeds needed for the interval to land wholly inside one verdict region.
 
@@ -112,6 +142,12 @@ def seeds_to_resolve(
     computed from — the Custodian is queried once, afterwards, over whatever
     seeds this returns.
 
+    ``observations`` is how many paired differences ``sd`` was computed from.
+    Given it, the calculation uses an upper confidence limit on the standard
+    deviation rather than the point estimate, so uncertainty about the noise
+    buys more data instead of less. Left at zero the point estimate is used
+    directly, which is what protocols v4 and v5 registered and ran.
+
     Returns ``cap`` when the target is out of reach, which is a real answer:
     some questions cannot be settled at any seed count this project will pay
     for, and the honest response is to abstain rather than to keep buying
@@ -119,6 +155,8 @@ def seeds_to_resolve(
     """
     if sd <= 0 or mde <= 0:
         return cap
+    if observations >= 2:
+        sd = sd_upper_bound(sd, observations, confidence=confidence)
     edge = null_band * mde
     size = abs(estimate)
 

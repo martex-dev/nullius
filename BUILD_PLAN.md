@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M16 complete; M15's v5 ladder is running (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M17 complete (v5 and v6 ladders pending); M15's v5 ladder is running (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -441,6 +441,30 @@ It does not select because it does not choose. Every registered protocol appears
 The flaw list is the section a written-up-afterwards paper would not have, because in that genre the flaws are fixed before anything is published. Here they are the record: five of them were found by *executing* a preregistered plan rather than by reviewing one.
 
 A ninth CI job builds it on every push and uploads it as an artifact.
+
+---
+
+### M17 · The escalation was sizing itself from a bad estimate ◐ instrument done
+Found while measuring something else, which is how most of this project's findings have arrived.
+
+M14's escalation reads a standard deviation off the paired differences of the five mandatory seeds and sizes the extra seeds from it. **Five points make a much worse estimate than it looks.** Simulated at the measured paired SD of 0.00348:
+
+| | SD estimate | seeds it asks for |
+|---|---|---|
+| 5th percentile | 0.00147 | **4** |
+| median | 0.00320 | 7 |
+| truth | 0.00348 | 8 |
+| 95th percentile | 0.00533 | 15 |
+
+It lands **under half the true value 8.9% of the time**. When it does, the escalation buys four seeds where eight are needed, the item stays underpowered, and it abstains — a failure on exactly the questions the mechanism was added to answer.
+
+**The fix is an upper confidence limit, and the asymmetry is the point.** B9 sizes from the 80% chi-square upper bound rather than the point estimate, so uncertainty about the noise buys *more* data instead of less. Over-buying costs compute, which this project has measured at 5% of total spend for several times the seed-runs; under-buying costs an answer. It is not free: at five observations the bound is 1.56× the estimate, and seeds scale with the square, so the median escalation roughly doubles. **Protocol v6 registers that cost as part of the prediction** — if cost per correct claim rises without coverage improving, the bound is only expensive.
+
+**A near-miss worth recording.** The measurement that started this was of sample size, not seeds, and a five-seed estimate said quadrupling samples cut the SD fivefold. At thirty seeds the same measurement said 0.73×, and the ordering was not even monotone. The first number was noise. I nearly built a milestone on it, and the thing that stopped it was re-measuring with more seeds — which is the same lesson the finding itself is about.
+
+**A third instance of the same bug shape.** The paper's results-path table was a dict keyed by protocol version, and it raised a `KeyError` the moment v6 was registered. That is the third time something keyed by protocol version was maintained beside the registry instead of computed from it — after the CI job that listed protocols by hand, and the ladder that ran eight arms under a nine-arm plan. It is derived now.
+
+All six protocols verify and rebuild identically. **v6 has not been run**: at roughly double B8's escalation it is a ~6-hour ladder, and the v5 run has to finish first.
 
 **A wiring bug worth recording.** The first v4 ladder ran eight arms under a nine-arm protocol: a `ruff format` pass had collapsed the `run_ladder(...)` call onto one line before an edit meant to add `arms=` to it, so the replacement matched nothing and the runner silently used its eight-arm default. It produced a complete-looking results file — seven of seven baseline comparisons, no halted items — and nothing objected except the adjudication, which happened to name the missing arm by id. `score_ladder` now refuses any run whose arms do not match the protocol's, in either direction. The eight completed arms were reused from their checkpoints, so the correction cost one arm's compute rather than nine.
 

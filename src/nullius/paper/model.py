@@ -41,16 +41,26 @@ __all__ = [
     "Paper",
     "assemble",
     "bank_profile",
+    "results_path",
 ]
 
-#: Where each protocol's results live, if they were ever run and committed.
-RESULTS_PATHS: dict[str, Path] = {
-    "1": Path("benchmark/results.lock.json"),
-    "2": Path("benchmark/results.v2.lock.json"),
-    "3": Path("benchmark/results.v3.lock.json"),
-    "4": Path("benchmark/results.v4.lock.json"),
-    "5": Path("benchmark/results.v5.lock.json"),
-}
+
+def results_path(version: str) -> Path:
+    """Where a protocol's results live, derived rather than listed.
+
+    This was a dict, and it went stale the moment a sixth protocol was
+    registered — the paper raised a KeyError on a version it had never been told
+    about. The same shape of bug had already put an unverified protocol past CI
+    and run an eight-arm ladder under a nine-arm plan. Anything keyed by
+    protocol version should be computed from the registry, not maintained
+    beside it.
+    """
+    return (
+        Path("benchmark/results.lock.json")
+        if version == "1"
+        else Path(f"benchmark/results.v{version}.lock.json")
+    )
+
 
 #: The paired-difference standard error the experiment actually achieves, taken
 #: from the ledgers rather than assumed. Used only to express item difficulty in
@@ -211,15 +221,15 @@ def assemble(*, strict: bool = True) -> Paper:
                 continue
 
         protocol = read_protocol(path)
-        results_path = RESULTS_PATHS.get(version)
+        results = results_path(version)
         report: LadderReport | None = None
         runs: tuple[ArmRun, ...] = ()
-        if results_path is not None and results_path.exists():
+        if results.exists():
             try:
-                report, run_list = read_results(results_path)
+                report, run_list = read_results(results)
                 runs = tuple(run_list)
             except (ValueError, KeyError) as exc:
-                problems.append(f"{results_path.name} does not re-score: {exc}")
+                problems.append(f"{results.name} does not re-score: {exc}")
                 if strict:
                     raise
         chapters.append(Chapter(version=version, protocol=protocol, report=report, runs=runs))
@@ -249,8 +259,8 @@ def _provider() -> str:
     a mock provider unless this says otherwise, and a reader should not have to
     dig for that.
     """
-    for version in sorted(RESULTS_PATHS, key=int, reverse=True):
-        path = RESULTS_PATHS[version]
+    for version in sorted(PROTOCOL_VERSIONS, key=int, reverse=True):
+        path = results_path(version)
         if not path.exists():
             continue
         body = json.loads(path.read_text(encoding="utf-8"))

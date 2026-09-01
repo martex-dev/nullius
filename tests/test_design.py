@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pytest
 from pydantic import ValidationError
 
@@ -10,6 +11,7 @@ from nullius.design.power import (
     minimum_detectable_effect,
     power_for,
     required_seeds,
+    sd_upper_bound,
     seeds_to_resolve,
 )
 from nullius.design.spec import ArmSpec, DatasetSpec, EstimatorSpec, ExperimentSpec, TransformSpec
@@ -304,3 +306,53 @@ def test_a_design_powered_to_detect_can_still_fail_to_exclude() -> None:
     sd = 0.00348
     assert power_for(effect=0.02, sd=sd, n=5) > 0.9
     assert seeds_to_resolve(estimate=0.007, sd=sd, mde=0.02) > 5
+
+
+# ---------------------------------------------------------------------------
+# M17 — a five-point standard deviation is a worse estimate than it looks
+# ---------------------------------------------------------------------------
+
+
+def test_a_five_point_standard_deviation_is_badly_noisy() -> None:
+    """The measurement that motivated the upper bound.
+
+    Simulated at this project's measured paired SD, an estimate from the five
+    mandatory seeds lands under half the truth about 9% of the time. Fed to the
+    escalation, that buys four seeds where eight are needed — under-buying on
+    exactly the items adaptive seeding exists to resolve.
+    """
+    true_sd = 0.00348
+    draws = np.random.default_rng(11).normal(0.0, true_sd, size=(20000, 5))
+    estimates = draws.std(axis=1, ddof=1)
+
+    assert np.mean(estimates < true_sd / 2) > 0.05
+    assert seeds_to_resolve(estimate=0.0070, sd=float(np.percentile(estimates, 5)), mde=0.02) < (
+        seeds_to_resolve(estimate=0.0070, sd=true_sd, mde=0.02)
+    )
+
+
+def test_the_upper_bound_errs_towards_buying_more_data() -> None:
+    """Over-buying costs compute, which this project measured at 5% of total
+    spend for several times the seed-runs. Under-buying costs an answer."""
+    sd = 0.0032
+    assert sd_upper_bound(sd, 5) > sd
+    assert seeds_to_resolve(estimate=0.007, sd=sd, mde=0.02, observations=5) > seeds_to_resolve(
+        estimate=0.007, sd=sd, mde=0.02
+    )
+
+
+def test_the_bound_tightens_as_observations_accumulate() -> None:
+    """More data, less need to hedge against not knowing the noise."""
+    sd = 0.0032
+    wide, narrower = sd_upper_bound(sd, 5), sd_upper_bound(sd, 20)
+    assert sd < narrower < wide
+
+
+def test_without_observations_the_point_estimate_is_used_unchanged() -> None:
+    """Protocols v4 and v5 registered and ran the point estimate. Their results
+    have to remain reproducible from this code."""
+    sd = 0.0032
+    assert seeds_to_resolve(estimate=0.007, sd=sd, mde=0.02, observations=0) == seeds_to_resolve(
+        estimate=0.007, sd=sd, mde=0.02
+    )
+    assert sd_upper_bound(sd, 1) == sd

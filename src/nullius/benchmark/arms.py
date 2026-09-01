@@ -35,7 +35,15 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-__all__ = ["LADDER", "LADDER_V4", "Arm", "ArmKind", "arm_named", "mechanism_arms"]
+__all__ = [
+    "LADDER",
+    "LADDER_V4",
+    "LADDER_V6",
+    "Arm",
+    "ArmKind",
+    "arm_named",
+    "mechanism_arms",
+]
 
 
 class ArmKind(StrEnum):
@@ -91,6 +99,9 @@ class Arm:
     adaptive_seeds: bool = False
     """Spend seeds where they would change the answer, to a declared ceiling."""
 
+    conservative_escalation: bool = False
+    """Size that escalation from an upper bound on the noise, not a point estimate."""
+
     model_dependent: bool = False
     """Whether this arm's behaviour is dominated by the language model.
 
@@ -112,6 +123,7 @@ class Arm:
             "memory": self.memory,
             "iterations": self.iterations,
             "adaptive_seeds": self.adaptive_seeds,
+            "conservative_escalation": self.conservative_escalation,
             "model_dependent": self.model_dependent,
         }
 
@@ -227,7 +239,34 @@ not to *exclude* a smaller one, and those are different questions.
 """
 
 
-def arm_named(arm_id: str, ladder: tuple[Arm, ...] = LADDER_V4) -> Arm:
+LADDER_V6: tuple[Arm, ...] = (
+    *LADDER_V4,
+    Arm(
+        arm_id="B9",
+        label="Adaptive + conservative sizing",
+        isolates="whether sizing escalation from an upper bound beats a point estimate",
+        kind=ArmKind.INSTITUTIONAL,
+        preregistered=True,
+        custodian=True,
+        adversary=True,
+        replication=True,
+        reviewer=True,
+        memory=True,
+        adaptive_seeds=True,
+        conservative_escalation=True,
+    ),
+)
+"""The ladder with the M17 arm, registered under protocol v6.
+
+B9 differs from B8 in one boolean, as every rung does. It exists because the
+escalation B8 introduced sizes itself from a standard deviation estimated over
+five paired differences, and that estimate lands under half the true value
+about 9% of the time — buying four seeds where eight are needed, on exactly
+the items the mechanism was added to resolve.
+"""
+
+
+def arm_named(arm_id: str, ladder: tuple[Arm, ...] = LADDER_V6) -> Arm:
     """Look an arm up by id, raising rather than guessing."""
     for arm in ladder:
         if arm.arm_id == arm_id:

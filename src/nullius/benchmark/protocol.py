@@ -37,7 +37,7 @@ from typing import Any
 from nullius.bank.items import BANK_V1, BANK_V2
 from nullius.bank.lock import DEFAULT_LOCK_PATH as TRUTH_LOCK_PATH
 from nullius.bank.lock import V2_LOCK_PATH as V2_TRUTH_LOCK_PATH
-from nullius.benchmark.arms import LADDER, LADDER_V4, Arm
+from nullius.benchmark.arms import LADDER, LADDER_V4, LADDER_V6, Arm
 from nullius.db.enums import CONFIDENCE_ORDER, ClaimConfidence, Verdict
 from nullius.kernel import ADAPTIVE_SEED_CEILING
 from nullius.util.canonical import canonical_json, sha256_of
@@ -52,6 +52,7 @@ __all__ = [
     "V3_PROTOCOL_PATH",
     "V4_PROTOCOL_PATH",
     "V5_PROTOCOL_PATH",
+    "V6_PROTOCOL_PATH",
     "Protocol",
     "ProtocolVerification",
     "build_protocol",
@@ -125,6 +126,11 @@ caught it; this is the fix. A protocol records the arms *as they were
 described when it was registered*, and a later field is a later registration.
 """
 
+ARM_FIELDS_V6 = (
+    *ARM_FIELDS_V1,
+    "adaptive_seeds",
+    "conservative_escalation",
+)
 ARM_FIELDS_V4 = (*ARM_FIELDS_V1, "adaptive_seeds")
 
 
@@ -134,12 +140,13 @@ def _project(arm: Arm, fields: tuple[str, ...]) -> dict[str, Any]:
     return {name: full[name] for name in fields}
 
 
-LATEST_PROTOCOL_VERSION = "5"
+LATEST_PROTOCOL_VERSION = "6"
 
 V2_PROTOCOL_PATH = Path("benchmark/protocol.v2.lock.json")
 V3_PROTOCOL_PATH = Path("benchmark/protocol.v3.lock.json")
 V4_PROTOCOL_PATH = Path("benchmark/protocol.v4.lock.json")
 V5_PROTOCOL_PATH = Path("benchmark/protocol.v5.lock.json")
+V6_PROTOCOL_PATH = Path("benchmark/protocol.v6.lock.json")
 
 REPLICATES = 3
 """Passes over the bank per custodied arm, fixed before the run.
@@ -289,7 +296,54 @@ V5_EXCLUSION_RULES = (
     "by a factor the design has not earned.",
 )
 
+V6_PREDICTION = (
+    "Sizing the escalation from an upper bound on the noise rather than a point "
+    "estimate raises coverage. B9 abstains on fewer bank items than B8 does, and "
+    "the 95% interval on that difference excludes zero. It should also cost more "
+    "per item, because a bound that errs towards more data buys more data; if "
+    "cost per correct claim rises without coverage improving, the bound is only "
+    "expensive."
+)
+
+V6_ADJUDICATED = {
+    "treatment": "B9",
+    "baseline": "B8",
+    "quantity": "coverage",
+    "direction": "greater",
+}
+
+V6_EXCLUSION_RULES = (
+    *V5_EXCLUSION_RULES,
+    "The escalation's standard deviation is estimated from the paired "
+    "differences of the mandatory seeds, and at five observations that estimate "
+    "lands under half the true value about 9% of the time. B9 replaces it with "
+    "an 80% chi-square upper confidence limit. The asymmetry is deliberate: "
+    "over-buying costs compute, which this project measured at 5% of total spend "
+    "for several times the seed-runs, and under-buying costs an answer.",
+)
+
 PROTOCOL_VERSIONS: dict[str, dict[str, Any]] = {
+    "6": {
+        "items": BANK_V2,
+        "truth_lock": V2_TRUTH_LOCK_PATH,
+        "path": V6_PROTOCOL_PATH,
+        "baseline_arm": "B0",
+        "prediction": V6_PREDICTION,
+        "exclusion_rules": V6_EXCLUSION_RULES,
+        "metrics": V3_METRICS,
+        "arms": LADDER_V6,
+        "arm_fields": ARM_FIELDS_V6,
+        "extra_statistics": {
+            "calibration_scope": "asserted_effects",
+            "adjudication": "named_contrast",
+            "adjudicated": dict(V6_ADJUDICATED),
+            "verdict_vocabulary": [v.value for v in Verdict],
+            "adaptive_seed_ceiling": ADAPTIVE_SEED_CEILING,
+            "replicates": REPLICATES,
+            "replicated_arms": "custodied",
+            "escalation_confidence": 0.80,
+        },
+    },
     "5": {
         "items": BANK_V2,
         "truth_lock": V2_TRUTH_LOCK_PATH,

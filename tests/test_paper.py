@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from nullius.benchmark.protocol import PROTOCOL_VERSIONS
-from nullius.paper.model import RESULTS_PATHS, assemble
+from nullius.paper.model import assemble, results_path
 from nullius.paper.render import FLAWS, LIMITATIONS, environment, write_paper
 
 
@@ -33,12 +33,18 @@ def test_every_registered_protocol_appears() -> None:
 
 def test_a_protocol_registered_but_never_run_is_reported_as_such() -> None:
     """A plan with no result is part of the record too, and reporting it is what
-    stops a registered-and-quietly-dropped protocol from vanishing."""
+    stops a registered-and-quietly-dropped protocol from vanishing.
+
+    The path is derived from the version rather than looked up in a table. The
+    table went stale the moment a sixth protocol was registered, which is the
+    third time in this project that something keyed by protocol version was
+    maintained beside the registry instead of computed from it.
+    """
     paper = assemble()
     unrun = [c for c in paper.chapters if not c.was_run]
     for chapter in unrun:
         assert chapter.verdict == "registered, not yet run"
-        assert RESULTS_PATHS[chapter.version].exists() is False
+        assert results_path(chapter.version).exists() is False
 
 
 def test_refuted_predictions_are_counted_and_shown(tmp_path: Path) -> None:

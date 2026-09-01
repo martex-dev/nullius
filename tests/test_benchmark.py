@@ -13,6 +13,8 @@ from nullius.benchmark.protocol import (
     V2_PROTOCOL_PATH,
     V3_PROTOCOL_PATH,
     V4_PROTOCOL_PATH,
+    V5_PROTOCOL_PATH,
+    V6_PROTOCOL_PATH,
     ProtocolVerification,
     build_protocol,
     read_protocol,
@@ -351,3 +353,41 @@ def test_v4_records_the_escalation_ceiling_it_ran_under() -> None:
 
     v4 = read_protocol(V4_PROTOCOL_PATH)
     assert v4.statistics["adaptive_seed_ceiling"] == ADAPTIVE_SEED_CEILING
+
+
+def test_v6_registers_the_conservative_arm_without_disturbing_v4_or_v5() -> None:
+    """Adding `conservative_escalation` to Arm.as_dict changes the arms payload
+    of every protocol that did not register it. The arm-field projection is what
+    keeps v4 and v5 rebuilding to the hashes they were registered with."""
+    from pathlib import Path
+
+    from nullius.benchmark.protocol import PROTOCOL_VERSIONS
+
+    for version, settings in sorted(PROTOCOL_VERSIONS.items(), key=lambda kv: int(kv[0])):
+        result = verify_protocol(Path(settings["path"]))
+        assert result.ok, f"v{version}: {result}"
+
+    for older in (read_protocol(V4_PROTOCOL_PATH), read_protocol(V5_PROTOCOL_PATH)):
+        assert len(older.arms) == 9
+        assert all("conservative_escalation" not in arm for arm in older.arms)
+
+    v6 = read_protocol(V6_PROTOCOL_PATH)
+    assert len(v6.arms) == 10
+    assert all("conservative_escalation" in arm for arm in v6.arms)
+
+
+def test_b9_differs_from_b8_in_one_boolean() -> None:
+    eight, nine = arm_named("B8"), arm_named("B9")
+    assert nine.conservative_escalation and not eight.conservative_escalation
+    for field in ("preregistered", "custodian", "adversary", "replication", "memory"):
+        assert getattr(eight, field) == getattr(nine, field), field
+    assert eight.adaptive_seeds and nine.adaptive_seeds
+
+
+def test_v6_adjudicates_the_quantity_its_prediction_names() -> None:
+    v6 = read_protocol(V6_PROTOCOL_PATH)
+    named = v6.statistics["adjudicated"]
+    assert (named["treatment"], named["baseline"]) == ("B9", "B8")
+    assert named["quantity"] == "coverage"
+    assert "coverage" in v6.prediction.lower()
+    assert v6.statistics["escalation_confidence"] == 0.80
