@@ -379,12 +379,11 @@
           {% endfor %}
         </g>
 
-        <path d="{{ corridor_d }}" fill="none" stroke="var(--wallo)" stroke-width="80"
-              stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="{{ corridor_d }}" fill="none" stroke="var(--floor-2)" stroke-width="64"
-              stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="{{ corridor_d }}" fill="none" stroke="{{ accent('slate') }}" stroke-width="2"
-              stroke-opacity=".26" stroke-dasharray="26 22" stroke-linecap="round"/>
+        <g id="halls">
+          {% for hall in plan.halls %}
+          {{ parts.hallway(hall, accent('slate')) }}
+          {% endfor %}
+        </g>
 
         <line x1="1788" y1="-40" x2="1788" y2="1540" stroke="{{ accent('crimson') }}"
               stroke-width="2.4" stroke-opacity=".36" stroke-dasharray="14 16"/>
@@ -417,8 +416,18 @@
           <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
                 rx="4" fill="url(#sealedhatch)" opacity=".5"/>
           {% endif %}
+          {% if room.room_id in plan.lanes %}
+          <rect x="{{ floor.x }}" y="{{ plan.lanes[room.room_id] - 31 }}" width="{{ floor.w }}"
+                height="62" fill="var(--floor-2)" opacity=".55"/>
+          <line x1="{{ floor.x }}" y1="{{ plan.lanes[room.room_id] }}"
+                x2="{{ floor.x + floor.w }}" y2="{{ plan.lanes[room.room_id] }}"
+                stroke="{{ hue }}" stroke-width="1.6" stroke-opacity=".22"
+                stroke-dasharray="11 13"/>
+          {% endif %}
+          {{ parts.ceiling(floor, hue) }}
 
           {% for gap in plan.doorways[room.room_id] %}
+          {{ parts.threshold(gap, shell, wall, hue) }}
           {% if gap.side == 'left' %}
           <rect x="{{ shell.x - 2 }}" y="{{ gap.at - gap.span / 2 }}" width="{{ wall + 4 }}"
                 height="{{ gap.span }}" fill="var(--floor-2)"/>

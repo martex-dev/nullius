@@ -209,12 +209,18 @@ CONTENT_TOP = 16.0
 #: The rest of the interior, as fractions of what is left below that. The
 #: off-corridor rooms are shorter than the pipeline rooms and the same layout
 #: has to read in both, so the bands are proportional from here down.
-BACK_AT, BACK_H = 0.02, 0.19
-MID_AT, MID_H = 0.25, 0.17
-LANE_AT = 0.50
-FRONT_AT, FRONT_H = 0.62, 0.18
+WALL_AT, WALL_H = -0.055, 0.075
+BACK_AT, BACK_H = 0.05, 0.185
+MID_AT, MID_H = 0.27, 0.16
+LANE_AT = 0.505
+FRONT_AT, FRONT_H = 0.635, 0.175
 FEET_AT = 0.965
 AGENT_H = 74.0
+
+#: The hallway between two rooms: as wide as the doorways it joins, so the walk
+#: reads as one run of floor rather than as a line drawn between two boxes.
+HALL = 62.0
+HALL_WALL = 8.0
 
 #: How wide a lane an agent paces, as a fraction of the floor, and how long one
 #: length of it takes. Agents patrol their own room and never leave it: the
@@ -409,34 +415,127 @@ class Kit:
     nothing in it reads as a room that does nothing, which would be a claim, and
     a false one."""
 
+    wall: tuple[str, ...]
+    """Fittings against the top wall: vents, conduit runs, a sign over the door."""
+
     back: tuple[str, ...]
     mid: tuple[str, ...]
     front: tuple[str, ...]
+    props: tuple[str, ...] = ()
+    """Loose things on the floor, in the margins either side of the walk."""
 
 
 #: Furniture appropriate to the work. A room absent from this mapping gets
 #: :data:`DEFAULT_KIT`, so adding a room to the map draws something rather than
 #: leaving an empty box.
 FURNITURE: dict[str, Kit] = {
-    "drafting": Kit(("board", "board", "shelf"), ("crate", "shelf"), ("desk", "desk")),
-    "screening": Kit(("board", "shelf", "board"), ("cabinet", "crate"), ("desk", "desk")),
-    "registry": Kit(("cabinet", "cabinet", "cabinet"), ("rack", "shelf"), ("console", "console")),
-    "workshop": Kit(("rack", "rack", "rack"), ("bench", "crate"), ("bench", "bench")),
-    "execution": Kit(("rack", "rack", "rack"), ("table", "table"), ("table", "console")),
-    "analysis": Kit(("screen", "screen", "screen"), ("board", "shelf"), ("console", "console")),
-    "challenge": Kit(("board", "screen", "board"), ("cabinet", "shelf"), ("console", "desk")),
-    "blind": Kit(("cabinet", "cabinet", "cabinet"), ("rack", "crate"), ("console", "console")),
-    "review": Kit(("shelf", "board", "shelf"), ("cabinet", "crate"), ("desk", "desk")),
-    "record": Kit(("shelf", "shelf", "shelf"), ("cabinet", "cabinet"), ("plinth", "plinth")),
-    "vault": Kit(
-        ("cabinet", "cabinet", "cabinet", "cabinet"), ("cabinet", "cabinet"), ("terminal",)
+    "drafting": Kit(
+        ("vent", "conduit", "sign"),
+        ("board", "board", "shelf"),
+        ("crate", "shelf"),
+        ("desk", "desk"),
+        ("chair", "cables"),
     ),
-    "treasury": Kit(("cabinet", "rack", "cabinet"), ("crate", "crate"), ("console", "desk")),
-    "archive": Kit(("shelf", "shelf", "shelf", "shelf"), ("shelf", "shelf"), ("shelf", "crate")),
-    "oracle": Kit(("cabinet", "cabinet", "cabinet"), ("shelf", "shelf"), ("plinth", "plinth")),
+    "screening": Kit(
+        ("conduit", "sign", "vent"),
+        ("board", "shelf", "board"),
+        ("cabinet", "crate"),
+        ("desk", "desk"),
+        ("chair", "barrel"),
+    ),
+    "registry": Kit(
+        ("vent", "sign", "conduit"),
+        ("cabinet", "cabinet", "cabinet"),
+        ("rack", "printer"),
+        ("console", "console"),
+        ("chair", "hatch"),
+    ),
+    "workshop": Kit(
+        ("conduit", "conduit", "vent"),
+        ("rack", "rack", "rack"),
+        ("bench", "crate"),
+        ("bench", "bench"),
+        ("barrel", "cart"),
+    ),
+    "execution": Kit(
+        ("vent", "conduit", "vent"),
+        ("rack", "rack", "rack"),
+        ("table", "table"),
+        ("table", "console"),
+        ("hatch", "barrel"),
+    ),
+    "analysis": Kit(
+        ("sign", "conduit", "vent"),
+        ("screen", "screen", "screen"),
+        ("board", "printer"),
+        ("console", "console"),
+        ("chair", "cables"),
+    ),
+    "challenge": Kit(
+        ("vent", "sign", "conduit"),
+        ("board", "screen", "board"),
+        ("cabinet", "locker"),
+        ("console", "desk"),
+        ("chair", "crate"),
+    ),
+    "blind": Kit(
+        ("conduit", "vent", "sign"),
+        ("cabinet", "cabinet", "cabinet"),
+        ("rack", "locker"),
+        ("console", "console"),
+        ("hatch", "cables"),
+    ),
+    "review": Kit(
+        ("vent", "sign", "conduit"),
+        ("shelf", "board", "shelf"),
+        ("cabinet", "crate"),
+        ("desk", "desk"),
+        ("chair", "barrel"),
+    ),
+    "record": Kit(
+        ("conduit", "sign", "conduit"),
+        ("shelf", "shelf", "shelf"),
+        ("cabinet", "cabinet"),
+        ("plinth", "plinth"),
+        ("cables", "hatch"),
+    ),
+    "vault": Kit(
+        ("vent", "conduit", "vent", "sign"),
+        ("cabinet", "cabinet", "cabinet", "cabinet"),
+        ("locker", "locker", "cabinet"),
+        ("terminal",),
+        ("hatch", "barrel"),
+    ),
+    "treasury": Kit(
+        ("sign", "conduit", "vent"),
+        ("cabinet", "rack", "cabinet"),
+        ("crate", "crate"),
+        ("console", "desk"),
+        ("cart", "barrel"),
+    ),
+    "archive": Kit(
+        ("conduit", "vent", "conduit", "sign"),
+        ("shelf", "shelf", "shelf", "shelf"),
+        ("shelf", "shelf"),
+        ("shelf", "crate"),
+        ("cart", "cables"),
+    ),
+    "oracle": Kit(
+        ("vent", "sign", "vent"),
+        ("cabinet", "cabinet", "cabinet"),
+        ("shelf", "locker"),
+        ("plinth", "plinth"),
+        ("hatch", "barrel"),
+    ),
 }
 
-DEFAULT_KIT = Kit(("rack", "cabinet", "shelf"), ("crate", "shelf"), ("console", "desk"))
+DEFAULT_KIT = Kit(
+    ("vent", "conduit", "sign"),
+    ("rack", "cabinet", "shelf"),
+    ("crate", "shelf"),
+    ("console", "desk"),
+    ("chair", "cables"),
+)
 
 
 def _row(
@@ -479,14 +578,42 @@ def _fixtures(room: Room) -> list[dict[str, Any]]:
     kit = FURNITURE.get(room.room_id, DEFAULT_KIT)
     floor = _inner(room)
     usable = _usable(floor)
+    wall = _row(kit.wall, floor, _band(floor, WALL_AT), usable * WALL_H, nxt)
     back = _row(kit.back, floor, _band(floor, BACK_AT), usable * BACK_H, nxt)
     mid = _row(kit.mid, floor, _band(floor, MID_AT), usable * MID_H, nxt)
     front = _row(kit.front, floor, _band(floor, FRONT_AT), usable * FRONT_H, nxt)
-    for fixture in back + mid:
+    props = _props(kit.props, floor, nxt)
+    for fixture in wall + back + mid:
         fixture["depth"] = "back"
-    for fixture in front:
+    for fixture in front + props:
         fixture["depth"] = "front"
-    return back + mid + front
+    return wall + back + mid + props + front
+
+
+def _props(
+    kinds: tuple[str, ...],
+    floor: Box,
+    nxt: Callable[[float, float], float],
+) -> list[dict[str, Any]]:
+    """Loose things, tucked into the corners either side of the walk.
+
+    Placed in the margins the patrol does not use, so the floor has something on
+    it without anybody having to step over it.
+    """
+    out: list[dict[str, Any]] = []
+    for index, kind in enumerate(kinds):
+        size = 26.0 + nxt(0.0, 12.0)
+        left = index % 2 == 0
+        out.append(
+            {
+                "kind": kind,
+                "x": (floor.x + 6.0) if left else (floor.x + floor.w - 6.0 - size),
+                "y": _band(floor, 0.36 + 0.3 * (index // 2)) + nxt(0.0, 10.0),
+                "w": size,
+                "h": size * 0.7,
+            }
+        )
+    return out
 
 
 def _sprites(room: Room) -> list[dict[str, Any]]:
@@ -563,6 +690,43 @@ def _doorways(walk: list[Room]) -> dict[str, list[dict[str, Any]]]:
         for room, side in ((first, side_a), (second, side_b)):
             out[room.room_id].append({"side": side, "at": lane_y(room), "span": 62.0})
     return out
+
+
+def _hallways(walk: list[Room]) -> list[dict[str, Any]]:
+    """The runs of floor between one room and the next.
+
+    A corridor drawn as a stroke through the room centres is a line on a
+    diagram. These are the sections that are actually outside a room — walled,
+    floored and lit — computed from the gap between two consecutive shells, so
+    they line up with the doorways cut for them.
+    """
+    out: list[dict[str, Any]] = []
+    for first, second in pairwise(walk):
+        one, two = _shell(first), _shell(second)
+        if abs(one.y - two.y) < 1.0:
+            lane = lane_y(first)
+            left, right = (one, two) if two.x > one.x else (two, one)
+            out.append(
+                {
+                    "x": left.x + left.w,
+                    "y": lane - HALL / 2,
+                    "w": right.x - (left.x + left.w),
+                    "h": HALL,
+                    "vertical": False,
+                }
+            )
+        else:
+            top, bottom = (one, two) if two.y > one.y else (two, one)
+            out.append(
+                {
+                    "x": one.x + one.w / 2 - HALL / 2,
+                    "y": top.y + top.h,
+                    "w": HALL,
+                    "h": bottom.y - (top.y + top.h),
+                    "vertical": True,
+                }
+            )
+    return [hall for hall in out if hall["w"] > 1 and hall["h"] > 1]
 
 
 def _is_outer(room: Room, side: str) -> bool:
@@ -871,6 +1035,21 @@ def _cards(
                 kind="status",
             )
         )
+        floor = _inner(room)
+        labels.append(
+            _label(
+                f"{index:02d}",
+                x=floor.x + floor.w - 12.0,
+                y=floor.y + floor.h - 10.0,
+                size=54.0,
+                fill="stencil",
+                owner=room.room_id,
+                max_width=90.0,
+                weight=700,
+                anchor="end",
+                kind="stencil",
+            )
+        )
         role_chips, role_labels, _ = _chip_row(
             chips_text,
             box.x + CARD_PAD,
@@ -1039,6 +1218,7 @@ def plan(station: Station) -> dict[str, Any]:
         for room in walk
     ]
     doorways = _doorways(walk)
+    halls = _hallways(walk)
     exits = _exits(station, doorways)
     fixed = _exit_labels(exits) + _map_labels(station, exits)
     cards, labels = _cards(station, exits, [label.box for label in fixed])
@@ -1056,6 +1236,12 @@ def plan(station: Station) -> dict[str, Any]:
         # every way out is drawn the same size as every other.
         "doors": exits,
         "doorways": doorways,
+        "halls": halls,
+        "lanes": {
+            room.room_id: round(lane_y(room), 2)
+            for room in ROOMS
+            if any(gap for gap in doorways[room.room_id])
+        },
         "shells": shells,
         "floors": floors,
         "cards": cards,
@@ -1161,6 +1347,7 @@ _LABEL_FILLS = {
     "faint": "var(--plate-faint)",
     "status": "var(--plate-ink)",
     "badge": "var(--plate)",
+    "stencil": "var(--walli)",
 }
 
 

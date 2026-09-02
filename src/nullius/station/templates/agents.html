@@ -26,6 +26,17 @@
         fill="{{ hue }}" opacity=".5"/>
 {% endmacro %}
 
+{% macro arms(h, dark, hue, skin) %}
+  <path d="M{{ -h * 0.2 }} {{ -h * 0.56 }} q{{ -h * 0.07 }} {{ h * 0.13 }} {{ -h * 0.03 }} {{ h * 0.2 }}
+           M{{ h * 0.2 }} {{ -h * 0.56 }} q{{ h * 0.07 }} {{ h * 0.13 }} {{ h * 0.03 }} {{ h * 0.2 }}"
+        fill="none" stroke="{{ dark }}" stroke-width="{{ h * 0.062 }}" stroke-linecap="round"/>
+  <path d="M{{ -h * 0.2 }} {{ -h * 0.555 }} q{{ -h * 0.065 }} {{ h * 0.12 }} {{ -h * 0.028 }} {{ h * 0.185 }}
+           M{{ h * 0.2 }} {{ -h * 0.555 }} q{{ h * 0.065 }} {{ h * 0.12 }} {{ h * 0.028 }} {{ h * 0.185 }}"
+        fill="none" stroke="{{ hue }}" stroke-width="{{ h * 0.036 }}" stroke-linecap="round"/>
+  <circle cx="{{ -h * 0.226 }}" cy="{{ -h * 0.345 }}" r="{{ h * 0.032 }}" fill="{{ skin }}"/>
+  <circle cx="{{ h * 0.226 }}" cy="{{ -h * 0.345 }}" r="{{ h * 0.032 }}" fill="{{ skin }}"/>
+{% endmacro %}
+
 {% macro face(h, dark, skin) %}
   <circle cx="0" cy="{{ -h * 0.715 }}" r="{{ h * 0.105 }}" fill="{{ skin }}"/>
   <circle cx="{{ -h * 0.04 }}" cy="{{ -h * 0.725 }}" r="{{ h * 0.014 }}" fill="{{ dark }}"/>
@@ -64,7 +75,7 @@
   </g>
 
 {% elif role == 'custodian' %}
-  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}
+  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}{{ arms(h, dark, hue, skin) }}
   <path d="M{{ -h * 0.24 }} {{ -h * 0.28 }} L{{ -h * 0.22 }} {{ -h * 0.6 }}
            L{{ h * 0.22 }} {{ -h * 0.6 }} L{{ h * 0.24 }} {{ -h * 0.28 }} Z"
         fill="{{ hue }}" stroke="{{ dark }}" stroke-width="{{ h * 0.02 }}"/>
@@ -87,7 +98,7 @@
           class="blink"/>
 
 {% elif role == 'director' %}
-  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}
+  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}{{ arms(h, dark, hue, skin) }}
   {# long coat with a flared hem #}
   <path d="M{{ -h * 0.21 }} {{ -h * 0.6 }} L{{ h * 0.21 }} {{ -h * 0.6 }}
            L{{ h * 0.26 }} {{ -h * 0.18 }} L{{ -h * 0.26 }} {{ -h * 0.18 }} Z"
@@ -116,7 +127,7 @@
         rx="{{ h * 0.014 }}" fill="{{ dark }}"/>
 
 {% elif role == 'theorist' %}
-  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}
+  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}{{ arms(h, dark, hue, skin) }}
   <path d="M{{ -h * 0.16 }} {{ -h * 0.6 }} L{{ h * 0.16 }} {{ -h * 0.6 }}
            L{{ h * 0.18 }} {{ -h * 0.26 }} L{{ -h * 0.18 }} {{ -h * 0.26 }} Z"
         fill="{{ hue }}" stroke="{{ dark }}" stroke-width="{{ h * 0.02 }}"/>
@@ -142,7 +153,7 @@
            q{{ h * 0.05 }} {{ -h * 0.04 }} {{ h * 0.05 }} {{ h * 0.04 }} z" fill="{{ dark }}"/>
 
 {% elif role == 'literature' %}
-  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}
+  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}{{ arms(h, dark, hue, skin) }}
   <path d="M{{ -h * 0.19 }} {{ -h * 0.6 }} L{{ h * 0.19 }} {{ -h * 0.6 }}
            L{{ h * 0.21 }} {{ -h * 0.26 }} L{{ -h * 0.21 }} {{ -h * 0.26 }} Z"
         fill="{{ hue }}" stroke="{{ dark }}" stroke-width="{{ h * 0.02 }}"/>
@@ -170,7 +181,7 @@
         fill="{{ dark }}"/>
 
 {% elif role == 'designer' %}
-  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}
+  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}{{ arms(h, dark, hue, skin) }}
   <path d="M{{ -h * 0.19 }} {{ -h * 0.6 }} L{{ h * 0.19 }} {{ -h * 0.6 }}
            L{{ h * 0.21 }} {{ -h * 0.26 }} L{{ -h * 0.21 }} {{ -h * 0.26 }} Z"
         fill="{{ hue }}" stroke="{{ dark }}" stroke-width="{{ h * 0.02 }}"/>
@@ -230,7 +241,7 @@
   <circle cx="0" cy="{{ -h * 0.83 }}" r="{{ h * 0.032 }}" fill="{{ hue }}" class="blink"/>
 
 {% elif role == 'analyst' %}
-  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}
+  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}{{ arms(h, dark, hue, skin) }}
   <path d="M{{ -h * 0.19 }} {{ -h * 0.6 }} L{{ h * 0.19 }} {{ -h * 0.6 }}
            L{{ h * 0.21 }} {{ -h * 0.26 }} L{{ -h * 0.21 }} {{ -h * 0.26 }} Z"
         fill="{{ hue }}" stroke="{{ dark }}" stroke-width="{{ h * 0.02 }}"/>
@@ -261,7 +272,7 @@
         fill="{{ dark }}"/>
 
 {% elif role == 'skeptic' %}
-  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}
+  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}{{ arms(h, dark, hue, skin) }}
   {# a long hooded coat: the hood is the silhouette #}
   <path d="M{{ -h * 0.24 }} {{ -h * 0.16 }} L{{ -h * 0.2 }} {{ -h * 0.56 }}
            L0 {{ -h * 0.68 }} L{{ h * 0.2 }} {{ -h * 0.56 }} L{{ h * 0.24 }} {{ -h * 0.16 }} Z"
@@ -297,7 +308,7 @@
              M{{ h * 0.025 }} {{ -h * 0.3 }} h{{ h * 0.09 }} v{{ h * 0.25 }} h{{ -h * 0.09 }} z"
           fill="{{ hue }}"/>
   </g>
-  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}
+  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}{{ arms(h, dark, hue, skin) }}
   <path d="M{{ -h * 0.2 }} {{ -h * 0.6 }} L{{ h * 0.2 }} {{ -h * 0.6 }}
            L{{ h * 0.22 }} {{ -h * 0.26 }} L{{ -h * 0.22 }} {{ -h * 0.26 }} Z"
         fill="{{ hue }}" stroke="{{ dark }}" stroke-width="{{ h * 0.02 }}"/>
@@ -314,7 +325,7 @@
         fill="{{ dark }}"/>
 
 {% elif role == 'reviewer' %}
-  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}
+  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}{{ arms(h, dark, hue, skin) }}
   <path d="M{{ -h * 0.2 }} {{ -h * 0.6 }} L{{ h * 0.2 }} {{ -h * 0.6 }}
            L{{ h * 0.23 }} {{ -h * 0.22 }} L{{ -h * 0.23 }} {{ -h * 0.22 }} Z"
         fill="{{ hue }}" stroke="{{ dark }}" stroke-width="{{ h * 0.02 }}"/>
@@ -346,7 +357,7 @@
         fill="{{ dark }}"/>
 
 {% else %}
-  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}
+  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}{{ arms(h, dark, hue, skin) }}
   <path d="M{{ -h * 0.19 }} {{ -h * 0.6 }} L{{ h * 0.19 }} {{ -h * 0.6 }}
            L{{ h * 0.21 }} {{ -h * 0.26 }} L{{ -h * 0.21 }} {{ -h * 0.26 }} Z"
         fill="{{ hue }}" stroke="{{ dark }}" stroke-width="{{ h * 0.02 }}"/>

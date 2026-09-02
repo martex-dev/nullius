@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M26 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M27 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -1007,6 +1007,52 @@ state into the next interaction. It is measured from the start of each press now
 - The items table is the recorded outcomes, one row per item per pass, unsummarised. Tested.
 - No two roles are drawn the same way. Tested by rendering each build on its own.
 - Still one self-contained file, still refuses to build on input that does not verify.
+
+---
+
+### M27 · Fittings, props, and a hallway that is a place ✅
+Presentation only again — `model.py`, `map.py` and `ledger.py` untouched.
+
+**The corridor was a stroke through the room centres.** Wide, dark, and a line on a diagram
+rather than somewhere you could walk. The runs of floor that are genuinely *outside* a room are
+now computed from the gap between two consecutive shells and drawn as sections: walls down both
+sides, deck plating, a dashed guide down the middle and a light overhead. They line up with the
+doorways because they are measured from the same gap the doorways were cut for. Inside a room the
+walk continues as a band of darker plating across its floor, so the route reads as one run rather
+than as rooms with a line between them. Each threshold gets hazard chevrons.
+
+**Rooms went from seven objects to twelve.** A fittings band against the top wall — vents, conduit
+runs with a pilot light, an illuminated sign over the door — a third row of furniture, and loose
+props tucked into the margins the patrol does not use: chairs, barrels, a cart, a coil of cables,
+a floor hatch. Eleven new fixture kinds. Each room also carries its number as a large faint floor
+stencil, which is the same index its callout card shows.
+
+**The actors have arms.** Ten builds gained shoulders, sleeves in the room's colour, and hands —
+which is what was missing when a figure was holding a tablet or a wrench with nothing to hold it
+with.
+
+#### What building it revealed was wrong
+
+**1. Two bands were computed from different origins and landed on each other.** The overhead
+light strips were positioned from the top of the floor and the new wall fittings from the content
+origin, and at the room's height those two happen to coincide — the lights were drawn inside the
+vents. Neither was wrong on its own. The lights now run across the room where a ceiling light
+would be, rather than along the wall where the fittings are.
+
+**2. A patch script that asserts its way down a file leaves the file half-written.** The
+substitution for the floor stencil did not match, the assertion fired, and because the write is
+at the end nothing at all was applied — but the earlier substitutions had already succeeded
+against the in-memory copy, so the run *looked* partial and was in fact a no-op. Worth recording
+because the failure reads as the opposite of what it is: an aborted all-or-nothing patch is
+safer than a partial one, and it is easy to spend a while looking for changes that were never
+written.
+
+**Acceptance**
+- Every test from M22 through M26 still passes.
+- A room holds at least five drawn fixtures, all inside its floor — now twelve to fourteen.
+  Tested.
+- No two labels overlap, including the new floor stencils, at any zoom. Tested.
+- Still one self-contained file; still refuses to build on input that does not verify.
 
 ---
 
