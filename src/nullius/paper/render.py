@@ -22,6 +22,7 @@ __all__ = [
     "FLAWS",
     "LIMITATIONS",
     "Flaw",
+    "contrast_note",
     "environment",
     "render_findings",
     "write_findings",
@@ -135,10 +136,12 @@ def _num(value: float, places: int = 3) -> str:
     return f"{value:.{places}f}"
 
 
-def _note(comparison: object) -> str:
+def contrast_note(comparison: object) -> str:
     """The annotation that follows a contrast, as a plain string.
 
-    A string rather than an inline ``{% if %}`` because Jinja's ``trim_blocks``
+    Public, and shared with :mod:`nullius.station.render`, so that the paper and
+    the station cannot describe the same interval in two different ways. A
+    string rather than an inline ``{% if %}`` because Jinja's ``trim_blocks``
     eats the newline after a block tag, and a Markdown bullet whose line ends
     with one loses its line break. Every contrast list in the committed
     findings had been rendering as a single run-on line since M18 for exactly
@@ -165,7 +168,7 @@ def environment() -> Environment:
         lstrip_blocks=True,
     )
     env.globals["num"] = _num
-    env.globals["note"] = _note
+    env.globals["note"] = contrast_note
     return env
 
 

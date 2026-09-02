@@ -111,8 +111,13 @@ paper_app = typer.Typer(
     help="Generate the paper from the committed protocols and results.",
     no_args_is_help=True,
 )
+station_app = typer.Typer(
+    help="Draw the institution as the facility it is.",
+    no_args_is_help=True,
+)
 app.add_typer(report_app, name="report")
 app.add_typer(paper_app, name="paper")
+app.add_typer(station_app, name="station")
 
 DatabaseOption = Annotated[
     Path,
@@ -993,6 +998,81 @@ def paper_build(
     console.print(f"  written to [bold]{path}[/bold]")
     if markdown is not None:
         console.print(f"  written to [bold]{markdown}[/bold]")
+    console.print()
+
+
+@station_app.command("build")
+def station_build(
+    out: Annotated[Path, typer.Option(help="Where to write the station.")] = Path(
+        "site/station.html"
+    ),
+    ledger: Annotated[
+        Path | None,
+        typer.Option("--ledger", help="A ladder's SQLite ledger, for the per-agent detail."),
+    ] = None,
+    protocol: Annotated[
+        str | None,
+        typer.Option(
+            "--protocol",
+            help="Which registered protocol to display. Default: the "
+            "most recent one that produced results.",
+        ),
+    ] = None,
+    arm: Annotated[
+        str | None,
+        typer.Option(
+            "--arm",
+            help="Which arm's passage to draw. Default: the most "
+            "institutional arm of the protocol on display.",
+        ),
+    ] = None,
+) -> None:
+    """Render the station from the committed protocols, results and locked truths.
+
+    Refuses to build when a protocol fails to verify or a results file fails to
+    re-score, on the same grounds as the paper: a page whose inputs no longer
+    check out is worse than no page, because it looks like evidence and it is
+    prettier than the paper.
+
+    Without ``--ledger`` this reads only committed artifacts, so it works from a
+    clean clone and in CI. With one it adds the per-agent detail the lock files
+    do not carry, and says on its own face which of the two it is showing.
+    """
+    from nullius.station.model import assemble
+    from nullius.station.render import write_station
+
+    try:
+        station = assemble(strict=True, ledger=ledger, protocol=protocol, arm_id=arm)
+    except (ValueError, FileNotFoundError) as exc:
+        console.print()
+        console.print(f"  [red]{exc}[/red]")
+        console.print()
+        raise typer.Exit(code=1) from exc
+
+    path = write_station(out, station=station)
+
+    console.print()
+    console.print(
+        f"  [bold]{station.mode}[/bold] mode, protocol "
+        f"[bold]v{station.chapter.version}[/bold] "
+        f"({station.chapter.protocol.protocol_hash[:12]}), arm "
+        f"[bold]{station.arm.arm_id}[/bold], provider [bold]{station.provider}[/bold]"
+    )
+    for occupied in station.occupancy:
+        colour = {"live": "green", "empty": "yellow", "unbuilt": "red"}[occupied.backing.value]
+        engaged = "" if occupied.engaged else "  [dim](bypassed)[/dim]"
+        console.print(
+            f"    {occupied.room.room_id:<10} [{colour}]{occupied.backing.value:<7}[/{colour}]"
+            f"  {len(occupied.figures)} figure(s){engaged}"
+        )
+    if station.dead:
+        console.print()
+        console.print(
+            f"  [red]{', '.join(station.dead)}: declared on every arm, hashed into every "
+            "registered protocol, and read by no code path[/red]"
+        )
+    console.print()
+    console.print(f"  written to [bold]{path}[/bold]")
     console.print()
 
 

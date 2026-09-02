@@ -248,6 +248,31 @@ jobs:
           name: paper
           path: paper/index.html
 
+  station:
+    name: the station builds from committed sources alone
+    runs-on: ubuntu-latest
+    # Aggregate mode reads only committed artifacts, so this job is also the
+    # check that the page has no dependency on a ladder's ledger — those are
+    # outputs and are not in the clone. It refuses on the same terms the paper
+    # does: a drawing whose inputs no longer check out is worse than no drawing,
+    # because it looks like evidence and it is prettier than the paper.
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv sync --all-extras --dev
+      - name: no ledger is present
+        run: test ! -d .nullius
+      - name: every room, every role, every state
+        run: uv run nullius station build --out site/station.html
+      - name: the map cannot drift from the enums that define it
+        run: uv run pytest tests/test_station.py -q
+      - uses: actions/upload-artifact@v4
+        with:
+          name: station
+          path: site/station.html
+
   clean-clone:
     name: reproducible from a clean clone
     runs-on: ubuntu-latest

@@ -100,6 +100,12 @@ ignore = [
 # E501: several RAISE messages must be a single string literal (SQLite has no
 # adjacent-literal concatenation), which pushes those lines past the limit.
 "src/nullius/db/triggers.py" = ["S608", "E501"]
+# The station reads historical ladder ledgers, whose schemas were written by five
+# different milestones. Table names are interpolated from `_TABLES`, a module-private
+# literal tuple, and the row limit from a module-level int. No user input reaches
+# either, and querying by ORM model would make an old ladder unreadable rather than
+# merely partial.
+"src/nullius/station/ledger.py" = ["S608"]
 
 # ---------------------------------------------------------------- mypy
 [tool.mypy]

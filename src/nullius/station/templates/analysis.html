@@ -1,0 +1,58 @@
+{# The Analysis room's intervals, annotated by the same function the paper uses,
+   so the two documents cannot describe one contrast in two different ways. #}
+{% set detail = occupied.detail %}
+
+<h2>the contrasts the ladder was built to make</h2>
+{% if detail.prediction_contrasts %}
+<div class="scroll">
+  <table>
+    <thead><tr>
+      <th>contrast</th><th>quantity</th><th class="num">difference</th>
+      <th class="num">95% interval</th><th class="num">p</th><th>reading</th>
+    </tr></thead>
+    <tbody>
+      {% for row in detail.prediction_contrasts %}
+      <tr>
+        <td class="mono"><b>{{ row.arm_id }} &minus; {{ row.baseline_arm_id }}</b></td>
+        <td class="mono faint">{{ row.metric }}</td>
+        <td class="num">{{ row.difference }}</td>
+        <td class="num">[{{ row.ci_low }}, {{ row.ci_high }}]</td>
+        <td class="num">{{ row.p_value }}</td>
+        <td style="white-space:normal">
+          {%- if row.interpretable %}{{ row.note }}
+          {%- else %}<b style="color:var(--bad)">{{ row.note }}</b>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="note"><b>{{ station.chapter.verdict }}.</b> {{ detail.prediction_reason }}</div>
+{% else %}
+<div class="note">This protocol registered no adjudicated contrast.</div>
+{% endif %}
+
+<h2>every arm against the registered baseline</h2>
+<p class="faint">Baseline <span class="mono">{{ detail.baseline_arm_id }}</span> on
+<span class="mono">{{ detail.primary_metric }}</span>, corrected with
+<span class="mono">{{ detail.correction }}</span>. Every arm is reported, including the ones
+that make the project look bad; the protocol's third exclusion rule says there is no condition
+under which a result is withheld.</p>
+<div class="scroll">
+  <table>
+    <thead><tr>
+      <th>contrast</th><th class="num">difference</th><th class="num">95% interval</th>
+      <th class="num">p</th><th>reading</th>
+    </tr></thead>
+    <tbody>
+      {% for row in detail.comparisons %}
+      <tr{% if row.involves_arm %} style="background:var(--sunk)"{% endif %}>
+        <td class="mono"><b>{{ row.arm_id }} &minus; {{ row.baseline_arm_id }}</b></td>
+        <td class="num">{{ row.difference }}</td>
+        <td class="num">[{{ row.ci_low }}, {{ row.ci_high }}]</td>
+        <td class="num">{{ row.p_value }}</td>
+        <td style="white-space:normal">{{ row.note }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

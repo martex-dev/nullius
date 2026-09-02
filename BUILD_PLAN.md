@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M21 complete; v5 landed, v6 running. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M22 complete; v5 landed, v6 running. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -556,6 +556,118 @@ Checkpointing was built for a crash while *writing results*. A mid-arm API failu
 A live smoke test runs one bank item end to end with a key and **skips rather than fails** without one.
 
 **A wiring bug worth recording.** The first v4 ladder ran eight arms under a nine-arm protocol: a `ruff format` pass had collapsed the `run_ladder(...)` call onto one line before an edit meant to add `arms=` to it, so the replacement matched nothing and the runner silently used its eight-arm default. It produced a complete-looking results file — seven of seven baseline comparisons, no halted items — and nothing objected except the adjudication, which happened to name the missing arm by id. `score_ladder` now refuses any run whose arms do not match the protocol's, in either direction. The eight completed arms were reused from their checkpoints, so the correction cost one arm's compute rather than nine.
+
+---
+
+### M22 · The Station ✅ — the architecture, drawn from the enums that define it
+A gamified floor plan of the institution: fourteen rooms, one per department, laid out from
+`db/enums.py` and filled in from the committed record. `nullius station build` renders it to a
+single self-contained HTML file, and refuses on the same terms the paper does.
+
+**The map is not a picture of the architecture; it is the architecture, laid out.** A room
+declares which `Role`s work in it and which `HypothesisState`s it owns. `unrepresented_roles()`
+and `unrepresented_states()` are computed and a test fails on either being non-empty, so adding
+a role or a state to the enum breaks the build until a room claims it. The corridor's order is
+the order the states are declared in, and the exits are `TERMINAL_STATES` — both read off the
+enum rather than listed beside it. **This is the fourth thing in this project keyed by a
+project-level enum**, after the CI job that listed protocols by hand, the ladder that ran eight
+arms under a nine-arm plan, and the paper's results-path table that raised on v6. It is the
+first one derived.
+
+**Two modes, and the page says which.** *Aggregate* reads only committed artifacts — protocols,
+results, locked truths — so it builds from a clean clone and in CI. *Ledger* adds one arm's
+SQLite ledger for the per-agent detail the lock files do not carry: registrations with their
+timestamps, objections with their discriminating tests, holdout queries, the query audit, and
+tokens per role. A room whose only source is the ledger renders empty without one and says so.
+
+**Every figure names the artifact it came from.** `Figure` has no constructor that omits
+`source`, so a number cannot reach the page without pointing at the file or table it was read
+out of. The hand-written prose — four principles, four limitations, and each room's charter and
+invariant — is declared as data, and a test asserts that none of it contains a digit, milestone
+tags and arm ids excepted. That is the paper's discipline applied to a medium that is more
+persuasive and less obviously checkable.
+
+**No animation without a backing row.** A token's route is computed from its arm's switches and
+its colour from the recorded verdict against planted truth; the pacing is display, and the page
+says so on its own face. Nothing is drawn conferring, because the architecture denies that
+agents converse and a drawing that showed them doing it would make the interface lie about the
+system. The page states how many of the recorded passes are in motion rather than letting a
+subset read as the whole record.
+
+**The Registry is the one room built to depth**, because its invariant is fractal: the protocol
+is hashed and committed before the ladder that tests it exists, and one level down each design
+is hashed and locked before its own run. Both are shown as checks rather than claims — the git
+history for the first, and a count of runs that began after the registration authorising them
+for the second. On a v5 institutional ledger that is 600 of 600. The other ten dashboards are
+deliberately not built; design mistakes get replicated ten times if you build them all first.
+
+**The Vault is the room you cannot see into from inside.** It reports 1,800 holdout rows
+computed by the Custodian and **zero computed by anyone else** — the `CHECK` constraint holding
+on the record in front of it, which is a different statement from the constraint existing. B3,
+the arm with no Custodian, leaves it untouched, which is the switch being connected rather than
+merely recorded.
+
+#### What building it revealed was wrong
+
+**1. A registered switch that reaches no code at all.** `Arm.reviewer` is declared on every arm,
+hashed into every registered protocol from v1, and set on B6, B7, B8 and B9. `mechanisms_for`
+maps seven fields into the kernel and `reviewer` is not one of them; nothing else in `src/`
+reads it. Flipping it leaves the kernel's switches identical, so an arm that sets it does not
+differ from one that does not. The `reviews` table is empty in every ledger this project has
+produced, and `adversarial_contracts` — which holds the Reviewer's contract, input view and
+validator — is consumed only by the cost estimator.
+
+This is M20's shape, one layer lower. M20 named the switches that can act *only through a
+model*; there was no rule for a switch that acts through *nothing*. `unread_switches()` now finds
+them by flipping one field at a time on a probe arm and asking whether the resulting
+`Mechanisms` changes, and `HANDLED_OUTSIDE_THE_KERNEL` declares the two that legitimately act
+elsewhere — `iterations`, read by the direct-agent path, and `model_dependent`, which is a label
+and not a switch. Everything left over is reported as dead on the page. A test proves the probe
+can tell a live switch from a dead one before it is believed about `reviewer`, and another
+proves the excuse dict cannot grow into a place to hide one.
+
+**No result moves.** B5 → B6 is documented as adding replication, review and memory; review
+contributes nothing, and memory is model-mediated and already labelled uninterpretable. So that
+step measures replication, plus custody noise. No adjudicated prediction was ever made on it.
+This is a reporting correction, not a new analysis plan — and wiring the Reviewer would change
+what every institutional arm does, which is a protocol v7 and not a bug fix.
+
+**2. Nine of fifteen states are written by nothing, and no hypothesis has ever reached a
+terminal one.** `advance_hypothesis` is called with `DRAFT`, `SHELVED`, `REGISTERED`, `EXECUTED`,
+`ANALYZED` and `ABANDONED_BUDGET` anywhere in `src/`. `SCREENED`, `BUILT`, `CHALLENGED`,
+`REPLICATED`, `REVIEWED`, `INSTITUTIONAL`, `REFUTED`, `INCONCLUSIVE` and `REVISED` are written by
+no code path at all. Every hypothesis in every ledger this project has produced sits at
+`analyzed`.
+
+The work is *done* — there are `bundle.built`, `objection.raised`, `replication.recorded` and
+`claim.promoted` events in the same ledgers — it is simply not recorded *as state*. So the
+station draws every terminal exit at the same width and every one of them reads zero, which is
+the honest picture and a sharper one than the drawing I set out to make.
+`docs/02-architecture.md` §3 states as a hard invariant that *the report generator fails loudly
+if any registration lacks a terminal state*. Nothing implements that, and if it did, every run
+in the project's history would trip it. Recorded as
+[ADR-0008](docs/adr/0008-station-draws-the-record-not-the-design.md).
+
+**3. Two enums share two words, and reading one off the other would be the drawing's easiest
+lie.** `Verdict` and `HypothesisState` both contain `refuted` and `inconclusive`. The first is an
+answer about the world, scored against planted truth; the second is where a hypothesis stopped.
+The record room keeps them in separate blocks with the distinction stated, and the test that
+guards it asserts the overlap still exists rather than asserting it away.
+
+**Acceptance**
+- `nullius station build` produces a self-contained page from committed artifacts alone, with no
+  ledger present — no CDN, no stylesheet, no remote image, every `href` pointing inside the file.
+- `assemble(strict=True)` refuses a protocol that does not verify and builds when they all do;
+  both directions tested, and a page built with `strict=False` says so on its face.
+- Every `Figure` carries a source, and no hand-written string on the page contains a digit.
+- Every `Role` and every `HypothesisState` is represented, each state by exactly one room.
+- `model_dependent` arms are labelled, and a contrast separated only by a model-mediated switch
+  is shown as *not interpretable* rather than as an interval — using the paper's own
+  `contrast_note`, so the two documents cannot describe one interval in two different ways.
+- The provider is read from the results file and displayed; tested with a mock and with a live
+  value.
+- Reading a ledger cannot write to it, proven by trying rather than by the URI looking right.
+- An eleventh CI job builds the station on every push and uploads it as an artifact.
 
 ---
 

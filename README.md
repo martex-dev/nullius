@@ -67,6 +67,25 @@ Not a chatbot, not an AutoGPT descendant, not a paper generator, not a RAG appli
 
 **Confidence is computed, never asserted.** It is a function of replication count, effect size over interval width, open critical objections, preregistration status, and holdout queries consumed.
 
+## The map
+
+`nullius station build` draws the institution as the facility it is: one room per department,
+laid out from `db/enums.py` rather than beside it, so every role is stationed somewhere and every
+state of the research machine is owned by exactly one room. Clicking a room opens what that
+department actually did, with each figure naming the artifact it was read out of.
+
+The two rooms with no corridor into them are the two you genuinely cannot walk into — the Vault,
+where the Custodian holds the evaluation split in its own process, and the Oracle, which holds the
+ground truth the institution may never read. Every way out of the pipeline is drawn the same width
+as the way in, and every one of them currently reads zero, which is a fact about the code and not
+about the drawing ([ADR-0008](docs/adr/0008-station-draws-the-record-not-the-design.md)).
+
+It builds from committed artifacts alone; point it at a ladder's ledger for the per-agent detail.
+
+```bash
+nullius station build --out site/station.html
+```
+
 ## Status
 
 Early. Under active construction against a public plan — see **[BUILD_PLAN.md](BUILD_PLAN.md)** for milestones and their acceptance criteria, and the badge above for what currently passes.

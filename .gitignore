@@ -32,6 +32,10 @@ runs/
 .nullius/
 # scratch for `nullius economy measure`; the lock file it writes is committed
 .nullius-measure/
+# generated pages: `nullius report build` and `nullius station build` write here,
+# and CI uploads them as artifacts. The paper is committed because the README
+# links it; these are rebuilt from the same record on every push.
+site/
 
 # Datasets are vendored deliberately and by hash; nothing lands here by accident
 data/**

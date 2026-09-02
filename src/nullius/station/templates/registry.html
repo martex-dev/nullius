@@ -1,0 +1,129 @@
+{# The Registry's dashboard. The same discipline at two scales: the protocol is
+   registered before the ladder runs, and each design is registered before its
+   own run. Both are checkable — one from the git history, one from the stored
+   timestamps — and neither is asserted here. #}
+{% set detail = occupied.detail %}
+
+<h2 style="margin:1.5rem 0 .4rem">the same rule, at two scales</h2>
+<p class="muted" style="font-size:.9rem">The analysis plan is hashed and committed before the
+ladder that tests it exists, so the git history is the evidence that the plan predates the
+results rather than a docstring claiming it does. One level down, each experiment's design is
+hashed and locked before its first run, and a trigger refuses a run that has no prior locked
+registration.</p>
+
+<h3>every registered protocol, in registration order</h3>
+<div class="scroll">
+  <table>
+    <thead><tr>
+      <th>protocol</th><th>hash</th><th>registered</th>
+      <th class="num">arms</th><th class="num">items</th><th>outcome</th>
+    </tr></thead>
+    <tbody>
+      {% for entry in detail.protocols %}
+      <tr{% if entry.focus %} style="background:var(--sunk)"{% endif %}>
+        <td class="mono"><b>v{{ entry.version }}</b>{% if entry.focus %}
+          <span class="faint">on display</span>{% endif %}</td>
+        <td class="mono faint">{{ entry.hash[:12] }}</td>
+        <td class="mono">{{ entry.registered_at }}</td>
+        <td class="num">{{ entry.arms }}</td>
+        <td class="num">{{ entry.n_items }}</td>
+        <td>{{ entry.verdict }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="faint">None was edited after registration. Where running one exposed a flaw in it, the
+fix is a new registration and the old protocol stays on disk, still verifying, still wrong in
+the way it was wrong.</p>
+
+<h3>what protocol v{{ station.chapter.version }} sealed</h3>
+<div class="invariant">{{ station.chapter.protocol.prediction }}</div>
+{% if station.chapter.report %}
+<div class="note"><b>{{ station.chapter.verdict }}.</b>
+  {{ station.chapter.report.prediction_reason }}</div>
+{% else %}
+<div class="note">Registered, not yet run. A plan with no result is part of the record too.</div>
+{% endif %}
+
+<div class="scroll">
+  <table>
+    <thead><tr><th>sealed parameter</th><th>value</th></tr></thead>
+    <tbody>
+      {% for key, value in detail.statistics|dictsort %}
+      <tr><td class="mono">{{ key }}</td><td class="mono">{{ value }}</td></tr>
+      {% endfor %}
+      <tr><td class="mono">bank items hash</td>
+        <td class="mono faint">{{ detail.protocols|selectattr('focus')|map(attribute='bank_hash')
+          |first }}</td></tr>
+      <tr><td class="mono">truth lock hash</td>
+        <td class="mono faint">{{ detail.protocols|selectattr('focus')|map(attribute='truth_hash')
+          |first }}</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>the exclusion rules, registered with the rest</h3>
+<ul class="plain">
+  {% for rule in detail.exclusion_rules %}<li class="muted">{{ rule }}</li>{% endfor %}
+</ul>
+
+{% if detail.registrations is defined %}
+<h3>and one level down: this arm's own registrations</h3>
+<div class="grid">
+  <div class="stat">
+    <span class="v">{{ detail.total_registrations }}</span>
+    <span class="l">designs registered</span>
+    <span class="s">{{ station.ledger.path }}:registrations</span>
+  </div>
+  <div class="stat">
+    <span class="v">{{ detail.runs_after_their_registration }} / {{ detail.runs_checked }}</span>
+    <span class="l">runs that began after the registration authorising them</span>
+    <span class="s">runs join registrations</span>
+  </div>
+  <div class="stat">
+    <span class="v mono" style="font-size:.8rem">{{ detail.first_registration }}</span>
+    <span class="l">first registration locked</span>
+    <span class="s">registrations.registered_at</span>
+  </div>
+  <div class="stat">
+    <span class="v mono" style="font-size:.8rem">{{ detail.first_run }}</span>
+    <span class="l">first run started</span>
+    <span class="s">runs.started_at</span>
+  </div>
+</div>
+<p class="faint">Counted from the stored timestamps rather than inferred from the constraint's
+existence. A trigger that is never exercised proves nothing, and the ordering it enforces is
+visible in the record either way.</p>
+
+<div class="scroll">
+  <table>
+    <thead><tr>
+      <th>registration</th><th>kind</th><th>spec hash</th>
+      <th class="num">seed root</th><th class="num">seeds</th>
+      <th class="num">holdout budget</th><th>locked</th>
+    </tr></thead>
+    <tbody>
+      {% for row in detail.registrations %}
+      <tr>
+        <td class="mono faint">{{ row.registration_id }}</td>
+        <td>{{ row.kind }}</td>
+        <td class="mono faint">{{ row.spec_hash }}</td>
+        <td class="num">{{ row.seed_root }}</td>
+        <td class="num">{{ row.n_seeds }}</td>
+        <td class="num">{{ row.holdout_query_budget }}</td>
+        <td>{{ 'yes' if row.locked else 'no' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="faint">The first {{ detail.registrations|length }} of {{ detail.total_registrations }},
+by registration time. The seed root is derived from the item id by SHA-256 rather than from
+Python's per-process string hash, which is the fix that made a preregistered seed mean the same
+thing in two processes.</p>
+{% else %}
+<div class="note">The per-design registrations live in a ladder's SQLite ledger, which is an
+output and is not committed. Build with <span class="mono">--ledger</span> pointed at one to see
+them; without it this room shows only what the committed protocols carry.</div>
+{% endif %}
