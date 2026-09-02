@@ -144,6 +144,58 @@
 
   .panel { display:none; }
   .panel.on { display:block; }
+
+  .sheet-head { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin:0 0 .3rem;
+                padding-right:2.4rem; }
+  .sheet-head h3 { margin:0; font-size:1.35rem; letter-spacing:-.018em; }
+  .d-no { font:700 .8rem/1 var(--mono); background:var(--sunk); color:var(--dim);
+          border-radius:5px; padding:.28rem .4rem; }
+
+  .armbar { display:flex; align-items:center; gap:.55rem; flex-wrap:wrap; margin:.9rem 0 .2rem;
+            padding:.5rem .6rem; background:var(--sunk); border-radius:9px; }
+  .armbar-label { font:650 .62rem/1 var(--sans); letter-spacing:.14em; text-transform:uppercase;
+                  color:var(--faint); }
+  .armset { display:flex; gap:.22rem; flex-wrap:wrap; }
+  .armbtn { font:700 .74rem/1 var(--mono); color:var(--dim); background:var(--panel);
+            border:1px solid var(--rule); border-radius:6px; padding:.34rem .46rem;
+            cursor:pointer; }
+  .armbtn:hover { color:var(--ink); }
+  .armbtn.on { background:var(--ink); color:var(--panel); border-color:var(--ink); }
+  .armbar-note { font-size:.78rem; color:var(--dim); }
+
+  .tabs { display:flex; gap:.15rem; flex-wrap:wrap; margin:.7rem 0 .9rem;
+          border-bottom:1px solid var(--rule); }
+  .tabbtn { font:650 .78rem/1 var(--sans); color:var(--dim); background:transparent;
+            border:none; border-bottom:2px solid transparent; padding:.5rem .62rem;
+            cursor:pointer; }
+  .tabbtn:hover { color:var(--ink); }
+  .tabbtn.on { color:var(--ink); border-bottom-color:var(--ink); }
+
+  .switches { display:flex; flex-wrap:wrap; gap:.28rem; margin:.3rem 0 .7rem; }
+  .switch { font:600 .7rem/1.6 var(--mono); border:1px solid var(--rule); border-radius:5px;
+            padding:.06rem .42rem; color:var(--faint); }
+  .switch.on { color:var(--good); border-color:currentColor; }
+
+  .toolbar { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin:.2rem 0 .6rem; }
+  .filters { display:flex; gap:.2rem; flex-wrap:wrap; }
+  .filters button { font:600 .72rem/1 var(--sans); color:var(--dim); background:var(--sunk);
+                    border:1px solid transparent; border-radius:6px; padding:.34rem .5rem;
+                    cursor:pointer; }
+  .filters button:hover { color:var(--ink); }
+  .filters button.on { background:var(--ink); color:var(--panel); }
+  .toolbar input { font:500 .78rem/1 var(--sans); color:var(--ink); background:var(--panel);
+                   border:1px solid var(--rule); border-radius:6px; padding:.36rem .5rem;
+                   min-width:9rem; }
+  .scroll.tall { max-height:26rem; overflow-y:auto; }
+  th.sortable { cursor:pointer; user-select:none; white-space:nowrap; }
+  th.sortable:hover { color:var(--ink); }
+  th.sorted { color:var(--ink); }
+  table.items td { font-family:var(--mono); font-size:11.5px; }
+  td.mark { font:700 10px/1.5 var(--sans); text-transform:uppercase; letter-spacing:.06em; }
+  tr.mark-right td.mark { color:var(--good); }
+  tr.mark-wrong td.mark { color:var(--bad); }
+  tr.mark-abstained td.mark { color:var(--warn); }
+  tr.mark-halted td.mark { color:var(--bad); }
   .panel > header { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
                     margin:0 0 .5rem; }
   .panel h3 { margin:0; font-size:1.3rem; letter-spacing:-.015em; }
@@ -217,6 +269,7 @@
 </head>
 <body>
 {% import "parts.html" as parts %}
+{% import "agents.html" as who %}
 
 <div class="wrap head">
   <h1>The Station</h1>
@@ -412,7 +465,7 @@
         {% endfor %}
 
         {# ---- the passes, behind the people and in front of the racks ---- #}
-        <g id="tokens" filter="url(#bloom)">
+        <g id="tokens" filter="url(#bloom)" pointer-events="none">
           {% for token in moving %}
           {% for ghost in token.trail %}
           <circle r="{{ 7.5 - loop.index0 * 1.4 }}" fill="{{ token.colour }}"
@@ -437,7 +490,7 @@
         {% for occupied in rooms %}
         {% set room = occupied.room %}
         {% set hue = accent(room.accent) %}
-        <g class="roomfront" pointer-events="none"
+        <g class="roomfront" data-room="{{ room.room_id }}" pointer-events="none"
            opacity="{{ '1' if occupied.engaged else '.78' }}">
           <g filter="url(#fixdrop)">
             {% for fixture in plan.fixtures[room.room_id] if fixture.depth == 'front' %}
@@ -445,13 +498,13 @@
             {% endfor %}
           </g>
           {% for sprite in plan.sprites[room.room_id] %}
-          {{ parts.agent(sprite, hue, room.locked) }}
+          {{ who.agent(sprite, hue, room.locked) }}
           {% endfor %}
         </g>
         {% endfor %}
 
         {# ---- the ways out, cut into the station's outer wall ---- #}
-        <g id="exits">
+        <g id="exits" pointer-events="none">
           {% for door in plan.doors %}
           {% set hue = accent(door.accent) %}
           {% if door.used %}
@@ -494,7 +547,8 @@
             <rect x="{{ card.badge.x }}" y="{{ card.badge.y }}" width="{{ card.badge.w }}"
                   height="{{ card.badge.h }}" rx="6" fill="{{ hue }}"
                   opacity="{{ '1' if card.engaged else '.6' }}"/>
-            <circle class="lamp" cx="{{ card.box.x + card.box.w - 15 }}"
+            <circle class="lamp" data-lamp="{{ card.room_id }}"
+                    cx="{{ card.box.x + card.box.w - 15 }}"
                     cy="{{ card.box.y + card.box.h - 17 }}" r="7"
                     fill="{{ backing_colour(card.backing) }}"
                     style="{{ 'animation:none' if not card.engaged }}"/>
@@ -513,6 +567,7 @@
           <text x="{{ label.x }}" y="{{ label.y }}" font-size="{{ label.size }}"
                 textLength="{{ label.length }}" lengthAdjust="spacing"
                 text-anchor="{{ label.anchor }}" font-weight="{{ label.weight }}"
+                data-room="{{ label.owner }}" data-kind="{{ label.kind }}"
                 fill="{{ label_fill(label.fill) }}">{{ label.text }}</text>
           {% endfor %}
         </g>
@@ -522,8 +577,10 @@
     <div class="hud hud-tl">
       <div class="glass title-hud">
         <b>NULLIUS &middot; RESEARCH STATION</b>
-        <span>protocol v{{ station.chapter.version }} &middot; arm {{ station.arm.arm_id }}
-          &middot; {{ station.provider }} provider &middot; {{ station.mode }}</span>
+        <span>protocol v{{ station.chapter.version }} &middot;
+          <b id="hud-arm">{{ station.arm.arm_id }} &middot; {{ station.arm.label }}</b></span>
+        <span>{{ station.provider }} provider &middot; {{ station.mode }} &middot;
+          <span id="hud-passes">{{ station.tokens|length }}</span> recorded passes</span>
       </div>
     </div>
 
@@ -559,78 +616,122 @@
   </div>
 </div>
 
-{# ------------------------------------------------------------- the dossier #}
+{# ------------------------------------------------------------- the dossier
+
+   One sheet per department, opened over the map. The arm switch at the top
+   changes which recorded arm every panel is describing — and the map with it,
+   because a dossier that disagreed with the drawing behind it would be worse
+   than either alone. Everything it puts on screen comes out of the embedded
+   record, which is the same assembled station the map was drawn from. #}
 <div class="dossier" id="dossier" aria-hidden="true">
   <div class="scrim" data-close></div>
   <div class="sheet" role="dialog" aria-modal="true" aria-label="department dossier">
     <button type="button" class="close" data-close aria-label="close">&times;</button>
+
+    <div class="sheet-head">
+      <span class="swatch" id="d-swatch"></span>
+      <span class="d-no" id="d-no"></span>
+      <h3 id="d-name"></h3>
+      <span class="tag" id="d-backing"></span>
+      <span class="tag off" id="d-status"></span>
+    </div>
+    <div class="roles" id="d-roles"></div>
+
+    <div class="armbar">
+      <span class="armbar-label">arm</span>
+      <div class="armset" id="d-arms" role="tablist" aria-label="which arm to show"></div>
+      <span class="armbar-note" id="d-armnote"></span>
+    </div>
+
+    <nav class="tabs" id="d-tabs" role="tablist"></nav>
+
     {% for occupied in rooms %}
     {% set room = occupied.room %}
-    <div class="panel" id="panel-{{ room.room_id }}">
-      <header>
-        <span class="swatch" style="background:{{ accent(room.accent) }}"></span>
-        <h3>{{ room.name }}</h3>
-        <span class="tag {{ occupied.backing }}">{{ occupied.backing }}</span>
-        {% if not occupied.engaged %}
-        <span class="tag off">bypassed by {{ station.arm.arm_id }}</span>
+    <div class="panel" id="panel-{{ room.room_id }}" data-room="{{ room.room_id }}">
+
+      <section data-tab="overview">
+        <p class="charter">{{ room.charter }}</p>
+        {% if room.invariant %}<div class="invariant">{{ room.invariant }}</div>{% endif %}
+        {% if room.locked %}
+        <div class="note hard"><b>Not yet built.</b> {{ room.unbuilt_because }}</div>
         {% endif %}
-      </header>
+        <div data-notes></div>
+        {% if occupied.doors %}
+        <h2>ways out of this room</h2>
+        <div class="doors" data-doors></div>
+        {% if occupied.doors | map(attribute=1) | sum == 0 %}
+        <div class="note"><b>Unused, and drawn that way on purpose.</b> {{ unused_exits }}. The
+        pipeline's back half runs — bundles are built, objections raised, replications recorded —
+        but no code path writes the state that would record a hypothesis leaving by one of these
+        doors, so the counter plate reads zero rather than the renderer having failed.</div>
+        {% endif %}
+        <p class="faint">Terminal states of the research machine, counted from
+        <span class="mono">hypothesis.state_changed</span> events. Drawn the same size as one
+        another because refuted and inconclusive are terminal successes of the process.</p>
+        {% endif %}
+      </section>
 
-      <div class="roles">
-        {% for role in room.roles %}<span class="role">{{ role }}</span>{% endfor %}
-        {% for state in room.states %}<span class="role">state &middot; {{ state }}</span>
-        {% endfor %}
-        {% if not room.roles and not room.states %}
-        <span class="role">no actor, no state</span>{% endif %}
-      </div>
+      <section data-tab="figures" hidden>
+        <p class="faint">What this department did under the arm selected above. Every figure
+        names the artifact it was read out of; nothing here was typed.</p>
+        <div class="grid" data-figures></div>
+        <div data-notes-2></div>
+      </section>
 
-      <p class="charter">{{ room.charter }}</p>
-      {% if room.invariant %}<div class="invariant">{{ room.invariant }}</div>{% endif %}
+      <section data-tab="scores" hidden>
+        <p class="faint">The arm's own scored result over the whole bank, computed by library
+        code from its run results. The same numbers wherever you open them, because there is one
+        record.</p>
+        <div class="grid" data-metrics></div>
+        <h2>the switches this arm throws</h2>
+        <div class="switches" data-switches></div>
+        <p class="faint" data-isolates></p>
+      </section>
 
-      {% if room.locked %}
-      <div class="note hard"><b>Not yet built.</b> {{ room.unbuilt_because }}</div>
-      {% else %}
-
-      {% if occupied.figures %}
-      <div class="grid">
-        {% for figure in occupied.figures %}
-        <div class="stat">
-          <span class="v">{{ figure.value }}</span>
-          <span class="l">{{ figure.label }}</span>
-          {% if figure.note %}<span class="l faint">{{ figure.note }}</span>{% endif %}
-          <span class="s">{{ figure.source }}</span>
+      <section data-tab="items" hidden>
+        <div class="toolbar">
+          <div class="filters" data-filters>
+            <button type="button" data-filter="all" class="on">all</button>
+            <button type="button" data-filter="right">answered correctly</button>
+            <button type="button" data-filter="wrong">answered wrongly</button>
+            <button type="button" data-filter="abstained">abstained</button>
+            <button type="button" data-filter="halted">halted</button>
+          </div>
+          <input type="search" data-search placeholder="filter by item" aria-label="filter items">
+          <span class="faint" data-count></span>
         </div>
-        {% endfor %}
-      </div>
-      {% else %}
-      <div class="note">Nothing behind this room in the record on display. An empty room is drawn
-      empty rather than given activity it does not have.</div>
-      {% endif %}
+        <div class="scroll tall">
+          <table class="items"><thead data-head></thead><tbody data-body></tbody></table>
+        </div>
+        <p class="faint">One row per bank item per pass. Click a column to sort by it. Truth is
+        planted, not judged: the oracle measures each item at forty seeds of twenty thousand
+        samples, and the institution never sees any of it.</p>
+      </section>
 
-      {% for note in occupied.notes %}<div class="note">{{ note }}</div>{% endfor %}
-      {% endif %}
+      <section data-tab="provenance" hidden>
+        <p class="faint">Where this room's figures come from. A figure with nowhere to point is a
+        figure somebody typed, and this page does not have any of those.</p>
+        <div class="scroll"><table><thead><tr><th>figure</th><th>value</th><th>artifact</th></tr>
+          </thead><tbody data-sources></tbody></table></div>
+        <h2>what this build read</h2>
+        <div class="grid">
+          <div class="stat"><span class="v">{{ station.mode }}</span><span class="l">mode</span>
+            <span class="s">{{ 'committed artifacts only' if station.mode == 'aggregate'
+              else station.ledger.path }}</span></div>
+          <div class="stat"><span class="v">v{{ station.chapter.version }}</span>
+            <span class="l">protocol</span>
+            <span class="s">{{ station.chapter.protocol.protocol_hash }}</span></div>
+          <div class="stat"><span class="v">{{ station.provider }}</span><span class="l">provider
+            </span><span class="s">read from the results file</span></div>
+        </div>
+      </section>
 
-      {% if occupied.doors %}
-      <h2>ways out of this room</h2>
-      <div class="doors">
-        {% for state, count in occupied.doors %}
-        <div class="door"><b>{{ count }}</b><span>{{ state }}</span></div>
-        {% endfor %}
-      </div>
-      {% if occupied.doors | map(attribute=1) | sum == 0 %}
-      <div class="note"><b>Unused, and drawn that way on purpose.</b> {{ unused_exits }}. The
-      pipeline's back half runs — bundles are built, objections raised, replications recorded —
-      but no code path writes the state that would record a hypothesis leaving by one of these
-      doors, so the counter plate reads zero rather than the renderer having failed.</div>
+      {% if room.room_id == 'registry' %}
+      <section data-tab="protocols" hidden>{% include "registry.html" %}</section>
       {% endif %}
-      <p class="faint">Terminal states of the research machine, counted from
-      <span class="mono">hypothesis.state_changed</span> events. Drawn the same size as one
-      another because refuted and inconclusive are terminal successes of the process.</p>
-      {% endif %}
-
-      {% if room.room_id == 'registry' %}{% include "registry.html" %}{% endif %}
       {% if room.room_id == 'analysis' and occupied.detail %}
-      {% include "analysis.html" %}{% endif %}
+      <section data-tab="contrasts" hidden>{% include "analysis.html" %}</section>
+      {% endif %}
     </div>
     {% endfor %}
   </div>
@@ -689,25 +790,47 @@
 </div>
 
 <script id="station-record" type="application/json">{{ payload|safe }}</script>
+<script id="station-arms" type="application/json">{{ arms_json|safe }}</script>
 <script>
 (function () {
+  var DATA = JSON.parse(document.getElementById('station-arms').textContent);
+  var ARMS = DATA.arms;
+  var ROOMS = DATA.rooms;
+  var NS = 'http://www.w3.org/2000/svg';
+
   var svg = document.getElementById('map');
   var camera = document.getElementById('camera');
   var viewport = document.getElementById('viewport');
   var dossier = document.getElementById('dossier');
   var roster = document.getElementById('roster');
+  var route = document.getElementById('route');
+  var tokens = document.getElementById('tokens');
+
   var view = { x: 0, y: 0, k: 1 };
   var MIN = 0.55, MAX = 8;
+  var arm = Math.max(0, ARMS.findIndex(function (a) { return a.arm_id === '{{ station.arm.arm_id }}'; }));
+  var room = null, tab = 'overview', filter = 'all', search = '', sortBy = 0, sortDown = false;
 
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) { n.className = cls; }
+    if (text !== undefined) { n.textContent = text; }
+    return n;
+  }
+  function meta(room_id) {
+    for (var i = 0; i < ROOMS.length; i += 1) {
+      if (ROOMS[i].room_id === room_id) { return ROOMS[i]; }
+    }
+    return null;
+  }
+
+  /* --------------------------------------------------------------- camera */
   function apply(animated) {
     camera.classList.toggle('nudge', !animated);
     camera.setAttribute('transform', 'translate(' + view.x.toFixed(2) + ' ' +
       view.y.toFixed(2) + ') scale(' + view.k.toFixed(4) + ')');
   }
   function fit(animated) {
-    // The roster sits over the right of the map, so fitting to the whole
-    // viewport would park a quarter of the station underneath it. Shrink to the
-    // clear width and pin the station's left edge where it already was.
     var vb = svg.viewBox.baseVal;
     var clear = viewport.clientWidth - (roster.offsetWidth + 34);
     var s = viewport.clientWidth > 0 ? Math.max(0.5, clear / viewport.clientWidth) : 1;
@@ -715,7 +838,6 @@
     view = { x: vb.x * (1 - s), y: vb.y * (1 - s), k: s };
     apply(animated === true);
   }
-
   function point(event) {
     var ctm = svg.getScreenCTM();
     if (!ctm) { return { x: 0, y: 0 }; }
@@ -731,53 +853,73 @@
     view.k = next;
     apply(false);
   }
-
   viewport.addEventListener('wheel', function (event) {
     event.preventDefault();
     zoomAt(event.deltaY < 0 ? 1.18 : 1 / 1.18, point(event));
   }, { passive: false });
 
-  var dragging = null, moved = 0;
+  var drag = null, moved = 0;
   viewport.addEventListener('pointerdown', function (event) {
     if (event.button !== 0 || event.target.closest('.hud, .roster')) { return; }
-    dragging = { at: point(event), x: view.x, y: view.y };
+    drag = { at: point(event), x: view.x, y: view.y, id: event.pointerId, held: false };
     moved = 0;
-    viewport.classList.add('dragging');
-    viewport.setPointerCapture(event.pointerId);
   });
   viewport.addEventListener('pointermove', function (event) {
-    if (!dragging) { return; }
+    if (!drag) { return; }
     var now = point(event);
-    view.x = dragging.x + (now.x - dragging.at.x);
-    view.y = dragging.y + (now.y - dragging.at.y);
-    moved += Math.abs(now.x - dragging.at.x) + Math.abs(now.y - dragging.at.y);
+    moved = Math.abs(now.x - drag.at.x) + Math.abs(now.y - drag.at.y);
+    // Capture only once it is actually a drag. Capturing on pointerdown makes
+    // the browser retarget the click to the viewport, and every room on the map
+    // stops responding — which is exactly what happened.
+    if (!drag.held && moved > 6) {
+      drag.held = true;
+      viewport.classList.add('dragging');
+      try { viewport.setPointerCapture(drag.id); } catch (e) { /* not fatal */ }
+    }
+    if (!drag.held) { return; }
+    view.x = drag.x + (now.x - drag.at.x);
+    view.y = drag.y + (now.y - drag.at.y);
     apply(false);
   });
-  function endDrag(event) {
-    if (!dragging) { return; }
-    dragging = null;
-    viewport.classList.remove('dragging');
-    if (event && event.pointerId !== undefined &&
-        viewport.hasPointerCapture(event.pointerId)) {
-      viewport.releasePointerCapture(event.pointerId);
+  function endDrag() {
+    if (!drag) { return; }
+    if (drag.held) {
+      viewport.classList.remove('dragging');
+      try { viewport.releasePointerCapture(drag.id); } catch (e) { /* already gone */ }
     }
+    drag = null;
   }
   viewport.addEventListener('pointerup', endDrag);
   viewport.addEventListener('pointercancel', endDrag);
 
+  /* ------------------------------------------------------- opening a room */
+  // Delegated, so it survives pointer capture and anything drawn over the map.
+  viewport.addEventListener('click', function (event) {
+    if (moved > 8) { return; }
+    var hit = event.target.closest('.room, .card');
+    if (hit && hit.dataset.room) { open(hit.dataset.room); }
+  });
+  viewport.addEventListener('keydown', function (event) {
+    if (event.key !== 'Enter' && event.key !== ' ') { return; }
+    var hit = event.target.closest('.room, .card');
+    if (hit && hit.dataset.room) { event.preventDefault(); open(hit.dataset.room); }
+  });
+  Array.prototype.forEach.call(roster.querySelectorAll('.rrow'), function (row) {
+    row.addEventListener('click', function () { open(row.dataset.room); });
+  });
+
   function highlight(id) {
-    Array.prototype.forEach.call(svg.querySelectorAll('.room'), function (room) {
-      room.classList.toggle('selected', room.dataset.room === id);
+    Array.prototype.forEach.call(svg.querySelectorAll('.room'), function (g) {
+      g.classList.toggle('selected', g.dataset.room === id);
     });
-    Array.prototype.forEach.call(roster.querySelectorAll('.rrow'), function (row) {
-      row.classList.toggle('selected', row.dataset.room === id);
+    Array.prototype.forEach.call(roster.querySelectorAll('.rrow'), function (r) {
+      r.classList.toggle('selected', r.dataset.room === id);
     });
   }
   function focusRoom(id) {
-    var group = svg.querySelector('.room[data-room="' + id + '"]');
-    if (!group) { return; }
-    var box = group.getBBox();
-    var vb = svg.viewBox.baseVal;
+    var g = svg.querySelector('.room[data-room="' + id + '"]');
+    if (!g) { return; }
+    var box = g.getBBox(), vb = svg.viewBox.baseVal;
     var k = Math.min(MAX, Math.max(MIN,
       Math.min(vb.width / box.width, vb.height / box.height) * 0.5));
     view.k = k;
@@ -786,44 +928,293 @@
     apply(true);
   }
   function open(id) {
-    var wanted = document.getElementById('panel-' + id);
-    if (!wanted) { return; }
-    Array.prototype.forEach.call(dossier.querySelectorAll('.panel'), function (panel) {
-      panel.classList.toggle('on', panel === wanted);
-    });
+    if (!document.getElementById('panel-' + id)) { return; }
+    room = id;
+    tab = 'overview'; filter = 'all'; search = ''; sortBy = 0; sortDown = false;
     dossier.classList.add('on');
     dossier.setAttribute('aria-hidden', 'false');
     dossier.querySelector('.sheet').scrollTop = 0;
     highlight(id);
     focusRoom(id);
+    renderDossier();
   }
   function close() {
     dossier.classList.remove('on');
     dossier.setAttribute('aria-hidden', 'true');
+    room = null;
+    highlight(null);
   }
-  Array.prototype.forEach.call(dossier.querySelectorAll('[data-close]'), function (node) {
-    node.addEventListener('click', close);
+  Array.prototype.forEach.call(dossier.querySelectorAll('[data-close]'), function (n) {
+    n.addEventListener('click', close);
   });
-  document.addEventListener('keydown', function (event) {
-    if (event.key === 'Escape') { close(); }
-  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { close(); } });
 
-  Array.prototype.forEach.call(svg.querySelectorAll('.room, .card'), function (node) {
-    node.addEventListener('click', function () {
-      if (moved > 16) { return; }
-      open(node.dataset.room);
+  /* ------------------------------------------------------- the arm switch */
+  function renderMap() {
+    var a = ARMS[arm];
+    route.setAttribute('d', a.route);
+    Array.prototype.forEach.call(svg.querySelectorAll('.room'), function (g) {
+      var on = a.engaged.indexOf(g.dataset.room) >= 0;
+      g.setAttribute('opacity', on ? '1' : '.78');
     });
-    node.addEventListener('keydown', function (event) {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        open(node.dataset.room);
-      }
+    Array.prototype.forEach.call(svg.querySelectorAll('.roomfront'), function (g) {
+      var on = a.engaged.indexOf(g.dataset.room) >= 0;
+      g.setAttribute('opacity', on ? '1' : '.78');
     });
-  });
-  Array.prototype.forEach.call(roster.querySelectorAll('.rrow'), function (row) {
-    row.addEventListener('click', function () { open(row.dataset.room); });
-  });
+    Array.prototype.forEach.call(svg.querySelectorAll('[data-lamp]'), function (c) {
+      var r = a.rooms[c.dataset.lamp];
+      if (!r) { return; }
+      c.setAttribute('fill', r.backing === 'live' ? 'var(--good)'
+        : (r.backing === 'unbuilt' ? 'var(--bad)' : 'var(--warn)'));
+      c.style.animation = r.engaged ? '' : 'none';
+    });
+    Array.prototype.forEach.call(svg.querySelectorAll('text[data-kind="status"]'), function (t) {
+      var r = a.rooms[t.dataset.room];
+      if (!r) { return; }
+      t.textContent = r.status;
+      t.setAttribute('textLength', (r.status.length * parseFloat(t.getAttribute('font-size')) * 0.6).toFixed(2));
+    });
+    Array.prototype.forEach.call(roster.querySelectorAll('.rrow'), function (row) {
+      var r = a.rooms[row.dataset.room];
+      if (!r) { return; }
+      row.querySelector('.st').textContent = r.status;
+      var pip = row.querySelector('.pip');
+      var colour = r.backing === 'live' ? 'var(--good)'
+        : (r.backing === 'unbuilt' ? 'var(--bad)' : 'var(--warn)');
+      pip.style.background = colour;
+      pip.style.color = colour;
+    });
+    document.getElementById('hud-arm').textContent = a.arm_id + ' · ' + a.label;
+    document.getElementById('hud-passes').textContent = a.items.length;
 
+    while (tokens.firstChild) { tokens.removeChild(tokens.firstChild); }
+    a.moving.forEach(function (t) {
+      t.trail.forEach(function (ghost, i) {
+        tokens.appendChild(dot(7.5 - i * 1.4, t.colour, ghost.opacity, t.dur, ghost.begin, null));
+      });
+      tokens.appendChild(dot(9, t.colour, 0.95, t.dur, t.begin, t));
+    });
+  }
+  function dot(r, colour, opacity, dur, begin, pulse) {
+    var c = document.createElementNS(NS, 'circle');
+    c.setAttribute('r', r); c.setAttribute('fill', colour);
+    c.setAttribute('opacity', opacity);
+    var m = document.createElementNS(NS, 'animateMotion');
+    m.setAttribute('dur', dur + 's'); m.setAttribute('begin', begin + 's');
+    m.setAttribute('repeatCount', 'indefinite');
+    var mp = document.createElementNS(NS, 'mpath');
+    mp.setAttributeNS('http://www.w3.org/1999/xlink', 'href', '#route');
+    mp.setAttribute('href', '#route');
+    m.appendChild(mp); c.appendChild(m);
+    if (pulse) {
+      var an = document.createElementNS(NS, 'animate');
+      an.setAttribute('attributeName', 'r');
+      an.setAttribute('dur', dur + 's'); an.setAttribute('begin', begin + 's');
+      an.setAttribute('repeatCount', 'indefinite');
+      an.setAttribute('values', pulse.pulse);
+      an.setAttribute('keyTimes', pulse.key_times);
+      c.appendChild(an);
+      var title = document.createElementNS(NS, 'title');
+      title.textContent = pulse.item_id + ' — answered ' + pulse.verdict +
+        ', truth ' + pulse.truth;
+      c.appendChild(title);
+    }
+    return c;
+  }
+
+  /* ---------------------------------------------------------- the dossier */
+  var TABS = [
+    ['overview', 'overview'], ['figures', 'figures'], ['scores', 'arm scores'],
+    ['items', 'items'], ['provenance', 'provenance'],
+    ['protocols', 'protocols'], ['contrasts', 'contrasts']
+  ];
+
+  function renderDossier() {
+    if (!room) { return; }
+    var a = ARMS[arm], r = a.rooms[room], m = meta(room);
+    Array.prototype.forEach.call(dossier.querySelectorAll('.panel'), function (p) {
+      p.classList.toggle('on', p.dataset.room === room);
+    });
+    var panel = document.getElementById('panel-' + room);
+
+    document.getElementById('d-swatch').style.background = m.accent_hex;
+    document.getElementById('d-no').textContent = m.index;
+    document.getElementById('d-name').textContent = m.name;
+    var backing = document.getElementById('d-backing');
+    backing.textContent = r.backing;
+    backing.className = 'tag ' + r.backing;
+    var status = document.getElementById('d-status');
+    status.textContent = r.status;
+    status.className = 'tag ' + (r.engaged ? 'live' : 'off');
+
+    var roles = document.getElementById('d-roles');
+    roles.textContent = '';
+    m.roles.forEach(function (x) { roles.appendChild(el('span', 'role', x)); });
+    m.states.forEach(function (x) { roles.appendChild(el('span', 'role', 'state · ' + x)); });
+    if (!m.roles.length && !m.states.length) {
+      roles.appendChild(el('span', 'role', 'no actor, no state'));
+    }
+
+    var bar = document.getElementById('d-arms');
+    bar.textContent = '';
+    ARMS.forEach(function (other, i) {
+      var b = el('button', 'armbtn' + (i === arm ? ' on' : ''), other.arm_id);
+      b.title = other.label;
+      b.addEventListener('click', function () { arm = i; renderMap(); renderDossier(); });
+      bar.appendChild(b);
+    });
+    document.getElementById('d-armnote').textContent =
+      a.label + (a.model_dependent ? ' · model-dependent' : '');
+
+    var tabs = document.getElementById('d-tabs');
+    tabs.textContent = '';
+    TABS.forEach(function (pair) {
+      if (!panel.querySelector('[data-tab="' + pair[0] + '"]')) { return; }
+      var b = el('button', 'tabbtn' + (pair[0] === tab ? ' on' : ''), pair[1]);
+      b.addEventListener('click', function () { tab = pair[0]; renderDossier(); });
+      tabs.appendChild(b);
+    });
+    Array.prototype.forEach.call(panel.querySelectorAll('section[data-tab]'), function (s) {
+      s.hidden = s.dataset.tab !== tab;
+    });
+
+    fillFigures(panel, r);
+    fillNotes(panel, r);
+    fillDoors(panel, r);
+    fillScores(panel, a);
+    fillSources(panel, r);
+    fillItems(panel, a);
+  }
+
+  function statBlock(label, value, source, note) {
+    var s = el('div', 'stat');
+    s.appendChild(el('span', 'v', value));
+    s.appendChild(el('span', 'l', label));
+    if (note) { s.appendChild(el('span', 'l faint', note)); }
+    if (source) { s.appendChild(el('span', 's', source)); }
+    return s;
+  }
+  function fillFigures(panel, r) {
+    var box = panel.querySelector('[data-figures]');
+    if (!box) { return; }
+    box.textContent = '';
+    if (!r.figures.length) {
+      box.appendChild(el('div', 'note',
+        'Nothing behind this room in the record on display. An empty room is drawn empty ' +
+        'rather than given activity it does not have.'));
+      return;
+    }
+    r.figures.forEach(function (f) {
+      box.appendChild(statBlock(f.label, f.value, f.source, f.note));
+    });
+  }
+  function fillNotes(panel, r) {
+    ['[data-notes]', '[data-notes-2]'].forEach(function (sel) {
+      var box = panel.querySelector(sel);
+      if (!box) { return; }
+      box.textContent = '';
+      r.notes.forEach(function (n) { box.appendChild(el('div', 'note', n)); });
+    });
+  }
+  function fillDoors(panel, r) {
+    var box = panel.querySelector('[data-doors]');
+    if (!box) { return; }
+    box.textContent = '';
+    r.doors.forEach(function (d) {
+      var cell = el('div', 'door');
+      cell.appendChild(el('b', null, String(d[1])));
+      cell.appendChild(el('span', null, d[0]));
+      box.appendChild(cell);
+    });
+  }
+  function fillScores(panel, a) {
+    var box = panel.querySelector('[data-metrics]');
+    if (!box) { return; }
+    box.textContent = '';
+    a.metrics.forEach(function (x) {
+      box.appendChild(statBlock(x.label, x.value, 'benchmark/results'));
+    });
+    var sw = panel.querySelector('[data-switches]');
+    sw.textContent = '';
+    a.switches.forEach(function (s) {
+      var chip = el('span', 'switch' + (s.on ? ' on' : ''), s.name);
+      sw.appendChild(chip);
+    });
+    panel.querySelector('[data-isolates]').textContent = 'This rung isolates ' + a.isolates + '.';
+  }
+  function fillSources(panel, r) {
+    var body = panel.querySelector('[data-sources]');
+    if (!body) { return; }
+    body.textContent = '';
+    r.figures.forEach(function (f) {
+      var tr = document.createElement('tr');
+      tr.appendChild(el('td', null, f.label));
+      tr.appendChild(el('td', 'num', f.value));
+      tr.appendChild(el('td', 'mono faint', f.source));
+      body.appendChild(tr);
+    });
+  }
+
+  var MARKS = { right: 'right', wrong: 'wrong', abstained: 'abstained', halted: 'halted' };
+  function fillItems(panel, a) {
+    var head = panel.querySelector('[data-head]');
+    var body = panel.querySelector('[data-body]');
+    if (!head || !body) { return; }
+    head.textContent = '';
+    var tr = document.createElement('tr');
+    a.columns.forEach(function (col, i) {
+      var th = el('th', (i > 3 ? 'num ' : '') + 'sortable' + (i === sortBy ? ' sorted' : ''),
+        col[1] + (i === sortBy ? (sortDown ? ' ▼' : ' ▲') : ''));
+      th.addEventListener('click', function () {
+        if (sortBy === i) { sortDown = !sortDown; } else { sortBy = i; sortDown = false; }
+        renderDossier();
+      });
+      tr.appendChild(th);
+    });
+    head.appendChild(tr);
+
+    var rows = a.items.filter(function (row) {
+      if (filter !== 'all' && row[3] !== MARKS[filter]) { return false; }
+      return !search || String(row[0]).toLowerCase().indexOf(search) >= 0;
+    });
+    rows.sort(function (p, q) {
+      var x = p[sortBy], y = q[sortBy];
+      var c = (typeof x === 'number' && typeof y === 'number') ? x - y : String(x).localeCompare(String(y));
+      return sortDown ? -c : c;
+    });
+    body.textContent = '';
+    rows.slice(0, 400).forEach(function (row) {
+      var tr2 = document.createElement('tr');
+      tr2.className = 'mark-' + row[3];
+      row.forEach(function (cell, i) {
+        var td = el('td', i > 3 ? 'num' : (i === 0 ? 'mono' : ''), String(cell));
+        if (i === 3) { td.className = 'mark'; }
+        tr2.appendChild(td);
+      });
+      body.appendChild(tr2);
+    });
+    panel.querySelector('[data-count]').textContent =
+      rows.length + ' of ' + a.items.length + ' rows' +
+      (rows.length > 400 ? ' · first 400 shown' : '');
+
+    Array.prototype.forEach.call(panel.querySelectorAll('[data-filter]'), function (b) {
+      b.classList.toggle('on', b.dataset.filter === filter);
+      if (b.dataset.bound) { return; }
+      b.dataset.bound = '1';
+      b.addEventListener('click', function () { filter = b.dataset.filter; renderDossier(); });
+    });
+    var box = panel.querySelector('[data-search]');
+    if (box && !box.dataset.bound) {
+      box.dataset.bound = '1';
+      box.addEventListener('input', function () {
+        search = box.value.trim().toLowerCase();
+        renderDossier();
+      });
+    }
+    if (box) { box.value = search; }
+  }
+
+  /* ------------------------------------------------------------- controls */
   var vb0 = svg.viewBox.baseVal;
   document.getElementById('zoom-in').addEventListener('click', function () {
     zoomAt(1.4, { x: vb0.x + vb0.width / 2, y: vb0.y + vb0.height / 2 });
@@ -844,8 +1235,10 @@
   }
   button.addEventListener('click', function () { still = !still; motion(); });
 
+  renderMap();
   fit(false);
   motion();
+  window.addEventListener('resize', function () { if (view.k <= 1.02) { fit(false); } });
 })();
 </script>
 </body>

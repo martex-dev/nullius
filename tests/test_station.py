@@ -39,11 +39,13 @@ from nullius.station.map import (
 from nullius.station.model import Station, assemble, engaged_rooms, route_for
 from nullius.station.render import (
     CANNOT_SHOW,
+    ITEM_COLUMNS,
     PRINCIPLES,
     UNUSED_EXITS,
     Box,
     _arrivals,
     _moving,
+    arm_records,
     environment,
     overlapping_labels,
     plan,
@@ -825,3 +827,118 @@ def test_the_dossier_holds_a_panel_for_every_room(tmp_path: Path) -> None:
         assert f'data-room="{room.room_id}"' in page, room.room_id
     assert 'id="dossier"' in page
     assert 'id="roster"' in page
+
+
+# --------------------------------------------- M26: the page has to work offline
+
+
+def _built(tmp_path: Path) -> str:
+    return write_station(tmp_path / "station.html").read_text(encoding="utf-8")
+
+
+def test_nothing_is_drawn_over_the_rooms_that_could_swallow_a_click() -> None:
+    """Clicking a room did nothing at all, and the cause was a layer nobody
+    thought of as a layer: the tokens are drawn after the rooms and carry a
+    bloom filter whose region is far larger than the dots, so the whole map had
+    an invisible sheet of glass over it.
+
+    Every group drawn above the rooms that is not itself a target must decline
+    hit testing. Checked in the markup, because the failure is silent — the page
+    renders perfectly and simply does not respond.
+    """
+    page = write_station(Path("site/_m26.html")).read_text(encoding="utf-8")
+    Path("site/_m26.html").unlink(missing_ok=True)
+    for layer in ('<g id="tokens"', '<g id="exits"', '<g id="labels"', '<g class="roomfront"'):
+        start = page.index(layer)
+        opening = page[start : page.index(">", start)]
+        assert 'pointer-events="none"' in opening, f"{layer} can intercept a click"
+
+
+def test_the_script_only_reaches_for_things_the_markup_has(tmp_path: Path) -> None:
+    """A generated page whose script and markup disagree fails at the one moment
+    nobody is watching: in a browser, silently. Every id the script looks up has
+    to exist in the document it is shipped in."""
+    page = _built(tmp_path)
+    script = re.search(r"<script>\n\(function \(\).*?</script>", page, flags=re.S)
+    assert script
+    wanted = sorted(set(re.findall(r"getElementById\('([^']+)'\)", script.group(0))))
+    assert wanted, "the script looks nothing up, which cannot be right"
+    for name in wanted:
+        assert f'id="{name}"' in page, f"the script wants #{name} and the page has no such thing"
+
+
+def test_the_page_carries_every_arm_of_the_protocol_on_display(tmp_path: Path) -> None:
+    """The dossier's arm switch changes which recorded arm every panel describes,
+    so the page has to carry all of them — and each has to be the same arm the
+    ladder ran, not a summary of one."""
+    station = assemble()
+    page = _built(tmp_path)
+    body = re.search(
+        r'<script id="station-arms" type="application/json">(.*?)</script>', page, flags=re.S
+    )
+    assert body
+    data = json.loads(body.group(1))
+
+    ran = [run.arm.arm_id for run in station.chapter.runs]
+    assert [arm["arm_id"] for arm in data["arms"]] == ran
+    assert [room["room_id"] for room in data["rooms"]] == [r.room_id for r in ROOMS]
+
+    for arm, run in zip(data["arms"], station.chapter.runs, strict=True):
+        assert len(arm["items"]) == len(run.outcomes)
+        assert set(arm["rooms"]) == {room.room_id for room in ROOMS}
+        assert arm["engaged"] == sorted(engaged_rooms(run.arm))
+        assert arm["route"], "every arm needs a path, including the ones that walk no rooms"
+
+
+def test_an_arms_figures_are_the_ones_that_arm_actually_produced() -> None:
+    """The switch shows what the record says about that arm. Assembled per arm
+    through the same door the drawn one came through, so it cannot be a
+    reconstruction that has drifted."""
+    station = assemble()
+    records = {arm["arm_id"]: arm for arm in arm_records(station)}
+    for run in station.chapter.runs:
+        alone = assemble(protocol=station.chapter.version, arm_id=run.arm.arm_id)
+        record = records[run.arm.arm_id]
+        for occupied in alone.occupancy:
+            mine = record["rooms"][occupied.room.room_id]
+            assert mine["backing"] == occupied.backing.value
+            assert [f["value"] for f in mine["figures"]] == [f.value for f in occupied.figures]
+
+
+def test_the_item_rows_are_the_recorded_outcomes() -> None:
+    """The items table is the arm's own record, one row per bank item per pass.
+    Nothing is summarised on the way in."""
+    station = assemble()
+    records = {arm["arm_id"]: arm for arm in arm_records(station)}
+    for run in station.chapter.runs:
+        rows = records[run.arm.arm_id]["items"]
+        assert len(rows) == len(run.outcomes)
+        assert len(records[run.arm.arm_id]["columns"]) == len(ITEM_COLUMNS)
+        for row, outcome in zip(rows, run.outcomes, strict=True):
+            assert len(row) == len(ITEM_COLUMNS)
+            assert row[0] == outcome.item_id
+            assert row[1] == outcome.verdict.value
+            assert row[2] == outcome.truth_verdict.value
+            assert row[3] in ("right", "wrong", "abstained", "halted")
+            assert (row[3] == "right") == outcome.correct
+
+
+def test_every_role_is_drawn_as_its_own_build(tmp_path: Path) -> None:
+    """A figure has to be identifiable without reading its label, which means no
+    two roles may share a silhouette. Checked by drawing each on its own and
+    requiring the markup to differ."""
+    from nullius.station.render import environment
+
+    template = environment().get_template("agents.html")
+    drawn = {
+        role.value: template.module.build(role.value, 74.0, "#ffffff")  # type: ignore[attr-defined]
+        for role in Role
+    }
+    for role, markup in drawn.items():
+        assert markup.strip(), role
+    assert len({str(markup) for markup in drawn.values()}) == len(Role), (
+        "two roles are drawn the same way"
+    )
+    page = _built(tmp_path)
+    for role in Role:
+        assert f"<title>{role.value}</title>" in page, role.value

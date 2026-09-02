@@ -31,6 +31,7 @@ left the next pair to be found by eye.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from itertools import pairwise
@@ -39,21 +40,25 @@ from typing import Any
 
 from jinja2 import Environment, PackageLoader, StrictUndefined, select_autoescape
 
+from nullius.benchmark.metrics import ArmMetrics
 from nullius.station.map import ROOMS, TERMINAL_DOORS, Room, corridor, room_named
-from nullius.station.model import Occupancy, Station, assemble, payload
+from nullius.station.model import Occupancy, Station, assemble, engaged_rooms, payload
 
 __all__ = [
     "ACCENTS",
     "CANNOT_SHOW",
     "FURNITURE",
+    "ITEM_COLUMNS",
     "PRINCIPLES",
     "UNUSED_EXITS",
     "WORLD",
     "Label",
     "Principle",
+    "arm_records",
     "environment",
     "plan",
     "render_station",
+    "station_json",
     "write_station",
 ]
 
@@ -209,7 +214,7 @@ MID_AT, MID_H = 0.25, 0.17
 LANE_AT = 0.50
 FRONT_AT, FRONT_H = 0.62, 0.18
 FEET_AT = 0.965
-AGENT_H = 68.0
+AGENT_H = 74.0
 
 #: How wide a lane an agent paces, as a fraction of the floor, and how long one
 #: length of it takes. Agents patrol their own room and never leave it: the
@@ -279,10 +284,12 @@ class Label:
     box: Box
     fill: str
     owner: str
+    kind: str = ""
+    """What this label is, for the page to find it again when the arm changes."""
+
     weight: int = 400
     opacity: float = 1.0
     anchor: str = "start"
-    letter_spacing: float = 0.0
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -294,6 +301,7 @@ class Label:
             "box": {k: round(v, 2) for k, v in self.box.as_dict().items()},
             "fill": self.fill,
             "owner": self.owner,
+            "kind": self.kind,
             "weight": self.weight,
             "opacity": self.opacity,
             "anchor": self.anchor,
@@ -335,6 +343,7 @@ def _label(
     weight: int = 400,
     opacity: float = 1.0,
     anchor: str = "start",
+    kind: str = "",
 ) -> Label:
     """Place one string, measured and clipped to its container.
 
@@ -354,6 +363,7 @@ def _label(
         box=Box(left, y - size * 0.8, length, size * 1.12),
         fill=fill,
         owner=owner,
+        kind=kind,
         weight=weight,
         opacity=opacity,
         anchor=anchor,
@@ -858,6 +868,7 @@ def _cards(
                 max_width=STATUS_W - 10.0,
                 weight=700,
                 anchor="end",
+                kind="status",
             )
         )
         role_chips, role_labels, _ = _chip_row(
@@ -1213,6 +1224,142 @@ def _moving(station: Station, arrivals: list[float]) -> list[dict[str, Any]]:
     return out
 
 
+# ------------------------------------------------------------- every arm
+
+#: Fields of an outcome the item table shows, in the order it shows them. Named
+#: here rather than in the template so the header and the row cannot drift.
+ITEM_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("item", "item"),
+    ("verdict", "answered"),
+    ("truth", "truth"),
+    ("mark", "scored"),
+    ("seeds", "seeds"),
+    ("usd", "usd"),
+    ("realised", "realised effect"),
+    ("effect", "true effect"),
+    ("margin", "margin"),
+    ("pass", "pass"),
+)
+
+
+def _fmt(value: float, places: int = 3) -> str:
+    """A number, or an em dash where the quantity is genuinely undefined."""
+    if value != value or value in (float("inf"), float("-inf")):
+        return "—"
+    return f"{value:.{places}f}"
+
+
+def _metrics_of(metrics: ArmMetrics | None) -> list[dict[str, str]]:
+    """An arm's scored metrics, formatted once for the page."""
+    if metrics is None:
+        return []
+    return [
+        {"label": "verdict accuracy", "value": _fmt(metrics.verdict_accuracy)},
+        {"label": "coverage", "value": _fmt(metrics.coverage)},
+        {"label": "accuracy where answered", "value": _fmt(metrics.assertion_accuracy)},
+        {"label": "null accuracy", "value": _fmt(metrics.null_accuracy)},
+        {"label": "brier", "value": _fmt(metrics.brier)},
+        {"label": "calibration error", "value": _fmt(metrics.expected_calibration_error)},
+        {"label": "false discovery rate", "value": _fmt(metrics.false_discovery_rate)},
+        {"label": "effect size error", "value": _fmt(metrics.effect_size_error, 4)},
+        {"label": "items", "value": str(metrics.n_items)},
+        {"label": "correct", "value": str(metrics.n_correct)},
+        {"label": "abstained", "value": str(metrics.n_abstained)},
+        {"label": "passes over the bank", "value": str(metrics.n_replicates)},
+        {"label": "spent", "value": f"${metrics.usd_total}"},
+        {"label": "per correct claim", "value": f"${metrics.usd_per_correct_claim:.5f}"},
+    ]
+
+
+def _items_of(station: Station) -> list[list[Any]]:
+    """Every recorded outcome of the arm, one row per item per pass."""
+    run = next(
+        (r for r in station.chapter.runs if r.arm.arm_id == station.arm.arm_id),
+        None,
+    )
+    if run is None:
+        return []
+    rows: list[list[Any]] = []
+    for outcome in run.outcomes:
+        rows.append(
+            [
+                outcome.item_id,
+                outcome.verdict.value,
+                outcome.truth_verdict.value,
+                "halted"
+                if outcome.halted
+                else (
+                    "right" if outcome.correct else ("abstained" if outcome.abstained else "wrong")
+                ),
+                outcome.n_seeds,
+                float(outcome.usd),
+                round(outcome.realised_effect, 5),
+                round(outcome.true_effect, 5),
+                round(outcome.boundary_margin, 5),
+                outcome.replicate + 1,
+            ]
+        )
+    return rows
+
+
+def arm_records(station: Station) -> list[dict[str, Any]]:
+    """Every arm of the protocol on display, assembled the same way as the one
+    on the map.
+
+    Re-entering :func:`~nullius.station.model.assemble` per arm rather than
+    reconstructing the figures by hand: the switch has to show what the record
+    says about that arm, and the only thing that knows what the record says is
+    the assembler.
+    """
+    ledger = station.ledger.path if station.ledger else None
+    out: list[dict[str, Any]] = []
+    for run in station.chapter.runs:
+        other = (
+            station
+            if run.arm.arm_id == station.arm.arm_id
+            else assemble(
+                strict=False,
+                ledger=ledger,
+                protocol=station.chapter.version,
+                arm_id=run.arm.arm_id,
+            )
+        )
+        layout = plan(other)
+        engaged = sorted(engaged_rooms(run.arm))
+        out.append(
+            {
+                "arm_id": run.arm.arm_id,
+                "label": run.arm.label,
+                "kind": run.arm.kind.value,
+                "model_dependent": run.arm.model_dependent,
+                "isolates": run.arm.isolates,
+                "switches": [
+                    {"name": name, "on": bool(value)}
+                    for name, value in sorted(run.arm.as_dict().items())
+                    if name not in ("arm_id", "label", "isolates", "kind")
+                ],
+                "engaged": engaged,
+                "route": _route_path(other, layout),
+                "metrics": _metrics_of(other.metrics),
+                "rooms": {
+                    o.room.room_id: {
+                        "backing": o.backing.value,
+                        "engaged": o.room.room_id in engaged,
+                        "status": _status(o),
+                        "figures": [f.as_dict() for f in o.figures],
+                        "notes": list(o.notes),
+                        "doors": [list(d) for d in o.doors],
+                    }
+                    for o in other.occupancy
+                },
+                "columns": [list(c) for c in ITEM_COLUMNS],
+                "items": _items_of(other),
+                "moving": _moving(other, _arrivals(other, layout)),
+            }
+        )
+    return out
+
+
 def switchboard_rooms(station: Station) -> list[Room]:
     """The columns of the ladder table: every room any arm engages.
 
@@ -1261,6 +1408,35 @@ def environment() -> Environment:
     return env
 
 
+def station_json(station: Station) -> str:
+    """Everything the page's own script reads: every arm, and what each room is.
+
+    One envelope rather than two, because the arm switch needs both at once and
+    a second source of room names is a second place for them to go stale.
+    """
+    body = json.dumps(
+        {
+            "arms": arm_records(station),
+            "rooms": [
+                {
+                    "room_id": o.room.room_id,
+                    "index": f"{index:02d}",
+                    "name": o.room.name,
+                    "roles": [r.value for r in o.room.roles],
+                    "states": [s.value for s in o.room.states],
+                    "accent_hex": ACCENTS.get(o.room.accent, ACCENTS["white"]),
+                    "charter": o.room.charter,
+                }
+                for index, o in enumerate(station.occupancy, start=1)
+            ],
+        },
+        separators=(",", ":"),
+    )
+    for character, escape in (("<", "\u003c"), (">", "\u003e"), ("&", "\u0026")):
+        body = body.replace(character, escape)
+    return body
+
+
 def _context(station: Station) -> dict[str, object]:
     layout = plan(station)
     arrivals = _arrivals(station, layout)
@@ -1280,6 +1456,8 @@ def _context(station: Station) -> dict[str, object]:
         "accents": ACCENTS,
         "rooms": station.occupancy,
         "wall": WALL,
+        "item_columns": ITEM_COLUMNS,
+        "arms_json": station_json(station),
         "payload": payload(station),
     }
 

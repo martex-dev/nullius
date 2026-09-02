@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M25 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M26 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -933,6 +933,80 @@ the name has the width instead.
 - No two labels on the map overlap, at any zoom. Still tested, now with the cards in it.
 - Still one self-contained file, still refuses to build on input that does not verify, and
   `prefers-reduced-motion` still stops every animation including the walking.
+
+---
+
+### M26 · The map answers, and the dossier is a console ✅
+Two milestones of drawing, and clicking a room did nothing at all. Fixed, and then the dossier
+was made worth opening: eleven actors redrawn as their own builds, and a dashboard with pages,
+an arm switch and a filterable record of every item. Presentation only again — `model.py`,
+`map.py` and `ledger.py` are untouched.
+
+**The map answers now.** Click a room, its card or its roster row and its dossier opens over the
+map; Escape or the scrim closes it.
+
+**The actors are builds, not silhouettes.** The Director in a long coat with a peaked cap and a
+tablet; Literature with round spectacles carrying a stack of books on a satchel strap; the
+Builder in a hard hat with a lamp, a tool belt and a wrench; the Designer in an apron with a
+drafting triangle, a T-square and a pencil behind the ear; the Analyst in a headset reading a
+floating panel of bars; the Skeptic hooded with a glass; the Custodian sealed into a suit whose
+helmet has a visor slot instead of a face, with a keyring; the Replicator blindfold-banded and
+dragging a faint copy of itself; the Reviewer in a mantle with a stamp; the Theorist trailing a
+scarf with a slate. `SYSTEM` is still a servitor rather than a person, for the same reason as
+before. A test draws each on its own and requires no two to come out the same.
+
+**The dossier is a console.** Six pages where there was one — *overview*, *figures*, *arm
+scores*, *items*, *provenance*, and *protocols* or *contrasts* where the room has them — with an
+arm switch across the top. The switch is the interesting part: it changes which recorded arm
+every panel is describing, **and the map with it**. The route the tokens walk, which rooms are
+lit, every card's status word and lamp, and the roster all follow, because a dossier that
+disagreed with the drawing behind it would be worse than either alone.
+
+The *items* page is the arm's own record — one row per bank item per pass, with what it answered,
+what is true, whether that scored, seeds bought, dollars spent, realised against true effect and
+the margin to the nearest verdict boundary. Filter by outcome, search by item, sort by any
+column. The *provenance* page lists every figure in the room beside the artifact it was read out
+of, which is the claim this project makes about itself, made checkable in the place a reader is
+standing.
+
+Every arm is assembled by re-entering `assemble()` rather than by reconstructing its figures, so
+the switch shows what the record says and cannot drift from it. A test asserts that each arm's
+figures equal the ones that arm produces when assembled on its own.
+
+#### What building it revealed was wrong
+
+**1. An invisible sheet of glass over the whole map.** The tokens are drawn after the rooms and
+carry a bloom filter, and a filter's region is much larger than the thing it blurs — the group's
+bounding box is the entire route, inflated by the filter margins. With hit testing left on, that
+one group sat over every room on the map and ate every click. The page rendered perfectly and
+simply did not respond, which is the worst shape a bug can have.
+
+Every layer drawn above the rooms that is not itself a target now declines hit testing, and a
+test reads the markup and fails if one of them stops. The failure was invisible by construction,
+so it needed a check that does not depend on anybody noticing.
+
+**2. Capturing the pointer on `pointerdown` cancels the click.** The second half of the same bug,
+and it would have survived the first fix. Pan was implemented by capturing the pointer as soon as
+a button went down; the browser then retargets the subsequent `click` to the capturing element,
+so a click on a room arrived at the viewport instead. Capture is now taken only once the pointer
+has actually moved, and the click is handled by delegation from the viewport, which is immune to
+retargeting either way.
+
+**3. A drag threshold that never reset.** `moved` accumulated across a drag and was only zeroed
+on the next `pointerdown`, so the guard that suppresses a click at the end of a pan was carrying
+state into the next interaction. It is measured from the start of each press now.
+
+**Acceptance**
+- Every test from M22 through M25 still passes; the data layer was not touched.
+- No layer drawn above the rooms accepts hit testing. Tested, and the test was proven to fail
+  with the fix removed before it was believed.
+- Every id the page's script looks up exists in the document it ships in. Tested — a generated
+  page whose script and markup disagree fails silently in a browser and nowhere else.
+- The page carries every arm of the protocol on display, and each arm's figures are the ones
+  that arm produces when assembled alone. Tested.
+- The items table is the recorded outcomes, one row per item per pass, unsummarised. Tested.
+- No two roles are drawn the same way. Tested by rendering each build on its own.
+- Still one self-contained file, still refuses to build on input that does not verify.
 
 ---
 
