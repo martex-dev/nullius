@@ -727,7 +727,10 @@ def benchmark_run(
         str,
         typer.Option(
             "--bank",
-            help="Which registered protocol to run under: 1, 2 or 3.",
+            # Not a list. It said "1, 2 or 3" while seven were registered, which
+            # is the same maintained-beside-the-registry mistake in a help string.
+            help="Which registered protocol version to run under; the registered "
+            "ones are the protocol lock files in benchmark/.",
         ),
     ] = "1",
     provider: Annotated[
