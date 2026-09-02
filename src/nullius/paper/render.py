@@ -103,6 +103,21 @@ FLAWS: tuple[Flaw, ...] = (
         "Contrasts whose arms differ only in a model-mediated switch are now "
         "labelled uninterpretable rather than printed as intervals. (M20)",
     ),
+    Flaw(
+        "A protocol was adjudicated against an arm that did not implement its mechanism.",
+        "B9 is B8 with conservative escalation sizing. The switch was declared on the "
+        "arm, hashed into v6, translated into the kernel's mechanism set and handed to "
+        "a parameter that no line read; neither call to the escalation passed it at "
+        "all. So B9 sized every escalation from the point estimate exactly as B8 did, "
+        "and bought an identical number of seeds on all one hundred and eighty "
+        "outcomes — not similar, identical. V6's refutation of conservative sizing is "
+        "therefore a measurement of two custody draws of one arm, and stands on the "
+        "record as that. Its one gain is unplanned: B9 minus B8 is a negative control "
+        "with a true difference of zero, which puts a number on this ladder's noise "
+        "floor. V7 re-registers the prediction against a switch that is connected, and "
+        "the wiring is now checked by lint over every argument the kernel accepts and "
+        "by a test that runs both arms and compares what they bought. (M23)",
+    ),
 )
 
 #: What this document cannot support, stated where a reader will meet it.
@@ -126,6 +141,12 @@ LIMITATIONS: tuple[str, ...] = (
     "mechanism might change the design an institution chooses in the first place.",
     "No result here has been replicated across independent implementations. The "
     "replication reported is of runs, not of the system.",
+    "Protocol v6 is reported with the outcome it produced, and that outcome is not "
+    "evidence about the mechanism v6 names. Its treatment arm did not implement "
+    "conservative escalation sizing, so the contrast it adjudicated is a null one. "
+    "The row is kept because deleting a registered protocol's result is the thing "
+    "this project exists to make impossible; read it as the noise floor it measures "
+    "and not as the finding it was registered to make.",
 )
 
 

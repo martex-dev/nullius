@@ -79,6 +79,12 @@ select = [
   "S",                # bandit — this project executes generated code
   "PTH",              # pathlib
   "TID",
+  # M23: a parameter accepted and never read is a wire that ends in the air.
+  # `_replicate` took `conservative` and dropped it, so protocol v6 adjudicated
+  # a prediction about conservative escalation against an arm that sized
+  # exactly like its comparator. This rule is the cheap half of the guard; the
+  # other half runs the two arms and compares what they bought.
+  "ARG",
 ]
 ignore = [
   "S101",    # assert: used throughout the test suite
@@ -93,13 +99,27 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S", "N806"]
+# ARG: fakes and stubs stand in for a real signature and are free to ignore most
+# of what they are handed; that is what makes them fakes.
+"tests/**" = ["S", "N806", "ARG"]
+# ARG: every function in these modules is registered into a dispatch table and
+# called with a fixed argument list -- `@detector`, `@register_view`,
+# `@transform_op`, SQLAlchemy's `TypeDecorator` and its event listeners. The
+# signature is the interface, so an unused argument is conformance rather than a
+# loose wire. `src/nullius/kernel.py` is deliberately absent from this list, and
+# `tests/test_switches.py` asserts the same rule over it directly, so no edit to
+# this file can switch the check off where it cost something.
+"src/nullius/adversarial/detectors.py" = ["ARG"]
+"src/nullius/adversarial/roles.py" = ["ARG"]
+"src/nullius/build/ops.py" = ["ARG"]
+"src/nullius/db/tables.py" = ["ARG"]
+"src/nullius/roles/views.py" = ["ARG"]
 # The invariant DDL is assembled from a fixed, module-private tuple of table
 # names. No user input reaches it, and the whole point of the module is that
 # the statements are literal SQL.
 # E501: several RAISE messages must be a single string literal (SQLite has no
 # adjacent-literal concatenation), which pushes those lines past the limit.
-"src/nullius/db/triggers.py" = ["S608", "E501"]
+"src/nullius/db/triggers.py" = ["S608", "E501", "ARG"]
 # The station reads historical ladder ledgers, whose schemas were written by five
 # different milestones. Table names are interpolated from `_TABLES`, a module-private
 # literal tuple, and the row limit from a module-level int. No user input reaches

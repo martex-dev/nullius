@@ -53,6 +53,7 @@ __all__ = [
     "V4_PROTOCOL_PATH",
     "V5_PROTOCOL_PATH",
     "V6_PROTOCOL_PATH",
+    "V7_PROTOCOL_PATH",
     "Protocol",
     "ProtocolVerification",
     "build_protocol",
@@ -126,7 +127,7 @@ caught it; this is the fix. A protocol records the arms *as they were
 described when it was registered*, and a later field is a later registration.
 """
 
-ARM_FIELDS_V6 = (
+ARM_FIELDS_V7 = ARM_FIELDS_V6 = (
     *ARM_FIELDS_V1,
     "adaptive_seeds",
     "conservative_escalation",
@@ -140,13 +141,14 @@ def _project(arm: Arm, fields: tuple[str, ...]) -> dict[str, Any]:
     return {name: full[name] for name in fields}
 
 
-LATEST_PROTOCOL_VERSION = "6"
+LATEST_PROTOCOL_VERSION = "7"
 
 V2_PROTOCOL_PATH = Path("benchmark/protocol.v2.lock.json")
 V3_PROTOCOL_PATH = Path("benchmark/protocol.v3.lock.json")
 V4_PROTOCOL_PATH = Path("benchmark/protocol.v4.lock.json")
 V5_PROTOCOL_PATH = Path("benchmark/protocol.v5.lock.json")
 V6_PROTOCOL_PATH = Path("benchmark/protocol.v6.lock.json")
+V7_PROTOCOL_PATH = Path("benchmark/protocol.v7.lock.json")
 
 REPLICATES = 3
 """Passes over the bank per custodied arm, fixed before the run.
@@ -312,6 +314,18 @@ V6_ADJUDICATED = {
     "direction": "greater",
 }
 
+V7_PREDICTION = (
+    "V6's prediction, re-registered against an arm that implements it. Sizing "
+    "the escalation from an upper bound on the noise rather than a point "
+    "estimate raises coverage: B9 abstains on fewer bank items than B8 does, "
+    "and the 95% interval on that difference excludes zero. It should also cost "
+    "more per item, because a bound that errs towards more data buys more data; "
+    "if cost per correct claim rises without coverage improving, the bound is "
+    "only expensive."
+)
+
+V7_ADJUDICATED = dict(V6_ADJUDICATED)
+
 V6_EXCLUSION_RULES = (
     *V5_EXCLUSION_RULES,
     "The escalation's standard deviation is estimated from the paired "
@@ -322,7 +336,44 @@ V6_EXCLUSION_RULES = (
     "for several times the seed-runs, and under-buying costs an answer.",
 )
 
+V7_EXCLUSION_RULES = (
+    *V6_EXCLUSION_RULES,
+    "Under v6 the arm this protocol re-tests did not implement the mechanism "
+    "it names. `conservative_escalation` reached the kernel and was handed to a "
+    "parameter that nothing read, so B9 sized every escalation from the point "
+    "estimate exactly as B8 did and bought an identical number of seeds on all "
+    "one hundred and eighty outcomes. V6's refutation therefore measured the "
+    "difference between two custody draws of one arm. It stands on the record "
+    "as what it is, and this protocol is the re-registration rather than an "
+    "edit of it.",
+    "That accident makes v6's B9-minus-B8 an unplanned negative control, and "
+    "its interval an empirical noise floor for this ladder at three replicates. "
+    "It is reported as such and is not evidence for or against conservative "
+    "sizing, which v6 never ran.",
+)
+
 PROTOCOL_VERSIONS: dict[str, dict[str, Any]] = {
+    "7": {
+        "items": BANK_V2,
+        "truth_lock": V2_TRUTH_LOCK_PATH,
+        "path": V7_PROTOCOL_PATH,
+        "baseline_arm": "B0",
+        "prediction": V7_PREDICTION,
+        "exclusion_rules": V7_EXCLUSION_RULES,
+        "metrics": V3_METRICS,
+        "arms": LADDER_V6,
+        "arm_fields": ARM_FIELDS_V7,
+        "extra_statistics": {
+            "calibration_scope": "asserted_effects",
+            "adjudication": "named_contrast",
+            "adjudicated": dict(V7_ADJUDICATED),
+            "verdict_vocabulary": [v.value for v in Verdict],
+            "adaptive_seed_ceiling": ADAPTIVE_SEED_CEILING,
+            "replicates": REPLICATES,
+            "replicated_arms": "custodied",
+            "escalation_confidence": 0.80,
+        },
+    },
     "6": {
         "items": BANK_V2,
         "truth_lock": V2_TRUTH_LOCK_PATH,

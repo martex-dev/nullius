@@ -162,7 +162,7 @@ class ExperimentRunner:
             )
 
             if program_id is not None:
-                self._charge(run.run_id, result, artifacts, program_id)
+                self._charge(run.run_id, result, program_id)
 
             outcomes.append(
                 SeedOutcome(
@@ -184,7 +184,6 @@ class ExperimentRunner:
         self,
         run_id: uuid.UUID,
         result: SandboxResult,
-        artifacts: dict[str, str],
         program_id: uuid.UUID,
     ) -> None:
         """Bill the programme for the seconds and bytes this seed used.

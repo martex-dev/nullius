@@ -127,8 +127,8 @@ def test_nothing_is_left_unsubstituted(tmp_path: Path) -> None:
 def test_the_prose_sections_are_the_only_hand_written_content() -> None:
     """Declared as data so they can be counted and checked in one place. Each
     flaw names the milestone whose commit records it."""
-    assert len(FLAWS) == 7
-    assert len(LIMITATIONS) == 5
+    assert len(FLAWS) == 8
+    assert len(LIMITATIONS) == 6
     for flaw in FLAWS:
         assert flaw.title.endswith(".")
         assert re.search(r"\(M\d+\w*\)$", flaw.body), flaw.title
@@ -198,6 +198,12 @@ def test_the_generated_markdown_is_structurally_sound() -> None:
         # whose line ends with one silently joins the next.
         assert line.count("- `") <= 1, f"line {number}: bullets collapsed onto one line"
         assert not (line.startswith("#") and line.count("#") > 6), f"line {number}"
+        # The same trim_blocks bite, one shape further along: a `{%- else %}`
+        # swallowed the newline ending each chapter's footnote, so every
+        # heading after the first rendered as `...rests on them.### Protocol
+        # v2`. It is not a heading at all in that position, and the check above
+        # cannot see it because the line does not start with a hash.
+        assert "#" not in line.lstrip("#"), f"line {number}: a heading is glued to prose"
 
     for number, line in enumerate(lines[1:], start=2):
         if line.startswith(("#", "|", "- ")) and lines[number - 2].strip():

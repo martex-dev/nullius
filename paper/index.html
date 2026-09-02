@@ -60,7 +60,7 @@
 <div class="wrap">
 
 <h1>Does institutional structure improve autonomous research?</h1>
-<p class="sub">Five preregistered protocols, 5 of them run, on a
+<p class="sub">Five preregistered protocols, 6 of them run, on a
 synthetic question bank with planted ground truth. Every number below was produced under the
 <strong>mock</strong> provider.</p>
 
@@ -73,8 +73,8 @@ synthetic question bank with planted ground truth. Every number below was produc
 An artificial research institution was built with preregistration, an evaluation custodian,
 adversarial detectors, independent replication and evidence-typed memory, each switchable,
 and measured against a question bank whose ground truth was planted and locked before any of
-it ran. Across 6 registered protocols,
-<strong>2</strong> predictions were refuted and
+it ran. Across 7 registered protocols,
+<strong>3</strong> predictions were refuted and
 <strong>3</strong> upheld.
 </p>
 <p>
@@ -677,8 +677,134 @@ baseline B0</p>
 10 arms &middot; 60 items &middot;
 baseline B0</p>
 
-<div class="prediction ">
+<div class="prediction refuted">
   <p style="margin-bottom:.4rem"><strong>Registered prediction.</strong> Sizing the escalation from an upper bound on the noise rather than a point estimate raises coverage. B9 abstains on fewer bank items than B8 does, and the 95% interval on that difference excludes zero. It should also cost more per item, because a bound that errs towards more data buys more data; if cost per correct claim rises without coverage improving, the bound is only expensive.</p>
+  <p style="margin:0">
+    <span class="pill no">refuted</span>
+    <span class="muted mono">coverage (B9-B8) = +0.0333, 95% CI [-0.0111, +0.0889]; interval does not exclude zero; prediction refuted</span>
+  </p>
+</div>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>arm</th><th class="num">n</th><th class="num">acc</th><th class="num">cover</th>
+  <th class="num">answered</th><th class="num">brier</th><th class="num">fdr</th>
+  <th class="num">$/correct</th></tr></thead>
+  <tbody>
+  <tr>
+    <td>B0        <span class="faint">Oracle-null</span></td>
+    <td class="num">1</td>
+    <td class="num">0.450</td>
+    <td class="num">1.000</td>
+    <td class="num">0.450</td>
+    <td class="num">—</td>
+    <td class="num">0.000</td>
+    <td class="num">0.00000</td>
+  </tr>
+  <tr>
+    <td>B1 <span class="faint">*</span>        <span class="faint">Single-shot</span></td>
+    <td class="num">1</td>
+    <td class="num">0.183</td>
+    <td class="num">1.000</td>
+    <td class="num">0.183</td>
+    <td class="num">0.197</td>
+    <td class="num">0.450</td>
+    <td class="num">0.00293</td>
+  </tr>
+  <tr>
+    <td>B2 <span class="faint">*</span>        <span class="faint">Single-agent + loop</span></td>
+    <td class="num">1</td>
+    <td class="num">0.183</td>
+    <td class="num">1.000</td>
+    <td class="num">0.183</td>
+    <td class="num">0.197</td>
+    <td class="num">0.450</td>
+    <td class="num">0.00830</td>
+  </tr>
+  <tr>
+    <td>B3        <span class="faint">Multi-role, no adversary</span></td>
+    <td class="num">1</td>
+    <td class="num">0.483</td>
+    <td class="num">0.750</td>
+    <td class="num">0.644</td>
+    <td class="num">0.203</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01343</td>
+  </tr>
+  <tr>
+    <td>B4        <span class="faint">B3 + preregistration + custodian</span></td>
+    <td class="num">3</td>
+    <td class="num">0.522</td>
+    <td class="num">0.744</td>
+    <td class="num">0.701</td>
+    <td class="num">0.136</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01243</td>
+  </tr>
+  <tr>
+    <td>B5        <span class="faint">B4 + Skeptic</span></td>
+    <td class="num">3</td>
+    <td class="num">0.550</td>
+    <td class="num">0.778</td>
+    <td class="num">0.707</td>
+    <td class="num">0.150</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01181</td>
+  </tr>
+  <tr>
+    <td>B6        <span class="faint">Full institution</span></td>
+    <td class="num">3</td>
+    <td class="num">0.528</td>
+    <td class="num">0.744</td>
+    <td class="num">0.709</td>
+    <td class="num">0.111</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01250</td>
+  </tr>
+  <tr>
+    <td>B7        <span class="faint">Full - memory</span></td>
+    <td class="num">3</td>
+    <td class="num">0.572</td>
+    <td class="num">0.756</td>
+    <td class="num">0.757</td>
+    <td class="num">0.121</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01151</td>
+  </tr>
+  <tr>
+    <td>B8        <span class="faint">Full + adaptive seeding</span></td>
+    <td class="num">3</td>
+    <td class="num">0.717</td>
+    <td class="num">0.867</td>
+    <td class="num">0.827</td>
+    <td class="num">0.090</td>
+    <td class="num">0.000</td>
+    <td class="num">0.00971</td>
+  </tr>
+  <tr>
+    <td>B9        <span class="faint">Adaptive + conservative sizing</span></td>
+    <td class="num">3</td>
+    <td class="num">0.672</td>
+    <td class="num">0.900</td>
+    <td class="num">0.747</td>
+    <td class="num">0.096</td>
+    <td class="num">0.000</td>
+    <td class="num">0.01035</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+<p class="faint">
+  * behaviour dominated by the language model; under a mock provider these arms describe the
+  mock and not a model, and no claim about mechanism rests on them.
+</p>
+<h3>Protocol v7 <span class="faint mono">0dac6ca41fdb90c4</span></h3>
+<p class="faint mono">registered 2026-09-02 &middot;
+10 arms &middot; 60 items &middot;
+baseline B0</p>
+
+<div class="prediction ">
+  <p style="margin-bottom:.4rem"><strong>Registered prediction.</strong> V6&#39;s prediction, re-registered against an arm that implements it. Sizing the escalation from an upper bound on the noise rather than a point estimate raises coverage: B9 abstains on fewer bank items than B8 does, and the 95% interval on that difference excludes zero. It should also cost more per item, because a bound that errs towards more data buys more data; if cost per correct claim rises without coverage improving, the bound is only expensive.</p>
   <p style="margin:0"><span class="pill mid">registered, not yet run</span></p>
 </div>
 
@@ -697,6 +823,7 @@ that genre the flaws are fixed before anything is published.
   <li><strong>A prediction and its adjudication rule described different quantities.</strong> v3 registered a prediction about coverage and inherited a rule that tested accuracy, so the run reported a verdict after measuring something the prediction did not mention. It was right by accident. v4 stores the adjudicated contrast as data — treatment, baseline, quantity, direction — and derives the verdict from it, so the two cannot be edited apart. (M13b)</li>
   <li><strong>A single custody draw cannot support the contrasts being measured.</strong> Arms B0 to B7 ran twice, under v3 and again under v4. The four uncustodied arms returned identical results to three decimals; every custodied arm moved, by up to 0.100 — six times the metric&#39;s resolution — because the Custodian derives its evaluation seed from the registration id and draws a fresh holdout each run. One contrast, B4 minus B3, flipped from spanning zero to excluding it on the same bank. v5 replicates every custodied arm three times. (M14b)</li>
   <li><strong>A null result was reported for a mechanism that could not have acted.</strong> Memory adds recalled claims to the Theorist&#39;s view, so it can only act by changing what a model writes. The mock&#39;s response is byte-identical with and without them. B6 minus B7 therefore measured the difference between two custody draws, and was reported as memory&#39;s contribution across protocols v1 to v5 — four registered protocols carrying a null result for a switch that was delivered and discarded. B1 and B2 were labelled model-dependent from the start for exactly this reason; memory was not. Contrasts whose arms differ only in a model-mediated switch are now labelled uninterpretable rather than printed as intervals. (M20)</li>
+  <li><strong>A protocol was adjudicated against an arm that did not implement its mechanism.</strong> B9 is B8 with conservative escalation sizing. The switch was declared on the arm, hashed into v6, translated into the kernel&#39;s mechanism set and handed to a parameter that no line read; neither call to the escalation passed it at all. So B9 sized every escalation from the point estimate exactly as B8 did, and bought an identical number of seeds on all one hundred and eighty outcomes — not similar, identical. V6&#39;s refutation of conservative sizing is therefore a measurement of two custody draws of one arm, and stands on the record as that. Its one gain is unplanned: B9 minus B8 is a negative control with a true difference of zero, which puts a number on this ladder&#39;s noise floor. V7 re-registers the prediction against a switch that is connected, and the wiring is now checked by lint over every argument the kernel accepts and by a test that runs both arms and compares what they bought. (M23)</li>
 </ol>
 
 <h2>Limitations</h2>
@@ -706,6 +833,7 @@ that genre the flaws are fixed before anything is published.
   <li>Cost is measured in real token counts priced as if a named model had produced them, because the mock is free and a cost-per-correct-claim whose numerator is identically zero ranks nothing. Compute cost is not substituted; those seconds were burned.</li>
   <li>The comparison holds the science fixed and varies the mechanism. It therefore measures what each mechanism buys given a fixed research design, and not how a mechanism might change the design an institution chooses in the first place.</li>
   <li>No result here has been replicated across independent implementations. The replication reported is of runs, not of the system.</li>
+  <li>Protocol v6 is reported with the outcome it produced, and that outcome is not evidence about the mechanism v6 names. Its treatment arm did not implement conservative escalation sizing, so the contrast it adjudicated is a null one. The row is kept because deleting a registered protocol&#39;s result is the thing this project exists to make impossible; read it as the noise floor it measures and not as the finding it was registered to make.</li>
 </ul>
 
 <h2>Provenance</h2>
@@ -735,6 +863,10 @@ that genre the flaws are fixed before anything is published.
       <td class="mono faint">8b459a6cc67b41ae</td></tr>
   <tr><td>v6</td>
       <td class="mono faint">9acad59c27a47affc0354911</td>
+      <td class="mono faint">d4d1766b0f87c89d</td>
+      <td class="mono faint">8b459a6cc67b41ae</td></tr>
+  <tr><td>v7</td>
+      <td class="mono faint">0dac6ca41fdb90c4825f5939</td>
       <td class="mono faint">d4d1766b0f87c89d</td>
       <td class="mono faint">8b459a6cc67b41ae</td></tr>
   </tbody>

@@ -158,15 +158,19 @@ jobs:
       - name: every committed results file re-scores to its own summary
         run: |
           uv run python -c "
+          import sys
           from pathlib import Path
           from nullius.benchmark.metrics import read_results
-          for path in (Path('benchmark/results.lock.json'),
-                       Path('benchmark/results.v2.lock.json'),
-                       Path('benchmark/results.v3.lock.json'),
-                       Path('benchmark/results.v4.lock.json'),
-                       Path('benchmark/results.v5.lock.json')):
-              if not path.exists():
-                  print(f'{path.name}: not committed yet'); continue
+          # Globbed, not listed. A hand-maintained tuple beside the registry is
+          # how the v6 results file would have gone unchecked here: this job
+          # named five paths and there were six on disk. Fourth instance of the
+          # same shape, after the job that listed protocols, the ladder that ran
+          # eight arms under a nine-arm plan, and the paper's results-path table.
+          paths = sorted(Path('benchmark').glob('results*.lock.json'))
+          if not paths:
+              sys.exit('no committed results files found; the glob matched nothing')
+          print(f'{len(paths)} committed results file(s)')
+          for path in paths:
               report, runs = read_results(path)
               print(f'{path.name}: protocol {report.protocol_hash[:16]}, {len(runs)} arms')
               print('  ' + report.prediction_reason)

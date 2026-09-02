@@ -57,9 +57,10 @@ The contrasts the ladder was built to make:
 
 \* behaviour dominated by the language model. Under a mock provider these arms describe the
 mock and not a model, and no claim about mechanism rests on them.
-{%- else %}
+{% else %}
 Registered, not yet run.
 {% endif %}
+
 {% endfor %}
 
 ## The question bank

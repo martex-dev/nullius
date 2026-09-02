@@ -493,6 +493,7 @@ class ResearchKernel:
                 bundle_id=bundle_id,
                 dataset_id=dataset_id,
                 program_id=program_id,
+                conservative=mechanisms.conservative_escalation,
             )
         self._repo.as_role(Role.DIRECTOR).advance_hypothesis(
             hypothesis_id, HypothesisState.EXECUTED
@@ -995,6 +996,7 @@ class ResearchKernel:
                 bundle_id=bundle_id,
                 dataset_id=dataset_id,
                 program_id=program_id,
+                conservative=conservative,
             )
         completed = [o for o in outcomes if o.ok]
         if not completed:

@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M22 complete; v5 landed, v6 running. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M23 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -464,7 +464,7 @@ It lands **under half the true value 8.9% of the time**. When it does, the escal
 
 **A third instance of the same bug shape.** The paper's results-path table was a dict keyed by protocol version, and it raised a `KeyError` the moment v6 was registered. That is the third time something keyed by protocol version was maintained beside the registry instead of computed from it — after the CI job that listed protocols by hand, and the ladder that ran eight arms under a nine-arm plan. It is derived now.
 
-All six protocols verify and rebuild identically. **v6 has not been run**: at roughly double B8's escalation it is a ~6-hour ladder, and the v5 run has to finish first.
+All seven protocols verify and rebuild identically. **v6 has since been run, and refuted — against an arm that never sized anything conservatively.** The upper bound described here was built correctly and measured correctly; what was missing was the wire from the arm to it. M23 has the count of what that cost.
 
 ---
 
@@ -668,6 +668,106 @@ guards it asserts the overlap still exists rather than asserting it away.
   value.
 - Reading a ledger cannot write to it, proven by trying rather than by the URI looking right.
 - An eleventh CI job builds the station on every push and uploads it as an artifact.
+
+---
+
+### M23 · The switch was declared, hashed, translated — and read by nothing ✅
+The v6 ladder finished: twenty-two passes, ten arms, `benchmark/results.v6.lock.json`.
+
+```
+  PREDICTION REFUTED  coverage (B9-B8) = +0.0333, 95% CI [-0.0111, +0.0889]
+```
+
+**That refutation is not about conservative sizing.** B9 is B8 with one boolean,
+`conservative_escalation`, which sizes the escalation from an 80% chi-square upper bound on the
+noise instead of the point estimate. The field is declared on the arm, hashed into protocol v6,
+carried by `mechanisms_for` into the kernel's `Mechanisms`, read at `kernel.py`, and handed to
+`_replicate(conservative=…)`. **`_replicate` never used it, and neither call to `_escalate`
+passed it at all.** So the flag crossed every boundary and stopped one line short of the
+calculation.
+
+The signature is unmistakable once looked for:
+
+| | B8 | B9 |
+|---|---|---|
+| seed counts, 180 outcomes | 5×60, 6×6, 7×3, 8×3, 9×3, 11×6, 14×6, 18×6, 19×6, 21×6, 23×3, 24×72 | *identical* |
+| total seeds bought | 2,703 | 2,703 |
+| outcomes where the two differ | — | **0 of 180** |
+
+Not similar. Identical, item by item and replicate by replicate. After threading the flag
+through both call sites, the same two items move from 12 seeds to 21.
+
+**Three checks, and the one that was missing.** Each catches what the one above it cannot.
+
+1. `unread_switches()` (M22) flips a field and asks whether `Mechanisms` changes. It found
+   `reviewer`. It cannot find this one — `conservative_escalation` *is* a field on `Mechanisms`,
+   so flipping it does change the object.
+2. **A parameter accepted and never read.** `ARG` is now selected in ruff, and it names the bug
+   in one line: `kernel.py:922 ARG002 Unused method argument: conservative`. This is the check
+   that would have cost a second rather than a six-hour ladder. Five modules are exempted —
+   `@detector`, `@register_view`, `@transform_op`, SQLAlchemy's `TypeDecorator` and its event
+   listeners, where the signature *is* the interface — and `kernel.py` deliberately is not.
+   `tests/test_switches.py` asserts the same rule over the kernel by AST, so no edit to
+   `pyproject.toml` can switch it off where it cost something. Enabling the rule also found a
+   genuinely dead parameter in `ExperimentRunner._charge`, which took `artifacts` and billed
+   from `result.outputs`; it is deleted rather than exempted.
+3. **Running both arms and comparing what they bought.** Only an execution can prove a switch is
+   connected — an argument can be read, passed on, and still reach nothing, which is exactly what
+   happened here. Marked slow, two items, and it fails on the pre-fix kernel.
+
+**What v6 is evidence of.** Not conservative sizing, which it never ran. B9 minus B8 is an
+*unplanned negative control*: two arms that were operationally identical, differing only in
+registration id and therefore in the Custodian's evaluation draw. Its interval is a measured
+noise floor for this ladder at three replicates — coverage +0.033 [−0.011, +0.089], and verdict
+accuracy −0.044 [−0.117, +0.028] computed afterwards and labelled as such. **The interval
+covered zero on a contrast whose true difference is zero**, which is the first calibration check
+this project's bootstrap has had. One draw cannot establish coverage, and it is not offered as
+if it could; it is one honest observation where there were none.
+
+It also sets the scale for the neighbours. v6's other three contrasts — B4−B3 = +0.039,
+B6−B4 = +0.006, B6−B7 = −0.044 — are all the size of a difference now known to be zero, and all
+three already span zero. The bootstrap was saying so; the control is the first thing to
+corroborate it from outside.
+
+**v6 stands on the record.** Its lock file is committed, its verdict is reported as refuted, and
+the paper says in the same breath that the refutation adjudicates nothing. Deleting a registered
+protocol's result because the run embarrassed the code is the exact move this project exists to
+make impossible. **Protocol v7 re-registers v6's prediction** — same ladder, same adjudicated
+contrast, hash `0dac6ca41fdb` — against a switch that is connected. It has not been run.
+
+**The shape, for the third time.** M20: a switch that acts only through a model, reported as
+mechanism. M22: a switch that reaches no code at all. M23: a switch that reaches the kernel and
+is dropped inside it. Each was found by asking a *different* question about the same claim —
+that an arm's declared mechanisms are the mechanisms it runs — and each time the previous
+milestone's check was structurally unable to see the new case.
+
+**And a fourth hand-maintained list.** The CI job that re-scores every committed results file
+named five paths in a tuple. There were six on disk, so `results.v6.lock.json` — the run this
+whole milestone is about — would have gone through CI unchecked. It is a glob now, and it fails
+loudly if the glob matches nothing rather than passing vacuously.
+
+**And M18's bug, one shape along.** Every chapter heading in `FINDINGS.md` after the first has
+been rendering glued to the previous paragraph — `…rests on them.### Protocol v2` — since the
+document existed. A `{%- else %}` swallowed the newline that ended the footnote. M18's structural
+test asserts that a heading has a blank line before it, and could not see this because the line
+does not start with a hash; the drift check could not see it because the file and the generator
+were wrong together. It is fixed, and the guard is now *no hash anywhere but the start of a
+line*, which fails on five lines of the previously committed file.
+
+**Acceptance**
+- `conservative` is passed at both `_escalate` call sites, and B9 buys strictly more seeds than
+  B8 on items that escalate below the ceiling.
+- `ruff check` selects `ARG` and passes; the kernel is not exempted, and an AST test asserts the
+  same rule over it independently of the config.
+- The AST guard fails on `git show HEAD~1:src/nullius/kernel.py` with exactly one finding,
+  `_replicate(conservative)`.
+- Protocol v7 verifies, rebuilds identically, and appears in the paper as registered and not yet
+  run.
+- The paper and `FINDINGS.md` carry the flaw and the limitation, and CI's drift check passes.
+- CI re-scores every `benchmark/results*.lock.json` found by glob — six of them, not the five
+  the tuple named — and exits non-zero if it finds none.
+- No `#` appears anywhere but the start of a line in `FINDINGS.md`, which the file committed at
+  `8460649` fails on five lines.
 
 ---
 
