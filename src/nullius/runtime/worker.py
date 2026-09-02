@@ -27,6 +27,7 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from nullius.db.enums import Role
+from nullius.llm.anthropic_provider import ProviderRefusal
 from nullius.llm.pricing import usd_for
 from nullius.llm.providers import LlmProvider
 from nullius.llm.types import LlmRequest, Message
@@ -113,7 +114,16 @@ class Worker:
         last_error: str | None = None
 
         while calls < contract.max_calls_per_task:
-            response = self._provider.complete(request)
+            try:
+                response = self._provider.complete(request)
+            except ProviderRefusal as refusal:
+                # A refusal is an answer, not an outage. Retrying it would ask
+                # the same question again and pay for the same answer; raising
+                # it would end a ladder over one role's prompt. It is recorded
+                # as a failed task with its reason, which is a fact about this
+                # institution's prompts and belongs in the ledger.
+                calls += 1
+                return self._fail(task, calls, spent, f"provider refused: {refusal}")
             calls += 1
             if response.cache_hit:
                 cache_hits += 1

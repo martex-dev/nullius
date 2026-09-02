@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M20 complete; v5 landed, v6 running (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M21 complete; v5 landed, v6 running. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -527,6 +527,33 @@ Re-scored across all five committed results it flags **exactly one contrast per 
 **A false alarm worth recording.** The first diagnosis was that `recall()` returned nothing because each bank item runs in its own programme. It returned nothing *when I called it* — with the default `scope="program"`. The kernel calls it with `scope="lab"`, which returns ten claims. I had started editing `recall` to "fix" something that worked. Checking what the caller actually passes is what stopped it.
 
 **Three malformed lists that had been shipping since M18.** Jinja's `trim_blocks` eats the newline after a block tag, so every Markdown bullet whose line ended with an inline `{% endif %}` silently joined the next — the baseline comparisons, the new contrasts, and the limitations all rendered as single run-on lines. **The CI drift check could not see it**: that check verifies the committed file matches the generator, and both were wrong in the same way. A consistency check is not a correctness check. Two structural tests now assert the generated Markdown is well formed — one caught two of the three lists on its first run, and the table test encodes the shifted-column bug from M19.
+
+---
+
+### M21 · The live path ✅ — wired, survivable, and cheap to repeat
+Everything below was reachable only by a mock until now. No API spend yet; the machinery is what changed.
+
+**A · Wired.** `AnthropicProvider` and `ProviderRefusal` are exported. `nullius.llm.factory` is the one place that turns a name into a working provider, and `--provider / --cache / --model / --max-usd` reach the runner and the kernel.
+
+Two things were quietly false before. `runner.py` built `ModelRef(provider="mock", model="mock-1")` as a **literal**, so a live run would have recorded every B1 and B2 call as answered by a mock — and since the pricing table is keyed on model name, priced them at zero. And `cli.py` wrote `provider="mock"` into the results file as a literal, so a live run would have produced a results file claiming to be a mock run. For a project whose entire argument is that its record survives inspection, that is fatal rather than untidy. Both now carry what was actually used.
+
+`detect_live_provider()` used only to print a row in `doctor`. It gates now: `--provider anthropic` with no key exits 1 **before a database, a workroot or a results file exists**. Verified — nothing is created.
+
+**B · Survivable.** `worker.py` called `provider.complete()` bare. The only exceptions handled anywhere in that loop were `ValidationError` and `ValidationFailure` — schema problems. Over a multi-hour ladder, one 429, 529 or dropped connection is a certainty, and it would have raised straight out and ended the run *after everything up to that point was paid for*.
+
+`RetryingProvider` wraps the network with exponential backoff and full jitter. A **decorator, not a change to the worker**, because a malformed response is evidence about the prompt and a rate limit is evidence about traffic — mixing them would spend the repair budget on weather. Retried statuses are 408/409/429/5xx/529; 400 and 401 are not, since they fail identically however often they are sent. An unrecognised error is raised rather than retried.
+
+`ProviderRefusal` existed and nothing consumed it. A refusal is now a recorded failed task with its reason, in the ledger — retrying it would pay for the same answer, raising it would end a ladder over one role's prompt.
+
+`SpendGuard` is the `--max-usd` kill switch. The budget machinery caps a *programme*, and the benchmark gives every item its own — so a $100 programme cap permitted sixty of them per arm and **nothing was watching the total**, which is the number that matters overnight. Checked at item boundaries; finer would interrupt a half-executed experiment, coarser is a whole arm too late.
+
+Checkpointing was built for a crash while *writing results*. A mid-arm API failure is a different shape, and is now tested as one: a finished arm is on disk, the arm in flight is not, and resuming does not re-run what was already paid for.
+
+**C · Cheap to repeat.** The live stack is `Caching(Retrying(Anthropic))`, and the order is the point — cache **outside** retry, so a call that succeeded on its fourth attempt is written once and every later run of that request is free. Reversed, nothing would be recorded. Tested.
+
+**The cost estimate covered three of five roles.** `contracts_for` holds Theorist, Designer and Analyst; Skeptic and Reviewer live in `adversarial_contracts` and are a disjoint set, so the pre-flight number omitted them — and the Skeptic is by far the most expensive, reading the whole evidence bundle on Opus at **$0.036–$0.131 a call**. A cycle now prices at $0.089–$0.303 rather than a fraction of it. A cost estimate that silently prices part of the work is worse than none, because it is the number someone buys credit from.
+
+A live smoke test runs one bank item end to end with a key and **skips rather than fails** without one.
 
 **A wiring bug worth recording.** The first v4 ladder ran eight arms under a nine-arm protocol: a `ruff format` pass had collapsed the `run_ladder(...)` call onto one line before an edit meant to add `arms=` to it, so the replacement matched nothing and the runner silently used its eight-arm default. It produced a complete-looking results file — seven of seven baseline comparisons, no halted items — and nothing objected except the adjudication, which happened to name the missing arm by id. `score_ladder` now refuses any run whose arms do not match the protocol's, in either direction. The eight completed arms were reused from their checkpoints, so the correction cost one arm's compute rather than nine.
 

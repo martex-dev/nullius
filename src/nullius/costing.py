@@ -46,6 +46,7 @@ __all__ = [
     "ProgrammeEstimate",
     "estimate_call",
     "estimate_programme",
+    "every_contract",
 ]
 
 CHARS_PER_TOKEN = 3.6
@@ -168,19 +169,43 @@ def _rendered_view(view: dict[str, Any]) -> str:
     )
 
 
+def every_contract(*, mock: bool = False) -> dict[tuple[Any, str], RoleContract]:
+    """Every role that a full cycle actually dispatches.
+
+    ``contracts_for`` holds the Theorist, Designer and Analyst;
+    ``adversarial_contracts`` holds the Skeptic and the Reviewer, and they are
+    a disjoint set. The estimator was given only the first, so its pre-flight
+    number covered three of five roles and understated a full institution's
+    cycle by the two most expensive-to-prompt ones — the Skeptic reads the
+    whole evidence bundle and the Reviewer reads the claim and its objections.
+
+    A cost estimate that silently prices part of the work is worse than no
+    estimate, because it is the number someone decides how much credit to buy
+    from.
+    """
+    from nullius.adversarial.roles import adversarial_contracts
+    from nullius.roles.contracts import contracts_for
+
+    return {**contracts_for(mock=mock), **adversarial_contracts(mock=mock)}
+
+
 def estimate_programme(
-    contracts: dict[tuple[Any, str], RoleContract],
+    contracts: dict[tuple[Any, str], RoleContract] | None = None,
     *,
     cycles: int = 1,
     retry_multiplier: float = 1.3,
 ) -> ProgrammeEstimate:
     """Estimate a full research cycle: every role, once, plus retries.
 
+    Defaults to :func:`every_contract`, which is all five roles rather than the
+    three the base registry holds.
+
     ``retry_multiplier`` accounts for schema repairs and the follow-up work a
-    Skeptic's discriminating tests will add from M7. It is a judgement, and it
-    is the least defensible number here — which is why it is a named argument
-    rather than buried in a constant.
+    Skeptic's discriminating tests add. It is a judgement, and it is the least
+    defensible number here — which is why it is a named argument rather than
+    buried in a constant.
     """
+    contracts = every_contract() if contracts is None else contracts
     representative = {
         "question": "Does dropping the three most divergent features improve deployment "
         "macro-F1 by at least 0.02 relative to training on all features?",
@@ -191,6 +216,14 @@ def estimate_programme(
             "mechanism": "y" * 200,
             "falsification_condition": "z" * 150,
         },
+        # The Skeptic and the Reviewer are handed the evidence bundle, so a
+        # representative view has to contain one or their input size is
+        # estimated from a prompt they never receive.
+        "claim": {"statement": "w" * 200, "confidence": "supported"},
+        "objections": [
+            {"type": "confound", "statement": "v" * 150, "discriminating_test": {"action": "x"}}
+        ],
+        "evidence": [{"kind": "experimental", "polarity": "supports", "strength": {}}],
         "computed_statistics": {
             "difference": 0.0,
             "ci_low": 0.0,

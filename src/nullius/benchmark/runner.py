@@ -42,7 +42,9 @@ from nullius.bank.truth import Truth, boundary_margin
 from nullius.benchmark.arms import LADDER, Arm, ArmKind
 from nullius.db.enums import ClaimConfidence, Role, Verdict
 from nullius.db.tables import CostEntry
+from nullius.errors import BudgetExceeded
 from nullius.kernel import KernelOutcome, Mechanisms, ResearchKernel
+from nullius.llm.factory import DEFAULT_LIVE_MODEL
 from nullius.llm.pricing import price_of
 from nullius.repository import Repository
 from nullius.util.canonical import canonical_json, sha256_of
@@ -460,10 +462,55 @@ and nothing else.
 """
 
 
-def _mock_model() -> Any:
+@dataclass
+class SpendGuard:
+    """A hard ceiling on what a whole ladder may spend.
+
+    The budget machinery already caps a *programme*, and the benchmark gives
+    every bank item its own programme — so a per-programme cap of $100 permits
+    sixty of them and a ladder of ten arms permits six hundred. Nothing was
+    watching the total, which is the number that matters when a run is left
+    going overnight against a paid endpoint.
+
+    Checked at item boundaries. A finer check would have to interrupt a
+    half-executed experiment and leave the ledger describing something that
+    never finished; a coarser one would be the arm boundary, by which point an
+    arm's worth of spending has already happened.
+    """
+
+    cap_usd: Decimal | None = None
+    spent_usd: Decimal = Decimal(0)
+
+    def charge(self, amount: Decimal) -> None:
+        self.spent_usd += amount
+
+    def check(self) -> None:
+        if self.cap_usd is not None and self.spent_usd >= self.cap_usd:
+            raise BudgetExceeded(
+                f"the ladder has spent ${self.spent_usd:.4f} against a --max-usd cap of "
+                f"${self.cap_usd:.2f} and has stopped. Arms completed before this point "
+                f"are checkpointed and a later run resumes from them."
+            )
+
+    @property
+    def remaining(self) -> Decimal | None:
+        return None if self.cap_usd is None else max(Decimal(0), self.cap_usd - self.spent_usd)
+
+
+def _direct_model(provider_name: str, model: str | None = None) -> Any:
+    """The model the direct arms address, matching the provider actually in use.
+
+    This was a literal ``ModelRef(provider="mock", model="mock-1")``, which was
+    correct while a mock was the only provider and silently wrong the moment one
+    was not: a live run would have recorded every B1 and B2 call as having been
+    answered by a mock. The pricing table is keyed on the model name, so it
+    would also have priced a real call at zero.
+    """
     from nullius.llm.types import ModelRef
 
-    return ModelRef(provider="mock", model="mock-1", effort=None, thinking=None)
+    if provider_name == "mock":
+        return ModelRef(provider="mock", model="mock-1", effort=None, thinking=None)
+    return ModelRef(provider=provider_name, model=model or DEFAULT_LIVE_MODEL)
 
 
 def _responder_for(arm: Arm, base: Any) -> Any:
@@ -505,6 +552,10 @@ def run_arm(
     budget_usd: Decimal = Decimal("100.00"),
     allowance: Decimal = Decimal("0.50"),
     replicate: int = 0,
+    provider_name: str = "mock",
+    cache_dir: Path | None = None,
+    model: str | None = None,
+    guard: SpendGuard | None = None,
 ) -> ArmRun:
     """Carry every bank item through one arm, in bank order.
 
@@ -532,7 +583,7 @@ def run_arm(
     from nullius.db.base import create_engine, create_schema, session_factory
     from nullius.economy.outcomes import canned_responder
     from nullius.execute.sandbox import SubprocessSandbox
-    from nullius.llm.providers import MockProvider
+    from nullius.llm.factory import build_provider
     from nullius.roles.contracts import contracts_for
     from nullius.store.cas import ContentStore
     from nullius.util.ids import DeterministicIds
@@ -543,7 +594,11 @@ def run_arm(
     engine = create_engine(database)
     create_schema(engine)
 
-    provider = MockProvider(_responder_for(arm, canned_responder()))
+    provider = build_provider(
+        provider_name,
+        cache_dir=cache_dir,
+        responder=_responder_for(arm, canned_responder()),
+    )
     outcomes: list[ArmOutcome] = []
 
     with session_factory(engine)() as session:
@@ -569,13 +624,15 @@ def run_arm(
             SubprocessSandbox(),
             ContentStore(workroot / "objects"),
             workroot / "runs",
-            mock=True,
+            mock=provider_name == "mock",
         )
         # Touch the contract registry so a mis-specified arm fails here rather
         # than twenty items into a run.
-        contracts_for(mock=True)
+        contracts_for(mock=provider_name == "mock")
 
         for item in items:
+            if guard is not None:
+                guard.check()
             truth = truths[item.item_id]
             if arm.kind is ArmKind.CONSTANT:
                 outcomes.append(_constant(item, truth))
@@ -601,7 +658,7 @@ def run_arm(
                     repo=repo,
                     provider=provider,
                     program_id=program_id,
-                    model=_mock_model(),
+                    model=_direct_model(provider_name, model),
                 )
             else:
                 outcome = _institutional(
@@ -619,6 +676,8 @@ def run_arm(
                 if replicate
                 else outcome
             )
+            if guard is not None:
+                guard.charge(outcome.usd)
             repo.commit()
 
     return ArmRun(arm=arm, outcomes=tuple(outcomes))
@@ -680,6 +739,10 @@ def run_ladder(
     truth_lock: Path = TRUTH_LOCK_PATH,
     resume: bool = True,
     replicates: int = 1,
+    provider_name: str = "mock",
+    cache_dir: Path | None = None,
+    model: str | None = None,
+    max_usd: Decimal | None = None,
 ) -> list[ArmRun]:
     """Every arm, each in its own database, over the same bank.
 
@@ -703,6 +766,7 @@ def run_ladder(
     """
     root.mkdir(parents=True, exist_ok=True)
     items_hash = sha256_of([item.as_dict() for item in items])
+    guard = SpendGuard(cap_usd=max_usd)
 
     runs: list[ArmRun] = []
     for arm in arms:
@@ -718,6 +782,8 @@ def run_ladder(
             cached = _read_checkpoint(root, arm, items_hash, replicate) if resume else None
             if cached is not None:
                 collected.extend(cached.outcomes)
+                # A resumed arm was paid for on an earlier run, so it does not
+                # count against this run's cap.
                 continue
             suffix = "" if replicate == 0 else f"-r{replicate}"
             run = run_arm(
@@ -727,6 +793,10 @@ def run_ladder(
                 items=items,
                 truth_lock=truth_lock,
                 replicate=replicate,
+                provider_name=provider_name,
+                cache_dir=cache_dir,
+                model=model,
+                guard=guard,
             )
             _write_checkpoint(root, run, items_hash, replicate)
             collected.extend(run.outcomes)

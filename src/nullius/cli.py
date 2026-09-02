@@ -8,6 +8,7 @@ honest statement of what works.
 from __future__ import annotations
 
 import math
+from decimal import Decimal
 from pathlib import Path
 from typing import Annotated
 
@@ -24,6 +25,7 @@ from nullius.db.base import (
 )
 from nullius.db.triggers import invariant_ddl
 from nullius.environment import Capabilities, detect
+from nullius.errors import NulliusError
 from nullius.ledger.ledger import Ledger
 from nullius.ledger.rebuild import reconciliation
 from nullius.store.cas import ContentStore
@@ -289,10 +291,12 @@ def cost_estimate(
     estimated, and it is shown as a range because adaptive thinking - billed as
     output - dominates it.
     """
-    from nullius.costing import PROMPT_CACHE_MINIMUM_TOKENS, estimate_programme
-    from nullius.roles.contracts import CONTRACTS
+    from nullius.costing import PROMPT_CACHE_MINIMUM_TOKENS, estimate_programme, every_contract
 
-    estimate = estimate_programme(CONTRACTS, cycles=cycles, retry_multiplier=retry_multiplier)
+    # Every role a cycle dispatches, not only the three in the base registry.
+    estimate = estimate_programme(
+        every_contract(), cycles=cycles, retry_multiplier=retry_multiplier
+    )
 
     table = Table(box=None, padding=(0, 2, 0, 0))
     for column, justify in (
@@ -721,6 +725,22 @@ def benchmark_run(
             help="Which registered protocol to run under: 1, 2 or 3.",
         ),
     ] = "1",
+    provider: Annotated[
+        str,
+        typer.Option("--provider", help="mock, anthropic, or replay."),
+    ] = "mock",
+    cache: Annotated[
+        Path | None,
+        typer.Option("--cache", help="Response cache directory. Makes a re-run free."),
+    ] = None,
+    model: Annotated[
+        str | None,
+        typer.Option("--model", help="Pinned model id for a live run."),
+    ] = None,
+    max_usd: Annotated[
+        float | None,
+        typer.Option("--max-usd", help="Hard ceiling on what this ladder may spend."),
+    ] = None,
 ) -> None:
     """Run the full B0-B7 ladder and score it against the registered protocol.
 
@@ -731,6 +751,28 @@ def benchmark_run(
     from nullius.benchmark.metrics import score_ladder, write_results
     from nullius.benchmark.protocol import PROTOCOL_VERSIONS, read_protocol, verify_protocol
     from nullius.benchmark.runner import run_ladder
+    from nullius.llm.factory import PROVIDER_NAMES, require_live_credentials
+
+    if provider not in PROVIDER_NAMES:
+        console.print(
+            f"[red]unknown provider {provider!r}; choose from {list(PROVIDER_NAMES)}[/red]"
+        )
+        raise typer.Exit(code=1)
+    try:
+        # Fails here, before a database exists or a sandbox has run, rather
+        # than on the first call after an arm's worth of setup.
+        require_live_credentials(provider)
+    except NulliusError as exc:
+        console.print()
+        console.print(f"  [red]{exc}[/red]")
+        console.print()
+        raise typer.Exit(code=1) from exc
+
+    if provider != "mock" and cache is None:
+        console.print(
+            "  [yellow]no --cache given: a live run without one pays again on every "
+            "repeat. ADR-0005 exists to make the first run the only one that costs.[/yellow]"
+        )
 
     if bank not in PROTOCOL_VERSIONS:
         console.print(f"[red]no registered bank {bank!r}; known: {sorted(PROTOCOL_VERSIONS)}[/red]")
@@ -754,7 +796,8 @@ def benchmark_run(
         f"  protocol v{bank}: {len(settings['arms'])} arms over "
         f"{len(settings['items'])} items, "
         f"{registered.statistics.get('replicates', 1)} pass(es) per custodied arm, "
-        f"baseline arm {registered.statistics['baseline_arm']}"
+        f"baseline arm {registered.statistics['baseline_arm']}, "
+        f"provider {provider}"
     )
     console.print()
 
@@ -764,9 +807,16 @@ def benchmark_run(
         items=settings["items"],
         truth_lock=settings["truth_lock"],
         replicates=int(registered.statistics.get("replicates", 1)),
+        provider_name=provider,
+        cache_dir=cache,
+        model=model,
+        max_usd=Decimal(str(max_usd)) if max_usd is not None else None,
     )
     report = score_ladder(runs, registered, seed=seed)
-    path = write_results(report, runs, results, provider="mock")
+    # The provider actually used, never a literal. A results file that names
+    # the wrong provider makes every other number in it unreliable, and for this
+    # project specifically that is fatal rather than untidy.
+    path = write_results(report, runs, results, provider=provider)
 
     def cell(value: float, places: int = 3) -> str:
         """An undefined metric reads as undefined rather than as 'nan'."""
