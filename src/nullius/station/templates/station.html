@@ -8,8 +8,11 @@
   :root {
     --page:#f4f6fa; --ink:#161a20; --dim:#5a6472; --faint:#8a94a3; --rule:#d7dde6;
     --panel:#ffffff; --sunk:#eef1f6;
-    --plate:#0d1117; --plate-2:#151c26; --plate-line:#232e3d; --plate-ink:#dbe3ee;
-    --plate-dim:#8d99ab;
+    --plate:#080c14; --plate-2:#0f1622; --plate-line:#22304a; --plate-ink:#e6edf8;
+    --plate-dim:#93a3bd; --plate-faint:#61708c;
+    --floor:#111a29; --floor-2:#0c1320; --wallo:#1d293e; --walli:#33455f;
+    --fix:#182437; --fix-2:#0e1725;
+    --fig-dark:#0a1120; --fig-skin:#f0d9c2;
     --good:#1c6b3f; --bad:#97231f; --warn:#8a5a10;
     --good-bg:#e7f3ec; --bad-bg:#fbeceb; --warn-bg:#fbf3e2;
     --sans: ui-sans-serif, system-ui, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
@@ -17,19 +20,15 @@
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --page:#0a0d12; --ink:#e6ebf2; --dim:#98a3b3; --faint:#6c7787; --rule:#212936;
+      --page:#080b10; --ink:#e6ebf2; --dim:#98a3b3; --faint:#6c7787; --rule:#212936;
       --panel:#11161e; --sunk:#0e131a;
-      --plate:#070a0e; --plate-2:#0e141d; --plate-line:#1c2634; --plate-ink:#dfe7f2;
-      --plate-dim:#7f8b9d;
       --good:#6cc493; --bad:#e2807a; --warn:#d9a94e;
       --good-bg:#12241a; --bad-bg:#251716; --warn-bg:#241e11;
     }
   }
   :root[data-theme="dark"] {
-    --page:#0a0d12; --ink:#e6ebf2; --dim:#98a3b3; --faint:#6c7787; --rule:#212936;
+    --page:#080b10; --ink:#e6ebf2; --dim:#98a3b3; --faint:#6c7787; --rule:#212936;
     --panel:#11161e; --sunk:#0e131a;
-    --plate:#070a0e; --plate-2:#0e141d; --plate-line:#1c2634; --plate-ink:#dfe7f2;
-    --plate-dim:#7f8b9d;
     --good:#6cc493; --bad:#e2807a; --warn:#d9a94e;
     --good-bg:#12241a; --bad-bg:#251716; --warn-bg:#241e11;
   }
@@ -37,9 +36,9 @@
   * { box-sizing:border-box; }
   body { margin:0; background:var(--page); color:var(--ink);
          font:15px/1.6 var(--sans); -webkit-font-smoothing:antialiased; }
-  .wrap { max-width:80rem; margin:0 auto; padding:2.4rem 1.25rem 6rem; }
+  .wrap { max-width:84rem; margin:0 auto; padding:2.4rem 1.25rem 6rem; }
   a { color:inherit; }
-  h1 { font-size:1.8rem; letter-spacing:-0.022em; margin:0 0 .35rem; }
+  h1 { font-size:1.9rem; letter-spacing:-0.022em; margin:0 0 .35rem; }
   h2 { font-size:.73rem; text-transform:uppercase; letter-spacing:.12em; color:var(--dim);
        margin:2.8rem 0 .9rem; font-weight:650; }
   h3 { font-size:1rem; margin:1.4rem 0 .4rem; letter-spacing:-0.01em; }
@@ -58,32 +57,45 @@
             background:var(--warn-bg); border-radius:6px; padding:.75rem .95rem;
             margin:0 0 1.1rem; font-size:.9rem; }
   .banner.bad { border-left-color:var(--bad); background:var(--bad-bg); }
-  .banner code, .banner .mono { font-family:var(--mono); font-size:.86em; }
+  .banner .mono { font-family:var(--mono); font-size:.86em; }
 
-  .console { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);
+  .console { display:grid; grid-template-columns:minmax(0,1.62fr) minmax(0,1fr);
              gap:1.1rem; align-items:start; }
-  @media (max-width:1040px) { .console { grid-template-columns:minmax(0,1fr); } }
+  @media (max-width:1100px) { .console { grid-template-columns:minmax(0,1fr); } }
 
+  /* ------------------------------------------------------------- the plate */
   .plate { background:var(--plate); border:1px solid var(--plate-line);
-           border-radius:10px; overflow:hidden; }
-  .plate svg { display:block; width:100%; height:auto; }
-  .roomhit { cursor:pointer; }
-  .roomhit:hover rect.shell { stroke-width:.9; }
-  .roomhit:focus { outline:none; }
-  .roomhit:focus-visible rect.shell { stroke-width:1.1; }
+           border-radius:12px; overflow:hidden;
+           box-shadow:0 24px 60px -30px rgba(0,0,0,.9); }
+  .viewport { position:relative; aspect-ratio:2820/1678; width:100%;
+              touch-action:none; cursor:grab; overflow:hidden; }
+  .viewport.dragging { cursor:grabbing; }
+  .viewport svg { display:block; width:100%; height:100%; }
+  #camera { transition:transform .38s cubic-bezier(.22,.61,.36,1); }
+  #camera.nudge { transition:none; }
 
-  .controls { display:flex; flex-wrap:wrap; gap:.55rem; align-items:center;
-              padding:.6rem .8rem; border-top:1px solid var(--plate-line);
+  .room { cursor:pointer; }
+  .room .shell { transition:filter .18s ease; }
+  .room:hover .shell { filter:brightness(1.25); }
+  .room:focus { outline:none; }
+  .room:focus-visible .selectring, .room.selected .selectring { opacity:1; }
+  .selectring { opacity:0; transition:opacity .2s ease; pointer-events:none; }
+
+  .controls { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center;
+              padding:.62rem .8rem; border-top:1px solid var(--plate-line);
               background:var(--plate-2); color:var(--plate-dim); font-size:.76rem; }
   .controls button { font:600 .76rem/1 var(--sans); color:var(--plate-ink);
     background:transparent; border:1px solid var(--plate-line); border-radius:5px;
-    padding:.34rem .62rem; cursor:pointer; }
+    padding:.36rem .64rem; cursor:pointer; }
   .controls button:hover { border-color:var(--plate-ink); }
+  .controls .spacer { flex:1 1 auto; }
   .key { display:inline-flex; align-items:center; gap:.32rem; }
-  .key i { width:.6rem; height:.6rem; border-radius:50%; display:inline-block; }
+  .key i { width:.6rem; height:.6rem; border-radius:50%; display:inline-block;
+           box-shadow:0 0 7px currentColor; }
 
+  /* --------------------------------------------------------------- panels */
   .panels { position:sticky; top:1rem; max-height:calc(100vh - 2rem); overflow-y:auto; }
-  @media (max-width:1040px) { .panels { position:static; max-height:none; } }
+  @media (max-width:1100px) { .panels { position:static; max-height:none; } }
   .panel { display:none; background:var(--panel); border:1px solid var(--rule);
            border-radius:10px; padding:1.05rem 1.15rem 1.3rem; }
   .panel.on { display:block; }
@@ -140,18 +152,32 @@
   footer { margin-top:3.4rem; padding-top:1.1rem; border-top:1px solid var(--rule);
            color:var(--faint); font-size:.82rem; }
 
-  @keyframes breathe { 0%,100% { opacity:.5; } 50% { opacity:1; } }
-  @media (prefers-reduced-motion: reduce) { .pulse { animation:none !important; } }
+  /* ----------------------------------------------------------- animation */
+  @keyframes bob { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-2.6px); } }
+  @keyframes blink { 0%,72%,100% { opacity:.3; } 80%,92% { opacity:1; } }
+  @keyframes breathe { 0%,100% { opacity:.45; } 50% { opacity:1; } }
+  @keyframes hum { 0%,100% { opacity:.7; } 50% { opacity:1; } }
+  .agent .bob { animation:bob var(--bob,3.4s) ease-in-out infinite var(--bob-delay,0s); }
+  .blink { animation:blink 4.2s steps(1,end) infinite; }
+  .glowpane { animation:hum 5.6s ease-in-out infinite; }
+  .lamp { animation:breathe 3.6s ease-in-out infinite; }
+  .stopped .agent .bob, .stopped .blink, .stopped .glowpane, .stopped .lamp,
+  .stopped .doorlamp { animation:none; }
+  @media (prefers-reduced-motion: reduce) {
+    .agent .bob, .blink, .glowpane, .lamp, .doorlamp { animation:none !important; }
+    #camera { transition:none; }
+  }
 </style>
 </head>
 <body>
+{% import "parts.html" as parts %}
 <div class="wrap">
 
 <h1>The Station</h1>
 <p class="lede">An artificial research institution, drawn as the facility it is. Every room is a
 real department; the walls between them are database constraints and process boundaries rather
-than decoration, and the two hatched rooms are the two you genuinely cannot walk into. Click a
-room.</p>
+than decoration, and the two hatched rooms are the two you genuinely cannot walk into. Drag to
+pan, scroll to zoom, click a room to open it.</p>
 
 <div class="chips">
   <span class="chip"><span class="dot"></span>{{ station.mode }} mode</span>
@@ -189,157 +215,262 @@ room.</p>
   {% if station.dead|length == 1 %}this switch is{% else %}these switches are{% endif %}
   declared on every arm, hashed into every registered protocol, and read by no code path.
   Flipping it leaves the kernel's switches identical, so an arm that sets it does not differ
-  from one that does not. The rooms it would have driven are drawn locked, and it was found by
-  building this page rather than by reviewing anything.
+  from one that does not. The rooms it would have driven are drawn locked.
 </div>
 {% endif %}
 
 <div class="console">
   <div>
     <div class="plate">
-      <svg viewBox="0 0 200 124" role="img"
+      <div class="viewport" id="viewport">
+      <svg id="map" viewBox="{{ world.x }} {{ world.y }} {{ world.w }} {{ world.h }}"
+           preserveAspectRatio="xMidYMid meet" role="img"
            aria-label="Floor plan of the research station, one room per department">
         <defs>
-          <pattern id="floor" width="4" height="4" patternUnits="userSpaceOnUse">
-            <path d="M4 0H0V4" fill="none" stroke="var(--plate-line)" stroke-width=".2"/>
+          <pattern id="plating" width="48" height="48" patternUnits="userSpaceOnUse">
+            <path d="M48 0H0V48" fill="none" stroke="var(--walli)" stroke-width="1"
+                  stroke-opacity=".34"/>
+            <circle cx="4" cy="4" r="1.1" fill="var(--walli)" opacity=".5"/>
           </pattern>
-          <pattern id="sealedhatch" width="2.4" height="2.4" patternUnits="userSpaceOnUse"
+          <pattern id="deck" width="96" height="96" patternUnits="userSpaceOnUse">
+            <path d="M96 0H0V96" fill="none" stroke="var(--plate-line)" stroke-width="1.2"
+                  stroke-opacity=".6"/>
+          </pattern>
+          <pattern id="sealedhatch" width="16" height="16" patternUnits="userSpaceOnUse"
                    patternTransform="rotate(45)">
-            <line x1="0" y1="0" x2="0" y2="2.4" stroke="var(--plate-line)" stroke-width="1.1"/>
+            <line x1="0" y1="0" x2="0" y2="16" stroke="var(--walli)" stroke-width="5"
+                  stroke-opacity=".5"/>
           </pattern>
-          <filter id="bloom" x="-60%" y="-60%" width="220%" height="220%">
-            <feGaussianBlur stdDeviation=".8" result="b"/>
-            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          <filter id="bloom" x="-90%" y="-90%" width="280%" height="280%">
+            <feGaussianBlur stdDeviation="7" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/>
+            </feMerge>
           </filter>
+          <filter id="soft" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="36"/>
+          </filter>
+          <filter id="drop" x="-30%" y="-30%" width="180%" height="190%">
+            <feDropShadow dx="0" dy="11" stdDeviation="13" flood-color="#000"
+                          flood-opacity=".62"/>
+          </filter>
+          <filter id="fixdrop" x="-40%" y="-40%" width="200%" height="220%">
+            <feDropShadow dx="2" dy="4" stdDeviation="3" flood-color="#000" flood-opacity=".55"/>
+          </filter>
+          {% for name, hue in accents.items() %}
+          <radialGradient id="glow-{{ name }}">
+            <stop offset="0%" stop-color="{{ hue }}" stop-opacity=".34"/>
+            <stop offset="55%" stop-color="{{ hue }}" stop-opacity=".10"/>
+            <stop offset="100%" stop-color="{{ hue }}" stop-opacity="0"/>
+          </radialGradient>
+          {% endfor %}
           <path id="route" d="{{ route_d }}" fill="none"/>
         </defs>
 
-        <rect width="200" height="124" fill="var(--plate)"/>
-        <rect width="200" height="124" fill="url(#floor)" opacity=".5"/>
+        <g id="camera">
+          <rect x="{{ world.x }}" y="{{ world.y }}" width="{{ world.w }}" height="{{ world.h }}"
+                fill="var(--plate)"/>
+          <rect x="{{ world.x }}" y="{{ world.y }}" width="{{ world.w }}" height="{{ world.h }}"
+                fill="url(#deck)" opacity=".5"/>
 
-        <text x="4" y="7.6" fill="var(--plate-dim)" font-size="3" font-family="var(--mono)"
-              letter-spacing=".22">NULLIUS &#183; RESEARCH STATION &#183; PROTOCOL
-          v{{ station.chapter.version }} &#183; ARM {{ station.arm.arm_id }} &#183;
-          {{ station.provider|upper }} PROVIDER</text>
-        <text x="196" y="7.6" text-anchor="end" fill="var(--plate-dim)" font-size="3"
-              font-family="var(--mono)" letter-spacing=".22">{{ station.mode|upper }}</text>
-        <line x1="4" y1="10.4" x2="196" y2="10.4" stroke="var(--plate-line)" stroke-width=".3"/>
+          {# room light, cast on the deck before anything is built on it #}
+          <g filter="url(#soft)">
+            {% for lamp in plan.lamps %}
+            <circle cx="{{ lamp.x }}" cy="{{ lamp.y }}" r="{{ lamp.r }}"
+                    fill="url(#glow-{{ lamp.accent }})"/>
+            {% endfor %}
+          </g>
 
-        <line x1="149" y1="12" x2="149" y2="119" stroke="var(--plate-line)" stroke-width=".35"
-              stroke-dasharray="1.5 1.6"/>
-        <text x="196" y="122.4" text-anchor="end" fill="var(--plate-dim)" font-size="2.3"
-              font-family="var(--mono)">no corridor crosses this line</text>
+          {# the corridor: room centres in the order the states are declared #}
+          <path d="{{ corridor_d }}" fill="none" stroke="var(--wallo)" stroke-width="78"
+                stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="{{ corridor_d }}" fill="none" stroke="var(--floor-2)" stroke-width="62"
+                stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="{{ corridor_d }}" fill="none" stroke="{{ accent('slate') }}" stroke-width="2"
+                stroke-opacity=".28" stroke-dasharray="26 22" stroke-linecap="round"/>
 
-        <path d="{{ corridor_d }}" fill="none" stroke="{{ accent('slate') }}" stroke-width="3.6"
-              stroke-linecap="round" stroke-linejoin="round" opacity=".38"/>
-        <path d="{{ corridor_d }}" fill="none" stroke="var(--plate)" stroke-width="2.4"
-              stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="1788" y1="-20" x2="1788" y2="1528" stroke="{{ accent('crimson') }}"
+                stroke-width="2.4" stroke-opacity=".38" stroke-dasharray="14 16"/>
 
-        {% for occupied in rooms %}
-        {% set room = occupied.room %}
-        {% set hue = accent(room.accent) %}
-        <g class="roomhit" tabindex="0" role="button" data-room="{{ room.room_id }}"
-           aria-label="{{ room.name }}, {{ occupied.backing }}">
-          <rect class="shell" x="{{ room.x }}" y="{{ room.y }}" width="{{ room.w }}"
-                height="{{ room.h }}" rx="1.4" fill="var(--plate-2)" stroke="{{ hue }}"
-                stroke-width="{{ '.5' if occupied.engaged else '.26' }}"
-                stroke-dasharray="{{ '0' if occupied.engaged else '1.6 1.3' }}"
-                opacity="{{ '1' if occupied.engaged else '.6' }}"/>
-          {% if room.wing == 'sealed' %}
-          <rect x="{{ room.x }}" y="{{ room.y }}" width="{{ room.w }}" height="{{ room.h }}"
-                rx="1.4" fill="url(#sealedhatch)" opacity=".5"/>
-          {% endif %}
-          <rect x="{{ room.x }}" y="{{ room.y }}" width="{{ room.w }}" height="1.5" rx=".7"
-                fill="{{ hue }}" opacity="{{ '.95' if occupied.engaged else '.35' }}"/>
+          {# ---- rooms, back to front: shell, floor, back fixtures ---- #}
+          {% for occupied in rooms %}
+          {% set room = occupied.room %}
+          {% set hue = accent(room.accent) %}
+          {% set shell = plan.shells[room.room_id] %}
+          {% set floor = plan.floors[room.room_id] %}
+          <g class="room" data-room="{{ room.room_id }}" tabindex="0" role="button"
+             aria-label="{{ room.name }}, {{ occupied.backing }}"
+             opacity="{{ '1' if occupied.engaged else '.76' }}">
+            <g filter="url(#drop)">
+              <rect class="shell" x="{{ shell.x }}" y="{{ shell.y }}" width="{{ shell.w }}"
+                    height="{{ shell.h }}" rx="10" fill="var(--wallo)" stroke="{{ hue }}"
+                    stroke-width="{{ '2.6' if occupied.engaged else '1.4' }}"
+                    stroke-opacity="{{ '.9' if occupied.engaged else '.45' }}"/>
+            </g>
+            <rect x="{{ shell.x + 3.5 }}" y="{{ shell.y + 3.5 }}" width="{{ shell.w - 7 }}"
+                  height="{{ shell.h - 7 }}" rx="8" fill="none" stroke="var(--walli)"
+                  stroke-width="2"/>
+            <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
+                  rx="4" fill="var(--floor)"/>
+            <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
+                  rx="4" fill="url(#plating)" opacity=".5"/>
+            <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
+                  rx="4" fill="{{ hue }}" opacity="{{ '.07' if occupied.engaged else '.03' }}"/>
+            {% if room.wing == 'sealed' %}
+            <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
+                  rx="4" fill="url(#sealedhatch)" opacity=".5"/>
+            {% endif %}
 
-          <text x="{{ room.x + 2 }}" y="{{ room.y + 6.0 }}" fill="var(--plate-ink)"
-                font-size="2.7" font-weight="650">{{ room.name }}</text>
-          {% if room.roles %}
-          {% for role in room.roles %}
-          <text x="{{ room.x + 2 }}" y="{{ room.y + 9.4 + loop.index0 * 2.7 }}" fill="{{ hue }}"
-                font-size="2.2" font-family="var(--mono)"
-                letter-spacing=".12">{{ role|upper }}</text>
-          {% endfor %}
-          {% else %}
-          <text x="{{ room.x + 2 }}" y="{{ room.y + 9.4 }}" fill="var(--plate-dim)"
-                font-size="2.2" font-family="var(--mono)"
-                letter-spacing=".12">NO ACTOR STATIONED</text>
-          {% endif %}
-          {% for state in room.states if state not in terminal_states %}
-          <text x="{{ room.x + 2 }}"
-                y="{{ room.y + 10.0 + [room.roles|length, 1]|max * 2.7
-                      + loop.index0 * 2.6 }}"
-                fill="var(--plate-dim)" font-size="2.05"
-                font-family="var(--mono)">state: {{ state }}</text>
-          {% endfor %}
+            {# doorway: the corridor breaks the wall rather than stopping at it #}
+            {% for gap in plan.doorways[room.room_id] %}
+            {% if gap.side == 'left' %}
+            <rect x="{{ shell.x - 2 }}" y="{{ gap.at - gap.span / 2 }}" width="{{ wall + 4 }}"
+                  height="{{ gap.span }}" fill="var(--floor-2)"/>
+            <rect x="{{ shell.x - 2 }}" y="{{ gap.at - gap.span / 2 }}" width="4"
+                  height="{{ gap.span }}" fill="{{ hue }}" opacity=".55"/>
+            {% elif gap.side == 'right' %}
+            <rect x="{{ shell.x + shell.w - wall - 2 }}" y="{{ gap.at - gap.span / 2 }}"
+                  width="{{ wall + 4 }}" height="{{ gap.span }}" fill="var(--floor-2)"/>
+            <rect x="{{ shell.x + shell.w - 2 }}" y="{{ gap.at - gap.span / 2 }}" width="4"
+                  height="{{ gap.span }}" fill="{{ hue }}" opacity=".55"/>
+            {% elif gap.side == 'top' %}
+            <rect x="{{ shell.x + shell.w / 2 - gap.span / 2 }}" y="{{ shell.y - 2 }}"
+                  width="{{ gap.span }}" height="{{ wall + 4 }}" fill="var(--floor-2)"/>
+            <rect x="{{ shell.x + shell.w / 2 - gap.span / 2 }}" y="{{ shell.y - 2 }}"
+                  width="{{ gap.span }}" height="4" fill="{{ hue }}" opacity=".55"/>
+            {% else %}
+            <rect x="{{ shell.x + shell.w / 2 - gap.span / 2 }}"
+                  y="{{ shell.y + shell.h - wall - 2 }}" width="{{ gap.span }}"
+                  height="{{ wall + 4 }}" fill="var(--floor-2)"/>
+            <rect x="{{ shell.x + shell.w / 2 - gap.span / 2 }}" y="{{ shell.y + shell.h - 2 }}"
+                  width="{{ gap.span }}" height="4" fill="{{ hue }}" opacity=".55"/>
+            {% endif %}
+            {% endfor %}
 
-          {% for fixture in plan.fixtures[room.room_id] %}
-          <rect x="{{ fixture.x }}" y="{{ fixture.y }}" width="{{ fixture.w }}"
-                height="{{ fixture.h }}" rx=".4" fill="var(--plate)" stroke="{{ hue }}"
-                stroke-width=".14" opacity=".7"/>
-          <line x1="{{ fixture.x + 0.4 }}" y1="{{ fixture.y + 0.55 }}"
-                x2="{{ fixture.x + fixture.w - 0.4 }}" y2="{{ fixture.y + 0.55 }}"
-                stroke="{{ hue }}" stroke-width=".24" opacity=".9"/>
-          {% endfor %}
+            {# nameplate and chips, on plates rather than floating over the floor #}
+            <rect x="{{ floor.x - 4 }}" y="{{ floor.y + 4 }}" width="{{ floor.w + 8 }}"
+                  height="42" rx="5" fill="var(--fix-2)" stroke="{{ hue }}" stroke-width="1.4"
+                  stroke-opacity=".55"/>
+            <rect x="{{ floor.x - 4 }}" y="{{ floor.y + 4 }}" width="5" height="42" rx="2.5"
+                  fill="{{ hue }}" opacity=".9"/>
+            <circle class="lamp" cx="{{ floor.x + floor.w - 15 }}" cy="{{ floor.y + 25 }}" r="7"
+                    fill="{{ backing_colour(occupied.backing) }}"
+                    style="{{ 'animation:none' if not occupied.engaged }}"/>
+            {% for chip in plan.chips[room.room_id] %}
+            <rect x="{{ chip.x }}" y="{{ chip.y }}" width="{{ chip.w }}" height="{{ chip.h }}"
+                  rx="{{ chip.h / 2 }}" fill="var(--fix-2)" stroke="{{ hue }}"
+                  stroke-width="1.1" stroke-opacity=".42"/>
+            {% endfor %}
 
-          {% for sprite in plan.sprites[room.room_id] %}
-          <g opacity="{{ '.35' if room.locked else '1' }}">
-            <circle cx="{{ sprite.x }}" cy="{{ sprite.y }}" r=".78" fill="{{ hue }}"/>
-            <path d="M{{ sprite.x - 0.9 }} {{ sprite.y + 2.7 }} q.9 -1.5 1.8 0" fill="none"
-                  stroke="{{ hue }}" stroke-width=".72" stroke-linecap="round"/>
-            <title>{{ sprite.role }}, at a console in the {{ room.name|lower }}</title>
+            {% if room.locked %}
+            <g opacity=".9">
+              <rect x="{{ floor.x + floor.w - 46 }}" y="{{ floor.y + 60 }}" width="26" height="21"
+                    rx="3" fill="var(--fix-2)" stroke="var(--plate-dim)" stroke-width="2"/>
+              <path d="M{{ floor.x + floor.w - 40 }} {{ floor.y + 60 }} v-8 a7 7 0 0 1 14 0 v8"
+                    fill="none" stroke="var(--plate-dim)" stroke-width="2.4"/>
+            </g>
+            {% endif %}
+
+            <g filter="url(#fixdrop)">
+              {% for fixture in plan.fixtures[room.room_id] if fixture.depth == 'back' %}
+              {{ parts.fixture(fixture, hue, room.locked) }}
+              {% endfor %}
+            </g>
+            <rect class="selectring" x="{{ shell.x - 8 }}" y="{{ shell.y - 8 }}"
+                  width="{{ shell.w + 16 }}" height="{{ shell.h + 16 }}" rx="15" fill="none"
+                  stroke="{{ hue }}" stroke-width="3.6" stroke-dasharray="18 11"/>
+            <title>{{ room.name }} &#8212; {{ occupied.backing }}</title>
           </g>
           {% endfor %}
 
-          {% if room.locked %}
-          <g opacity=".9">
-            <rect x="{{ room.x + room.w - 5.9 }}" y="{{ room.y + 6.2 }}" width="3.4" height="2.8"
-                  rx=".5" fill="var(--plate)" stroke="var(--plate-dim)" stroke-width=".3"/>
-            <path d="M{{ room.x + room.w - 5.15 }} {{ room.y + 6.2 }} v-1 a.95 .95 0 0 1 1.9 0 v1"
-                  fill="none" stroke="var(--plate-dim)" stroke-width=".3"/>
+          {# ---- the passes, behind the people and in front of the racks ---- #}
+          <g id="tokens" filter="url(#bloom)">
+            {% for token in moving %}
+            {% for ghost in token.trail %}
+            <circle r="{{ 7.5 - loop.index0 * 1.4 }}" fill="{{ token.colour }}"
+                    opacity="{{ ghost.opacity }}">
+              <animateMotion dur="{{ token.dur }}s" begin="{{ ghost.begin }}s"
+                             repeatCount="indefinite"><mpath href="#route"/></animateMotion>
+            </circle>
+            {% endfor %}
+            <circle r="9" fill="{{ token.colour }}">
+              <animateMotion dur="{{ token.dur }}s" begin="{{ token.begin }}s"
+                             repeatCount="indefinite"><mpath href="#route"/></animateMotion>
+              <animate attributeName="r" dur="{{ token.dur }}s" begin="{{ token.begin }}s"
+                       repeatCount="indefinite" values="{{ token.pulse }}"
+                       keyTimes="{{ token.key_times }}"/>
+              <title>{{ token.item_id }} &#8212; answered {{ token.verdict }}, truth
+                {{ token.truth }}</title>
+            </circle>
+            {% endfor %}
           </g>
-          {% endif %}
 
-          {% for door in plan.doors if door.room_id == room.room_id %}
-          <rect x="{{ door.x }}" y="{{ room.y + room.h - 0.7 }}" width="{{ door.w }}"
-                height="1.4" rx=".3" fill="{{ hue }}"
-                opacity="{{ '.95' if door.count else '.28' }}"/>
-          <text x="{{ room.x + 2 }}" y="{{ room.y + room.h + 4.3 + loop.index0 * 2.8 }}"
-                fill="var(--plate-dim)" font-size="2.1" font-family="var(--mono)"
-                >{{ door.count }} &#183; {{ door.state }}</text>
+          {# ---- front of each room: the workstations and the people at them ---- #}
+          {% for occupied in rooms %}
+          {% set room = occupied.room %}
+          {% set hue = accent(room.accent) %}
+          <g class="roomfront" pointer-events="none"
+             opacity="{{ '1' if occupied.engaged else '.76' }}">
+            <g filter="url(#fixdrop)">
+              {% for fixture in plan.fixtures[room.room_id] if fixture.depth == 'front' %}
+              {{ parts.fixture(fixture, hue, room.locked) }}
+              {% endfor %}
+            </g>
+            {% for sprite in plan.sprites[room.room_id] %}
+            {{ parts.agent(sprite, hue, room.locked) }}
+            {% endfor %}
+          </g>
           {% endfor %}
 
-          <circle cx="{{ room.x + room.w - 1.9 }}" cy="{{ room.y + 3.4 }}" r=".62"
-                  fill="{{ backing_colour(occupied.backing) }}"
-                  class="{{ 'pulse' if occupied.backing == 'live' and occupied.engaged }}"
-                  style="{{ 'animation:breathe 3.6s ease-in-out infinite;'
-                            if occupied.backing == 'live' and occupied.engaged }}"/>
-          <title>{{ room.name }} &#8212; {{ occupied.backing }}</title>
-        </g>
-        {% endfor %}
+          {# ---- the ways out, cut into the station's outer wall ---- #}
+          <g id="exits">
+            {% for door in plan.doors %}
+            {% set hue = accent(door.accent) %}
+            {% if door.used %}
+            <rect x="{{ door.rect.x - 4 }}" y="{{ door.rect.y - 4 }}"
+                  width="{{ door.rect.w + 8 }}" height="{{ door.rect.h + 8 }}" rx="4"
+                  fill="{{ hue }}" opacity=".32" filter="url(#bloom)" class="doorlamp"/>
+            {% endif %}
+            <rect x="{{ door.rect.x }}" y="{{ door.rect.y }}" width="{{ door.rect.w }}"
+                  height="{{ door.rect.h }}" rx="2" fill="{{ hue }}"
+                  opacity="{{ '.95' if door.used else '.32' }}"/>
+            <rect x="{{ door.plate.x }}" y="{{ door.plate.y }}" width="{{ door.plate.w }}"
+                  height="{{ door.plate.h }}" rx="6" fill="var(--fix-2)" stroke="{{ hue }}"
+                  stroke-width="1.6" stroke-opacity="{{ '.85' if door.used else '.42' }}"/>
+            <rect x="{{ door.plate.x }}"
+                  y="{{ door.plate.y + (0 if door.vertical else door.plate.h - 4) }}"
+                  width="{{ 4 if door.vertical else door.plate.w }}"
+                  height="{{ door.plate.h if door.vertical else 4 }}" rx="2" fill="{{ hue }}"
+                  opacity="{{ '.9' if door.used else '.35' }}"/>
+            {% endfor %}
+          </g>
 
-        <g id="tokens" filter="url(#bloom)">
-          {% for token in moving %}
-          <circle r="{{ '.9' if token.correct else '.75' }}" fill="{{ token_colour(token) }}"
-                  opacity=".9">
-            <animateMotion dur="{{ token.dur }}s" begin="{{ token.begin }}s"
-                           repeatCount="indefinite">
-              <mpath href="#route"/>
-            </animateMotion>
-            <title>{{ token.item_id }} &#8212; answered {{ token.verdict }}, truth
-              {{ token.truth }}</title>
-          </circle>
-          {% endfor %}
+          {# ---- every string on the map, measured before it was placed ---- #}
+          <g id="labels" font-family="var(--mono)">
+            {% for label in plan.labels %}
+            <text x="{{ label.x }}" y="{{ label.y }}" font-size="{{ label.size }}"
+                  textLength="{{ label.length }}" lengthAdjust="spacing"
+                  text-anchor="{{ label.anchor }}" font-weight="{{ label.weight }}"
+                  fill="{{ label_fill(label.fill) }}">{{ label.text }}</text>
+            {% endfor %}
+          </g>
         </g>
       </svg>
+      </div>
       <div class="controls">
+        <button type="button" id="zoom-out" aria-label="zoom out">&minus;</button>
+        <button type="button" id="zoom-in" aria-label="zoom in">+</button>
+        <button type="button" id="fit">fit</button>
         <button type="button" id="motion">pause motion</button>
-        <span class="key"><i style="background:var(--good)"></i>answered correctly</span>
-        <span class="key"><i style="background:var(--warn)"></i>abstained</span>
-        <span class="key"><i style="background:var(--bad)"></i>answered wrongly</span>
+        <span class="spacer"></span>
+        <span class="key"><i style="background:var(--good);color:var(--good)"></i>correct</span>
+        <span class="key"><i style="background:var(--warn);color:var(--warn)"></i>abstained</span>
+        <span class="key"><i style="background:var(--bad);color:var(--bad)"></i>wrong</span>
+      </div>
+      <div class="controls" style="border-top:none;padding-top:0">
         <span class="faint">{{ moving|length }} of {{ station.tokens|length }} recorded passes
           drawn in motion. Route from the arm's switches, colour from the recorded verdict against
-          planted truth; the pacing is chosen for legibility and measures nothing.</span>
+          planted truth, and a token swells as it reaches each room its arm engages; the pacing is
+          chosen for legibility and measures nothing.</span>
       </div>
     </div>
   </div>
@@ -354,8 +485,9 @@ room.</p>
       <div class="invariant">The corridor's order is the order the states are declared in. The two
       hatched rooms have no corridor into them: the Vault holds the evaluation split in its own
       process, and the Oracle holds the ground truth the institution may never read.</div>
-      <p class="muted">Pick a room on the plan. A dashed outline means the arm on display
-      (<span class="mono">{{ station.arm.arm_id }}</span>) does not engage that room.</p>
+      <p class="muted">Drag the map to pan, scroll to zoom, and click a room to open it. A dimmed
+      room is one the arm on display (<span class="mono">{{ station.arm.arm_id }}</span>) does not
+      engage.</p>
       <div class="grid">
         <div class="stat"><span class="v">{{ station.chapter.version }}</span>
           <span class="l">protocol on display</span>
@@ -422,6 +554,12 @@ room.</p>
         <div class="door"><b>{{ count }}</b><span>{{ state }}</span></div>
         {% endfor %}
       </div>
+      {% if occupied.doors | map(attribute=1) | sum == 0 %}
+      <div class="note"><b>Unused, and drawn that way on purpose.</b> {{ unused_exits }}. The
+      pipeline's back half runs — bundles are built, objections raised, replications recorded —
+      but no code path writes the state that would record a hypothesis leaving by one of these
+      doors, so the counter plate reads zero rather than the renderer having failed.</div>
+      {% endif %}
       <p class="faint">Terminal states of the research machine, counted from
       <span class="mono">hypothesis.state_changed</span> events. Drawn the same size as one another
       because refuted and inconclusive are terminal successes of the process.</p>
@@ -488,39 +626,129 @@ comparison the whole ladder rests on.</p>
 <script>
 (function () {
   var panels = document.getElementById('panels');
+  var svg = document.getElementById('map');
+  var camera = document.getElementById('camera');
+  var viewport = document.getElementById('viewport');
+  var view = { x: 0, y: 0, k: 1 };
+  var MIN = 1, MAX = 7;
+
+  function apply(animated) {
+    camera.classList.toggle('nudge', !animated);
+    camera.setAttribute('transform', 'translate(' + view.x.toFixed(2) + ' ' +
+      view.y.toFixed(2) + ') scale(' + view.k.toFixed(4) + ')');
+  }
+  function fit(animated) { view = { x: 0, y: 0, k: 1 }; apply(animated === true); }
+
+  function point(event) {
+    var ctm = svg.getScreenCTM();
+    if (!ctm) { return { x: 0, y: 0 }; }
+    var p = svg.createSVGPoint();
+    p.x = event.clientX; p.y = event.clientY;
+    return p.matrixTransform(ctm.inverse());
+  }
+  function zoomAt(factor, at) {
+    var next = Math.min(MAX, Math.max(MIN, view.k * factor));
+    if (next === view.k) { return; }
+    view.x = at.x - (at.x - view.x) * (next / view.k);
+    view.y = at.y - (at.y - view.y) * (next / view.k);
+    view.k = next;
+    apply(false);
+  }
+
+  viewport.addEventListener('wheel', function (event) {
+    event.preventDefault();
+    zoomAt(event.deltaY < 0 ? 1.16 : 1 / 1.16, point(event));
+  }, { passive: false });
+
+  var dragging = null, moved = 0;
+  viewport.addEventListener('pointerdown', function (event) {
+    if (event.button !== 0) { return; }
+    dragging = { at: point(event), x: view.x, y: view.y };
+    moved = 0;
+    viewport.classList.add('dragging');
+    viewport.setPointerCapture(event.pointerId);
+  });
+  viewport.addEventListener('pointermove', function (event) {
+    if (!dragging) { return; }
+    var now = point(event);
+    view.x = dragging.x + (now.x - dragging.at.x);
+    view.y = dragging.y + (now.y - dragging.at.y);
+    moved += Math.abs(now.x - dragging.at.x) + Math.abs(now.y - dragging.at.y);
+    apply(false);
+  });
+  function endDrag(event) {
+    if (!dragging) { return; }
+    dragging = null;
+    viewport.classList.remove('dragging');
+    if (event && event.pointerId !== undefined &&
+        viewport.hasPointerCapture(event.pointerId)) {
+      viewport.releasePointerCapture(event.pointerId);
+    }
+  }
+  viewport.addEventListener('pointerup', endDrag);
+  viewport.addEventListener('pointercancel', endDrag);
+
   function show(id) {
     var wanted = document.getElementById('panel-' + id);
     if (!wanted) { return; }
     Array.prototype.forEach.call(panels.querySelectorAll('.panel'), function (panel) {
       panel.classList.toggle('on', panel === wanted);
     });
+    Array.prototype.forEach.call(svg.querySelectorAll('.room'), function (room) {
+      room.classList.toggle('selected', room.dataset.room === id);
+    });
     panels.scrollTop = 0;
-    if (window.matchMedia('(max-width: 1040px)').matches) {
+    if (window.matchMedia('(max-width: 1100px)').matches) {
       wanted.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
   }
-  Array.prototype.forEach.call(document.querySelectorAll('.roomhit'), function (room) {
-    room.addEventListener('click', function () { show(room.dataset.room); });
+  function focusRoom(group) {
+    var box = group.getBBox();
+    var vb = svg.viewBox.baseVal;
+    var k = Math.min(MAX, Math.max(MIN,
+      Math.min(vb.width / box.width, vb.height / box.height) * 0.44));
+    view.k = k;
+    view.x = vb.x + vb.width / 2 - (box.x + box.width / 2) * k;
+    view.y = vb.y + vb.height / 2 - (box.y + box.height / 2) * k;
+    apply(true);
+  }
+  Array.prototype.forEach.call(svg.querySelectorAll('.room'), function (room) {
+    room.addEventListener('click', function () {
+      if (moved > 16) { return; }
+      show(room.dataset.room);
+      focusRoom(room);
+    });
     room.addEventListener('keydown', function (event) {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
         show(room.dataset.room);
+        focusRoom(room);
       }
     });
   });
 
-  var svg = document.querySelector('.plate svg');
+  var vb0 = svg.viewBox.baseVal;
+  document.getElementById('zoom-in').addEventListener('click', function () {
+    zoomAt(1.35, { x: vb0.x + vb0.width / 2, y: vb0.y + vb0.height / 2 });
+  });
+  document.getElementById('zoom-out').addEventListener('click', function () {
+    zoomAt(1 / 1.35, { x: vb0.x + vb0.width / 2, y: vb0.y + vb0.height / 2 });
+  });
+  document.getElementById('fit').addEventListener('click', function () { fit(true); });
+
   var button = document.getElementById('motion');
   var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function apply() {
-    if (!svg || !svg.pauseAnimations) { button.hidden = true; return; }
-    if (still) { svg.pauseAnimations(); } else { svg.unpauseAnimations(); }
+  function motion() {
+    svg.classList.toggle('stopped', still);
+    if (svg.pauseAnimations) {
+      if (still) { svg.pauseAnimations(); } else { svg.unpauseAnimations(); }
+    }
     button.textContent = still ? 'resume motion' : 'pause motion';
   }
-  if (button) {
-    button.addEventListener('click', function () { still = !still; apply(); });
-    apply();
-  }
+  button.addEventListener('click', function () { still = !still; motion(); });
+
+  fit(false);
+  motion();
 })();
 </script>
 </body>

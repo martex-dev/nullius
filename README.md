@@ -71,8 +71,10 @@ Not a chatbot, not an AutoGPT descendant, not a paper generator, not a RAG appli
 
 `nullius station build` draws the institution as the facility it is: one room per department,
 laid out from `db/enums.py` rather than beside it, so every role is stationed somewhere and every
-state of the research machine is owned by exactly one room. Clicking a room opens what that
-department actually did, with each figure naming the artifact it was read out of.
+state of the research machine is owned by exactly one room. Rooms have floors, furniture and the
+people who work in them, lit in the department's own colour, with the recorded passes moving
+between them. Drag to pan, scroll to zoom, and click a room to open what that department actually
+did — every figure naming the artifact it was read out of.
 
 The two rooms with no corridor into them are the two you genuinely cannot walk into — the Vault,
 where the Custodian holds the evaluation split in its own process, and the Oracle, which holds the

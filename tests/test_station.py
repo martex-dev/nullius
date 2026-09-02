@@ -40,7 +40,12 @@ from nullius.station.model import Station, assemble, engaged_rooms, route_for
 from nullius.station.render import (
     CANNOT_SHOW,
     PRINCIPLES,
+    UNUSED_EXITS,
+    Box,
+    _arrivals,
+    _moving,
     environment,
+    overlapping_labels,
     plan,
     render_station,
     write_station,
@@ -528,3 +533,171 @@ def test_every_run_protocol_can_be_drawn() -> None:
         station = _station_for(version)
         assert station.chapter.version == version
         assert station.tokens
+
+
+# ------------------------------------------------------------------ M24: drawn
+
+
+def test_no_two_labels_on_the_map_overlap() -> None:
+    """Two captions from different rooms landed on top of each other in M22 and
+    rendered as one unreadable string. Fixing those two would have left the next
+    pair to be found by eye.
+
+    Every string on the map now goes through one placement function that
+    measures it, clips it to its container and records the box it occupies, and
+    that box is a promise rather than an estimate because the same width is
+    emitted as the element's ``textLength``. Overlap is therefore a property of
+    the layout that can be checked here rather than a rendering accident that
+    has to be noticed.
+    """
+    assert overlapping_labels(assemble()) == []
+
+
+def test_labels_hold_at_every_zoom() -> None:
+    """Boxes are in world units and the camera is a uniform transform, so a pair
+    that does not intersect at one scale cannot intersect at another. Checked
+    rather than argued, at the scales the viewport actually reaches."""
+    boxes = plan(assemble())["boxes"]
+    for zoom in (1.0, 2.5, 7.0):
+        scaled = [Box(b.x * zoom, b.y * zoom, b.w * zoom, b.h * zoom) for b in boxes]
+        for i, first in enumerate(scaled):
+            for j in range(i + 1, len(scaled)):
+                assert not first.intersects(scaled[j]), f"{i} and {j} collide at {zoom}x"
+
+
+def test_every_label_fits_the_container_it_was_given() -> None:
+    """The overflow bug in its general form: a string wider than the plate it
+    sits on. Truncation is the only outcome that keeps the box a true statement,
+    so the measured length is never allowed to exceed the reserved width."""
+    for label in plan(assemble())["labels"]:
+        assert label["length"] <= label["box"]["w"] + 0.01
+        assert label["text"], "an empty label reserves space for nothing"
+
+
+def test_a_room_is_a_place_with_things_in_it() -> None:
+    """M22 drew rooms as outlined rectangles with three hairlines in them, which
+    reads as a wireframe rather than as somewhere work happens."""
+    layout = plan(assemble())
+    for room in ROOMS:
+        fixtures = layout["fixtures"][room.room_id]
+        assert len(fixtures) >= 5, f"{room.room_id} has {len(fixtures)} fixtures"
+        floor = layout["floors"][room.room_id]
+        for fixture in fixtures:
+            assert fixture["x"] >= floor["x"] - 0.01
+            assert fixture["x"] + fixture["w"] <= floor["x"] + floor["w"] + 0.01
+            assert fixture["y"] >= floor["y"] - 0.01
+            assert fixture["y"] + fixture["h"] <= floor["y"] + floor["h"] + 0.01
+
+
+def test_every_stationed_role_is_a_figure_big_enough_to_read(tmp_path: Path) -> None:
+    """A three-pixel dot is not an actor at a post. Each role also has to be
+    identifiable without reading its label, which the drawing does with a
+    distinct silhouette per role."""
+    page = write_station(tmp_path / "station.html").read_text(encoding="utf-8")
+    layout = plan(assemble())
+    seen: set[str] = set()
+    for room in ROOMS:
+        for sprite in layout["sprites"][room.room_id]:
+            assert sprite["h"] >= 16.0, sprite
+            seen.add(sprite["role"])
+    assert seen == {role.value for role in Role}
+    for role in Role:
+        assert f"<title>{role.value}</title>" in page, role.value
+
+
+def test_the_map_is_big_enough_to_draw_in() -> None:
+    """The scale was the whole of M24's problem: at one plan unit to the pixel a
+    room is twenty-six across and nothing fits inside it."""
+    layout = plan(assemble())
+    for shell in layout["shells"].values():
+        assert shell["w"] >= 260 and shell["h"] >= 180, shell
+    assert layout["world"]["w"] >= 2000
+    assert layout["world"]["h"] >= 1200
+
+
+def test_no_key_handed_to_the_template_shadows_a_dict_method() -> None:
+    """Twice now a dict key named after a dict attribute has rendered as the
+    attribute: ``entry.items`` printed ``<built-in method items>`` into a table
+    in M22, and ``token.values`` printed one into an animation in M24. Jinja
+    resolves an attribute before a key, so the collision is silent and the page
+    still builds."""
+    forbidden = {name for name in dir(dict) if not name.startswith("_")}
+    station = assemble()
+
+    def walk(node: object, where: str) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                assert key not in forbidden, f"{where}.{key} shadows dict.{key}"
+                walk(value, f"{where}.{key}")
+        elif isinstance(node, list | tuple):
+            for index, value in enumerate(node):
+                walk(value, f"{where}[{index}]")
+
+    layout = plan(station)
+    walk(layout, "plan")
+    walk(_moving(station, _arrivals(station, layout)), "moving")
+    for occupied in station.occupancy:
+        walk(occupied.detail, f"{occupied.room.room_id}.detail")
+
+
+def test_the_exits_are_doors_in_the_outer_wall() -> None:
+    """Cut into a wall that faces outward, chosen from the plan rather than
+    named, so moving a room in the map moves its exits to the wall that still
+    faces out. The counter plate goes outside the room, never over its floor."""
+    layout = plan(assemble())
+    shells = layout["shells"]
+    for door in layout["doors"]:
+        shell = shells[door["room_id"]]
+        rect = door["rect"]
+        assert rect["x"] >= shell["x"] - 1 and rect["y"] >= shell["y"] - 1
+        assert rect["x"] + rect["w"] <= shell["x"] + shell["w"] + 1
+        assert rect["y"] + rect["h"] <= shell["y"] + shell["h"] + 1
+        plate = door["plate"]
+        overlaps = (
+            plate["x"] < shell["x"] + shell["w"]
+            and shell["x"] < plate["x"] + plate["w"]
+            and plate["y"] < shell["y"] + shell["h"]
+            and shell["y"] < plate["y"] + plate["h"]
+        )
+        assert not overlaps, f"{door['state']}'s counter plate sits inside the room"
+
+
+def test_an_unused_exit_says_it_meant_the_zero(tmp_path: Path) -> None:
+    """A row of zeroes reads as a broken renderer unless the drawing says it
+    meant them. Every exit on this map is unused, and the map says so."""
+    station = assemble()
+    doors = plan(station)["doors"]
+    assert doors
+    page = write_station(tmp_path / "station.html").read_text(encoding="utf-8")
+    if not any(door["used"] for door in doors):
+        assert UNUSED_EXITS.split("—")[0].strip() in page
+
+
+def test_the_corridor_never_crosses_the_sealed_line() -> None:
+    """The Vault and the Oracle have no corridor into them, which is the whole
+    point of drawing them. The drawing must not quietly connect one."""
+    layout = plan(assemble())
+    reached = {point["room_id"] for point in layout["waypoints"]}
+    assert "vault" not in reached and "oracle" not in reached
+    for room_id in ("vault", "oracle"):
+        assert layout["doorways"][room_id] == [], f"{room_id} has a doorway cut into it"
+
+
+def test_a_token_swells_where_it_arrives_rather_than_on_a_beat() -> None:
+    """The pulse keyframes are the fractions of the route at which it passes
+    through a room its arm engages, so the animation marks an arrival rather
+    than a rhythm somebody chose."""
+    station = assemble()
+    layout = plan(station)
+    arrivals = _arrivals(station, layout)
+    assert len(arrivals) == len(station.arm_route)
+    assert arrivals[0] == 0.0
+    assert arrivals[-1] == pytest.approx(1.0)
+    moving = _moving(station, arrivals)
+    assert moving
+    for token in moving:
+        times = [float(t) for t in token["key_times"].split(";")]
+        assert times == sorted(times)
+        assert times[0] == 0.0
+        assert times[-1] == pytest.approx(1.0)
+        assert len(times) == len(token["pulse"].split(";"))

@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M23 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M24 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -768,6 +768,93 @@ line*, which fails on five lines of the previously committed file.
   the tuple named — and exits non-zero if it finds none.
 - No `#` appears anywhere but the start of a line in `FINDINGS.md`, which the file committed at
   `8460649` fails on five lines.
+
+---
+
+### M24 · The Station, actually drawn ✅ — a place, not a wireframe
+M22 built the record correctly and drew it at about five per cent of the size it needed.
+Fifteen rooms fitted in 880 by 520; a room was twenty-six units across, a person in it was
+three pixels, and a fixture was a hairline. Every concept was already there and none of it was
+legible. This milestone is presentation only: `render.py` and the templates. `model.py`,
+`map.py` and `ledger.py` are untouched, and every test written against them still passes.
+
+**Scale was the whole problem.** `SCALE` turns one plan unit into twelve drawing units, so the
+map is authored once in `map.py` at the size that is right for reasoning about adjacency and
+drawn at the size that has somewhere to put a console. A room is now 312 by 288 and the station
+is 2872 by 1678, in a pan-and-zoom viewport: drag to pan, scroll to zoom about the cursor, click
+a room to focus it and open its dashboard. It fits to screen on load, so the whole facility
+reads at a glance before anybody dives in.
+
+**Rooms are places.** Walls nine units thick with a lit inner edge and a doorway cut where the
+corridor meets them — computed from consecutive rooms in the walk, so a room that moves in the
+plan takes its doorways with it. A plated floor tinted toward the room's function colour, under
+a soft lamp in that colour that is most of what makes it feel like somewhere. Five to ten drawn
+fixtures each, appropriate to the work: racks and a bench in the Workshop, a long table of
+specimen runs on the Execution floor, sealed cabinets and one terminal in the Vault, shelving in
+the Archive. Drop shadows under the walls and the furniture, one light direction throughout.
+
+**Agents are people at posts.** Forty-eight units tall with a distinct silhouette per `Role` —
+the Skeptic hooded with a glass, the Custodian suited with a visor slot, the Replicator blindfold
+banded and trailing a faint second outline, the Builder in a hard hat. `SYSTEM` is drawn as a
+servitor rather than a person, because it is the deterministic control plane and giving it a face
+would be the drawing making a claim the architecture does not. Each bobs on its own period,
+seeded from its room's id. A room with no actor is still drawn with nobody in it.
+
+**The exits are doors.** Cut into whichever outer wall faces away from the middle of the station
+— chosen by probing for a wall with no room behind it and no corridor through it, so moving a
+room moves its exits — with a lit counter plate outside each. Equal width by construction, and a
+test says so.
+
+#### What building it revealed was wrong
+
+**1. The captions collided because each was placed against a coordinate that happened to be
+free.** The Vault's "no corridor crosses this line" landed on the Treasury's "0 · abandoned
+budget" and the two rendered as one unreadable string; "NO ACTOR STATIONED" hung outside the
+record's box. Both were fixable in one line each, and fixing them would have left the next pair
+to be found by eye.
+
+Every string on the map now goes through `_label`, which measures it, truncates it to its
+container and records the box it occupies — and the box is a promise rather than an estimate
+because the same width is emitted as the element's `textLength`, so what the layout reserves is
+what the browser draws, on any platform and in whichever fallback font resolves.
+`overlapping_labels` returns the intersecting pairs and a test requires the list to be empty at
+1x, 2.5x and 7x. Boxes are in world units and the camera is a uniform transform, so that is the
+whole zoom range.
+
+**2. A float one unit in the last place truncated a label to fit a box built around it.**
+`BUILDER` rendered as `BUILD…` on a chip sized for `BUILDER`. The chip measured the string, added
+padding to get its width, then handed the label back `width − padding` as its container — which
+in binary is not the number it started from. The reproduction is exact: `7 × 13 × 0.6` round
+tripped through `+18, −18` comes back smaller than itself. `_truncate` now carries a tolerance
+and the chip passes the measured width rather than recomputing it, which is the more important
+half of the fix.
+
+**3. A dict key named after a dict method rendered as the method, for the second time.**
+`token.values` printed `<built-in method values of dict object at 0x…>` into an SVG animation.
+The same shape put `<built-in method items>` into the Registry's protocol table in M22 — Jinja
+resolves an attribute before a key, the page still builds, and nothing complains. Renaming it
+twice is not a fix, so a test now walks every structure handed to the template and fails on any
+key that shadows a `dict` attribute.
+
+**4. The zeroes on the exits read as a broken renderer.** Four doors, four counts of nothing.
+They are correct — M22's finding was that no code path writes a terminal state, so nothing has
+ever left by one — but an honest zero still has to look deliberate. The doors are drawn unlit,
+and the room says in as many words that the count is a fact about the code rather than a failure
+of the drawing.
+
+**Acceptance**
+- Every test from M22 and M23 still passes; the data layer was not touched.
+- A room's interior holds at least five drawn fixtures, all of them inside its floor, and every
+  stationed role renders a figure of at least sixteen units with its own silhouette. Tested.
+- Pan, zoom and click-to-focus work, and the station fits to screen on load.
+- No two text elements on the map overlap, at any zoom the viewport reaches. Tested against the
+  measured boxes rather than by eye.
+- Every label fits the container it was given, and the exits' counter plates never sit over a
+  room's floor. Tested.
+- Still one self-contained file — no CDN, no external font, no remote image — and it still
+  refuses to build on input that does not verify.
+- `prefers-reduced-motion` stops every animation and the pause control starts pressed when it is
+  set.
 
 ---
 
