@@ -701,3 +701,127 @@ def test_a_token_swells_where_it_arrives_rather_than_on_a_beat() -> None:
         assert times[0] == 0.0
         assert times[-1] == pytest.approx(1.0)
         assert len(times) == len(token["pulse"].split(";"))
+
+
+# ------------------------------------------------------- M25: a map, not a plan
+
+
+def _points(path: str) -> list[tuple[float, float]]:
+    return [(float(a), float(b)) for a, b in re.findall(r"[ML]\s*(-?[\d.]+)\s+(-?[\d.]+)", path)]
+
+
+def test_every_room_is_named_by_a_card_beside_it() -> None:
+    """The room's label moved off its floor and onto a callout, which is what
+    let the interior be an interior. Every room gets exactly one, it carries the
+    room's own name, and it never sits over a room."""
+    layout = plan(assemble())
+    cards = {card["room_id"]: card for card in layout["cards"]}
+    assert set(cards) == {room.room_id for room in ROOMS}
+
+    for room in ROOMS:
+        card = cards[room.room_id]
+        box = card["box"]
+        named = [
+            label["text"]
+            for label in layout["labels"]
+            if label["owner"] == room.room_id and label["text"] == room.name.upper()
+        ]
+        assert named, f"{room.room_id}'s card does not carry its name"
+        for shell in layout["shells"].values():
+            over = (
+                box["x"] < shell["x"] + shell["w"]
+                and shell["x"] < box["x"] + box["w"]
+                and box["y"] < shell["y"] + shell["h"]
+                and shell["y"] < box["y"] + box["h"]
+            )
+            assert not over, f"{room.room_id}'s card sits over a room"
+
+
+def test_a_card_stays_on_the_map_and_beside_its_own_room() -> None:
+    """A slot off the edge of the viewBox is not a slot, and a card three rooms
+    from the thing it names is not a label. Both were produced by an earlier
+    search and both are checked here."""
+    layout = plan(assemble())
+    world = layout["world"]
+    for card in layout["cards"]:
+        box, shell = card["box"], layout["shells"][card["room_id"]]
+        assert box["x"] >= world["x"]
+        assert box["y"] >= world["y"]
+        assert box["x"] + box["w"] <= world["x"] + world["w"]
+        assert box["y"] + box["h"] <= world["y"] + world["h"]
+        gap = max(
+            shell["x"] - (box["x"] + box["w"]),
+            box["x"] - (shell["x"] + shell["w"]),
+            shell["y"] - (box["y"] + box["h"]),
+            box["y"] - (shell["y"] + shell["h"]),
+        )
+        assert gap < 340, f"{card['room_id']}'s card is {gap:.0f} from its room"
+
+
+def test_a_card_says_what_the_room_is_doing() -> None:
+    """The status word is read off the assembled record — a locked room is one
+    whose feature is unbuilt, a sealed one has no corridor into it, an idle one
+    is a room the arm on display does not engage."""
+    station = assemble()
+    cards = {card["room_id"]: card for card in plan(station)["cards"]}
+    assert {card["status"] for card in cards.values()} <= {
+        "WORKING",
+        "IDLE",
+        "LOCKED",
+        "SEALED",
+        "NO DATA",
+    }
+    for occupied in station.occupancy:
+        status = cards[occupied.room.room_id]["status"]
+        if occupied.room.locked:
+            assert status == "LOCKED"
+        elif not occupied.engaged:
+            assert status in ("IDLE", "SEALED")
+        elif occupied.backing is Backing.EMPTY:
+            assert status == "NO DATA"
+        else:
+            assert status == "WORKING"
+
+
+def test_every_agent_walks_a_patrol_inside_its_own_room() -> None:
+    """Agents walk. They do not walk out: the token is what moves through the
+    station, and a role in the corridor would say something about the
+    architecture that is not true."""
+    layout = plan(assemble())
+    walkers = 0
+    for room in ROOMS:
+        floor = layout["floors"][room.room_id]
+        for sprite in layout["sprites"][room.room_id]:
+            points = _points(sprite["d"])
+            assert len(points) >= 3, sprite
+            assert points[0] == points[-1], "a patrol has to come back"
+            for x, y in points:
+                assert floor["x"] <= x <= floor["x"] + floor["w"], sprite["role"]
+                assert floor["y"] <= y <= floor["y"] + floor["h"], sprite["role"]
+            assert float(sprite["dur"]) > 0
+            walkers += 1
+    assert walkers == sum(len(room.roles) for room in ROOMS)
+
+
+def test_two_agents_in_a_room_do_not_share_the_same_floor() -> None:
+    """Both of Screening's actors walked the same lane and drew as one shape."""
+    layout = plan(assemble())
+    for room in ROOMS:
+        spans = [
+            (min(x for x, _ in _points(s["d"])), max(x for x, _ in _points(s["d"])))
+            for s in layout["sprites"][room.room_id]
+        ]
+        for i, (a0, a1) in enumerate(spans):
+            for b0, b1 in spans[i + 1 :]:
+                assert a1 < b0 or b1 < a0, f"{room.room_id}: two patrols overlap"
+
+
+def test_the_dossier_holds_a_panel_for_every_room(tmp_path: Path) -> None:
+    """Clicking a room opens its dashboard over the map. The panel has to be
+    there for every room, including the ones that are locked or empty."""
+    page = write_station(tmp_path / "station.html").read_text(encoding="utf-8")
+    for room in ROOMS:
+        assert f'id="panel-{room.room_id}"' in page, room.room_id
+        assert f'data-room="{room.room_id}"' in page, room.room_id
+    assert 'id="dossier"' in page
+    assert 'id="roster"' in page

@@ -8,9 +8,9 @@
   :root {
     --page:#f4f6fa; --ink:#161a20; --dim:#5a6472; --faint:#8a94a3; --rule:#d7dde6;
     --panel:#ffffff; --sunk:#eef1f6;
-    --plate:#080c14; --plate-2:#0f1622; --plate-line:#22304a; --plate-ink:#e6edf8;
-    --plate-dim:#93a3bd; --plate-faint:#61708c;
-    --floor:#111a29; --floor-2:#0c1320; --wallo:#1d293e; --walli:#33455f;
+    --plate:#070b12; --plate-2:#0d1420; --plate-line:#22304a; --plate-ink:#e8effa;
+    --plate-dim:#9aa9c2; --plate-faint:#63728e;
+    --floor:#111a29; --floor-2:#0b1220; --wallo:#1d293e; --walli:#33455f;
     --fix:#182437; --fix-2:#0e1725;
     --fig-dark:#0a1120; --fig-skin:#f0d9c2;
     --good:#1c6b3f; --bad:#97231f; --warn:#8a5a10;
@@ -20,14 +20,14 @@
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --page:#080b10; --ink:#e6ebf2; --dim:#98a3b3; --faint:#6c7787; --rule:#212936;
+      --page:#070a10; --ink:#e6ebf2; --dim:#98a3b3; --faint:#6c7787; --rule:#212936;
       --panel:#11161e; --sunk:#0e131a;
       --good:#6cc493; --bad:#e2807a; --warn:#d9a94e;
       --good-bg:#12241a; --bad-bg:#251716; --warn-bg:#241e11;
     }
   }
   :root[data-theme="dark"] {
-    --page:#080b10; --ink:#e6ebf2; --dim:#98a3b3; --faint:#6c7787; --rule:#212936;
+    --page:#070a10; --ink:#e6ebf2; --dim:#98a3b3; --faint:#6c7787; --rule:#212936;
     --panel:#11161e; --sunk:#0e131a;
     --good:#6cc493; --bad:#e2807a; --warn:#d9a94e;
     --good-bg:#12241a; --bad-bg:#251716; --warn-bg:#241e11;
@@ -36,78 +36,123 @@
   * { box-sizing:border-box; }
   body { margin:0; background:var(--page); color:var(--ink);
          font:15px/1.6 var(--sans); -webkit-font-smoothing:antialiased; }
-  .wrap { max-width:84rem; margin:0 auto; padding:2.4rem 1.25rem 6rem; }
+  .wrap { max-width:82rem; margin:0 auto; padding:0 1.25rem; }
+  .wrap.head { padding-top:2.2rem; padding-bottom:1.1rem; }
+  .wrap.tail { padding-bottom:6rem; }
   a { color:inherit; }
   h1 { font-size:1.9rem; letter-spacing:-0.022em; margin:0 0 .35rem; }
   h2 { font-size:.73rem; text-transform:uppercase; letter-spacing:.12em; color:var(--dim);
        margin:2.8rem 0 .9rem; font-weight:650; }
   h3 { font-size:1rem; margin:1.4rem 0 .4rem; letter-spacing:-0.01em; }
   p { margin:0 0 .9rem; }
-  .lede { color:var(--dim); font-size:1.02rem; max-width:52rem; margin:0 0 1.2rem; }
+  .lede { color:var(--dim); font-size:1.02rem; max-width:52rem; margin:0 0 1.1rem; }
   .mono { font-family:var(--mono); }
   .muted { color:var(--dim); } .faint { color:var(--faint); font-size:.84rem; }
 
-  .chips { display:flex; flex-wrap:wrap; gap:.4rem; margin:0 0 1.3rem; }
+  .chips { display:flex; flex-wrap:wrap; gap:.4rem; margin:0 0 1rem; }
   .chip { display:inline-flex; align-items:center; gap:.4rem; padding:.22rem .62rem;
           border:1px solid var(--rule); border-radius:999px; background:var(--panel);
           font:600 .74rem/1.5 var(--sans); white-space:nowrap; }
   .chip .dot { width:.48rem; height:.48rem; border-radius:50%; background:var(--warn); }
 
   .banner { border:1px solid var(--rule); border-left:3px solid var(--warn);
-            background:var(--warn-bg); border-radius:6px; padding:.75rem .95rem;
-            margin:0 0 1.1rem; font-size:.9rem; }
+            background:var(--warn-bg); border-radius:6px; padding:.7rem .95rem;
+            margin:0 0 .8rem; font-size:.88rem; }
   .banner.bad { border-left-color:var(--bad); background:var(--bad-bg); }
   .banner .mono { font-family:var(--mono); font-size:.86em; }
 
-  .console { display:grid; grid-template-columns:minmax(0,1.62fr) minmax(0,1fr);
-             gap:1.1rem; align-items:start; }
-  @media (max-width:1100px) { .console { grid-template-columns:minmax(0,1fr); } }
-
-  /* ------------------------------------------------------------- the plate */
-  .plate { background:var(--plate); border:1px solid var(--plate-line);
-           border-radius:12px; overflow:hidden;
-           box-shadow:0 24px 60px -30px rgba(0,0,0,.9); }
-  .viewport { position:relative; aspect-ratio:2820/1678; width:100%;
+  /* --------------------------------------------------------------- the map */
+  .stage { position:relative; width:100%; margin:0 0 2rem;
+           background:var(--plate); border-top:1px solid var(--plate-line);
+           border-bottom:1px solid var(--plate-line); overflow:hidden; }
+  .viewport { position:relative; width:100%; height:min(88vh, 1120px); min-height:480px;
               touch-action:none; cursor:grab; overflow:hidden; }
   .viewport.dragging { cursor:grabbing; }
   .viewport svg { display:block; width:100%; height:100%; }
-  #camera { transition:transform .38s cubic-bezier(.22,.61,.36,1); }
+  #camera { transition:transform .42s cubic-bezier(.22,.61,.36,1); }
   #camera.nudge { transition:none; }
 
   .room { cursor:pointer; }
   .room .shell { transition:filter .18s ease; }
-  .room:hover .shell { filter:brightness(1.25); }
+  .room:hover .shell { filter:brightness(1.3); }
   .room:focus { outline:none; }
   .room:focus-visible .selectring, .room.selected .selectring { opacity:1; }
   .selectring { opacity:0; transition:opacity .2s ease; pointer-events:none; }
+  .card { cursor:pointer; }
+  .card:hover .cardplate { filter:brightness(1.35); }
 
-  .controls { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center;
-              padding:.62rem .8rem; border-top:1px solid var(--plate-line);
-              background:var(--plate-2); color:var(--plate-dim); font-size:.76rem; }
-  .controls button { font:600 .76rem/1 var(--sans); color:var(--plate-ink);
-    background:transparent; border:1px solid var(--plate-line); border-radius:5px;
-    padding:.36rem .64rem; cursor:pointer; }
-  .controls button:hover { border-color:var(--plate-ink); }
-  .controls .spacer { flex:1 1 auto; }
-  .key { display:inline-flex; align-items:center; gap:.32rem; }
-  .key i { width:.6rem; height:.6rem; border-radius:50%; display:inline-block;
-           box-shadow:0 0 7px currentColor; }
+  /* ------------------------------------------------------------------- HUD */
+  .hud { position:absolute; z-index:3; pointer-events:none;
+         font:600 .74rem/1.4 var(--sans); color:var(--plate-dim); }
+  .hud > * { pointer-events:auto; }
+  .hud-tl { top:.85rem; left:.85rem; max-width:min(30rem, 60vw); }
+  .hud-tr { top:.85rem; right:.85rem; display:flex; gap:.4rem; }
+  .hud-bl { left:.85rem; bottom:.85rem; display:flex; flex-wrap:wrap; gap:.55rem;
+            align-items:center; }
+  .glass { background:color-mix(in srgb, var(--plate-2) 84%, transparent);
+           border:1px solid var(--plate-line); border-radius:10px;
+           backdrop-filter:blur(7px); padding:.55rem .7rem; }
+  .title-hud b { color:var(--plate-ink); font-size:.95rem; letter-spacing:-.01em;
+                 display:block; margin-bottom:.15rem; }
+  .title-hud span { display:block; font-weight:500; font-family:var(--mono);
+                    font-size:.7rem; color:var(--plate-faint); }
+  .hud button { font:600 .78rem/1 var(--sans); color:var(--plate-ink);
+    background:color-mix(in srgb, var(--plate-2) 84%, transparent);
+    border:1px solid var(--plate-line); border-radius:8px; padding:.44rem .62rem;
+    cursor:pointer; backdrop-filter:blur(7px); min-width:2rem; }
+  .hud button:hover { border-color:var(--plate-ink); }
+  .key { display:inline-flex; align-items:center; gap:.34rem; }
+  .key i { width:.58rem; height:.58rem; border-radius:50%; display:inline-block;
+           box-shadow:0 0 8px currentColor; }
 
-  /* --------------------------------------------------------------- panels */
-  .panels { position:sticky; top:1rem; max-height:calc(100vh - 2rem); overflow-y:auto; }
-  @media (max-width:1100px) { .panels { position:static; max-height:none; } }
-  .panel { display:none; background:var(--panel); border:1px solid var(--rule);
-           border-radius:10px; padding:1.05rem 1.15rem 1.3rem; }
+  /* ---------------------------------------------------------------- roster */
+  .roster { position:absolute; z-index:3; top:.85rem; right:.85rem; width:12.2rem;
+            max-height:calc(100% - 5rem); overflow-y:auto; padding:.5rem;
+            display:flex; flex-direction:column; gap:.22rem; margin-top:2.9rem; }
+  .roster::-webkit-scrollbar { width:6px; }
+  .roster::-webkit-scrollbar-thumb { background:var(--plate-line); border-radius:3px; }
+  .roster h4 { margin:.1rem .3rem .35rem; font:650 .64rem/1.4 var(--sans);
+               letter-spacing:.13em; text-transform:uppercase; color:var(--plate-faint); }
+  .rrow { display:flex; align-items:center; gap:.45rem; width:100%; text-align:left;
+          background:transparent; border:1px solid transparent; border-radius:7px;
+          padding:.3rem .4rem; cursor:pointer; color:var(--plate-dim);
+          font:600 .72rem/1.3 var(--sans); }
+  .rrow:hover, .rrow.selected { background:color-mix(in srgb, var(--plate) 70%, transparent);
+                                border-color:var(--plate-line); color:var(--plate-ink); }
+  .rrow .no { font-family:var(--mono); font-size:.66rem; color:var(--plate-faint);
+              min-width:1.2rem; }
+  .rrow .nm { flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .rrow .st { font-family:var(--mono); font-size:.6rem; letter-spacing:.06em; opacity:.9; }
+  .rrow .pip { width:.45rem; height:.45rem; border-radius:50%; box-shadow:0 0 6px currentColor; }
+  @media (max-width:900px) { .roster { display:none; } }
+
+  /* --------------------------------------------------------------- dossier */
+  .dossier { position:fixed; inset:0; z-index:50; display:none; }
+  .dossier.on { display:block; }
+  .scrim { position:absolute; inset:0; background:rgba(4,7,12,.72);
+           backdrop-filter:blur(3px); }
+  .sheet { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+           width:min(52rem, calc(100vw - 2rem)); max-height:min(86vh, 60rem);
+           overflow-y:auto; background:var(--panel); border:1px solid var(--rule);
+           border-radius:14px; box-shadow:0 40px 90px -30px rgba(0,0,0,.7);
+           padding:1.2rem 1.4rem 1.6rem; }
+  .sheet .close { position:sticky; top:0; float:right; margin:-.4rem -.6rem 0 0;
+                  font:600 1.1rem/1 var(--sans); background:var(--sunk); color:var(--dim);
+                  border:1px solid var(--rule); border-radius:8px; width:2rem; height:2rem;
+                  cursor:pointer; z-index:2; }
+  .sheet .close:hover { color:var(--ink); }
+
+  .panel { display:none; }
   .panel.on { display:block; }
   .panel > header { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
                     margin:0 0 .5rem; }
-  .panel h3 { margin:0; font-size:1.12rem; }
-  .panel h2 { margin:1.4rem 0 .5rem; }
+  .panel h3 { margin:0; font-size:1.3rem; letter-spacing:-.015em; }
+  .panel h2 { margin:1.5rem 0 .5rem; }
   .tag { font:600 .66rem/1.5 var(--sans); text-transform:uppercase; letter-spacing:.07em;
          padding:.04rem .42rem; border-radius:4px; border:1px solid currentColor; }
   .tag.live { color:var(--good); } .tag.empty { color:var(--warn); }
   .tag.unbuilt { color:var(--bad); } .tag.off { color:var(--faint); }
-  .swatch { width:.8rem; height:.8rem; border-radius:3px; display:inline-block; }
+  .swatch { width:.9rem; height:.9rem; border-radius:4px; display:inline-block; }
   .charter { margin:.2rem 0 .7rem; }
   .invariant { border-left:2px solid var(--rule); padding:.15rem 0 .15rem .8rem;
                color:var(--dim); font-size:.9rem; margin:.2rem 0 .9rem; }
@@ -123,9 +168,9 @@
        font-weight:650; }
   td.num,th.num { text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums; }
 
-  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(9rem,1fr)); gap:.45rem; }
-  .stat { background:var(--sunk); border-radius:7px; padding:.5rem .62rem; }
-  .stat .v { font:700 1.02rem/1.2 var(--mono); font-variant-numeric:tabular-nums;
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(9.5rem,1fr)); gap:.45rem; }
+  .stat { background:var(--sunk); border-radius:7px; padding:.55rem .68rem; }
+  .stat .v { font:700 1.1rem/1.2 var(--mono); font-variant-numeric:tabular-nums;
              display:block; margin-bottom:.12rem; word-break:break-word; }
   .stat .l { font-size:.73rem; color:var(--dim); display:block; }
   .stat .s { font-size:.64rem; color:var(--faint); font-family:var(--mono);
@@ -144,363 +189,381 @@
   ul.plain { padding-left:1.15rem; margin:.4rem 0; } ul.plain li { margin:.4rem 0; }
   .cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(17rem,1fr));
           gap:.8rem 1rem; }
-  .card { border:1px solid var(--rule); border-radius:9px; padding:.9rem 1rem;
-          background:var(--panel); }
-  .card h3 { margin:0 0 .3rem; font-size:.95rem; }
-  .card p { margin:0; color:var(--dim); font-size:.88rem; }
+  .card-p { border:1px solid var(--rule); border-radius:9px; padding:.9rem 1rem;
+            background:var(--panel); }
+  .card-p h3 { margin:0 0 .3rem; font-size:.95rem; }
+  .card-p p { margin:0; color:var(--dim); font-size:.88rem; }
 
   footer { margin-top:3.4rem; padding-top:1.1rem; border-top:1px solid var(--rule);
            color:var(--faint); font-size:.82rem; }
 
   /* ----------------------------------------------------------- animation */
-  @keyframes bob { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-2.6px); } }
+  @keyframes step { 0%,100% { transform:translateY(0) rotate(0deg); }
+                    50% { transform:translateY(-2.4px) rotate(1.2deg); } }
   @keyframes blink { 0%,72%,100% { opacity:.3; } 80%,92% { opacity:1; } }
-  @keyframes breathe { 0%,100% { opacity:.45; } 50% { opacity:1; } }
+  @keyframes breathe { 0%,100% { opacity:.42; } 50% { opacity:1; } }
   @keyframes hum { 0%,100% { opacity:.7; } 50% { opacity:1; } }
-  .agent .bob { animation:bob var(--bob,3.4s) ease-in-out infinite var(--bob-delay,0s); }
+  .agent .walk { animation:step var(--step,1.2s) ease-in-out infinite var(--step-delay,0s); }
   .blink { animation:blink 4.2s steps(1,end) infinite; }
   .glowpane { animation:hum 5.6s ease-in-out infinite; }
   .lamp { animation:breathe 3.6s ease-in-out infinite; }
-  .stopped .agent .bob, .stopped .blink, .stopped .glowpane, .stopped .lamp,
+  .stopped .agent .walk, .stopped .blink, .stopped .glowpane, .stopped .lamp,
   .stopped .doorlamp { animation:none; }
   @media (prefers-reduced-motion: reduce) {
-    .agent .bob, .blink, .glowpane, .lamp, .doorlamp { animation:none !important; }
+    .agent .walk, .blink, .glowpane, .lamp, .doorlamp { animation:none !important; }
     #camera { transition:none; }
   }
 </style>
 </head>
 <body>
 {% import "parts.html" as parts %}
-<div class="wrap">
 
-<h1>The Station</h1>
-<p class="lede">An artificial research institution, drawn as the facility it is. Every room is a
-real department; the walls between them are database constraints and process boundaries rather
-than decoration, and the two hatched rooms are the two you genuinely cannot walk into. Drag to
-pan, scroll to zoom, click a room to open it.</p>
+<div class="wrap head">
+  <h1>The Station</h1>
+  <p class="lede">An artificial research institution, drawn as the facility it is. Every room is a
+  real department; the walls between them are database constraints and process boundaries rather
+  than decoration, and the two hatched rooms are the two you genuinely cannot walk into.</p>
 
-<div class="chips">
-  <span class="chip"><span class="dot"></span>{{ station.mode }} mode</span>
-  <span class="chip">provider <b class="mono">{{ station.provider }}</b></span>
-  <span class="chip">protocol <b class="mono">v{{ station.chapter.version }}</b>
-    <span class="faint mono">{{ station.chapter.protocol.protocol_hash[:12] }}</span></span>
-  <span class="chip">arm <b class="mono">{{ station.arm.arm_id }}</b> {{ station.arm.label }}</span>
-  <span class="chip"><b>{{ station.tokens|length }}</b> recorded item passes</span>
-  {% if station.ledger %}
-  <span class="chip">ledger <b class="mono">{{ station.ledger.path }}</b></span>
+  <div class="chips">
+    <span class="chip"><span class="dot"></span>{{ station.mode }} mode</span>
+    <span class="chip">provider <b class="mono">{{ station.provider }}</b></span>
+    <span class="chip">protocol <b class="mono">v{{ station.chapter.version }}</b>
+      <span class="faint mono">{{ station.chapter.protocol.protocol_hash[:12] }}</span></span>
+    <span class="chip">arm <b class="mono">{{ station.arm.arm_id }}</b>
+      {{ station.arm.label }}</span>
+    <span class="chip"><b>{{ station.tokens|length }}</b> recorded item passes</span>
+    {% if station.ledger %}
+    <span class="chip">ledger <b class="mono">{{ station.ledger.path }}</b></span>
+    {% endif %}
+  </div>
+
+  {% if not station.live_provider %}
+  <div class="banner">
+    <b>Every number on this page was produced under the <span class="mono">{{ station.provider
+    }}</span> provider.</b> The institution's machinery &mdash; the compiler, the sandbox, the
+    Custodian, the statistics, the confidence rubric &mdash; is real, and so are the verdicts. The
+    prose each role emits is canned. Arms flagged <span class="mono">model_dependent</span>
+    describe the mock and not a model, and any contrast whose arms differ only in a switch that
+    acts through the model is labelled not interpretable rather than reported as a measurement.
+  </div>
+  {% endif %}
+
+  {% if station.problems %}
+  <div class="banner bad">
+    <b>Built from inputs that do not check out.</b>
+    <ul class="plain">{% for problem in station.problems %}<li>{{ problem }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  {% if station.dead %}
+  <div class="banner bad">
+    <b><span class="mono">{{ station.dead|join(', ') }}</span></b> &mdash;
+    {% if station.dead|length == 1 %}this switch is{% else %}these switches are{% endif %}
+    declared on every arm, hashed into every registered protocol, and read by no code path.
+    Flipping it leaves the kernel's switches identical, so an arm that sets it does not differ
+    from one that does not. The rooms it would have driven are drawn locked.
+  </div>
   {% endif %}
 </div>
 
-{% if not station.live_provider %}
-<div class="banner">
-  <b>Every number on this page was produced under the <span class="mono">{{ station.provider
-  }}</span> provider.</b> The institution's machinery &mdash; the compiler, the sandbox, the
-  Custodian, the statistics, the confidence rubric &mdash; is real, and so are the verdicts. The
-  prose each role emits is canned. Arms flagged <span class="mono">model_dependent</span> describe
-  the mock and not a model, and any contrast whose arms differ only in a switch that acts through
-  the model is labelled not interpretable rather than reported as a measurement.
-</div>
-{% endif %}
+<div class="stage">
+  <div class="viewport" id="viewport">
+    <svg id="map" viewBox="{{ world.x }} {{ world.y }} {{ world.w }} {{ world.h }}"
+         preserveAspectRatio="xMidYMid meet" role="img"
+         aria-label="Floor plan of the research station, one room per department">
+      <defs>
+        <pattern id="plating" width="48" height="48" patternUnits="userSpaceOnUse">
+          <path d="M48 0H0V48" fill="none" stroke="var(--walli)" stroke-width="1"
+                stroke-opacity=".34"/>
+          <circle cx="4" cy="4" r="1.1" fill="var(--walli)" opacity=".5"/>
+        </pattern>
+        <pattern id="deck" width="96" height="96" patternUnits="userSpaceOnUse">
+          <path d="M96 0H0V96" fill="none" stroke="var(--plate-line)" stroke-width="1.2"
+                stroke-opacity=".55"/>
+        </pattern>
+        <pattern id="sealedhatch" width="16" height="16" patternUnits="userSpaceOnUse"
+                 patternTransform="rotate(45)">
+          <line x1="0" y1="0" x2="0" y2="16" stroke="var(--walli)" stroke-width="5"
+                stroke-opacity=".5"/>
+        </pattern>
+        <filter id="bloom" x="-90%" y="-90%" width="280%" height="280%">
+          <feGaussianBlur stdDeviation="7" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+        <filter id="soft" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="38"/>
+        </filter>
+        <filter id="drop" x="-30%" y="-30%" width="180%" height="190%">
+          <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#000" flood-opacity=".66"/>
+        </filter>
+        <filter id="fixdrop" x="-40%" y="-40%" width="200%" height="220%">
+          <feDropShadow dx="2" dy="4" stdDeviation="3" flood-color="#000" flood-opacity=".55"/>
+        </filter>
+        <filter id="carddrop" x="-30%" y="-30%" width="170%" height="180%">
+          <feDropShadow dx="0" dy="7" stdDeviation="9" flood-color="#000" flood-opacity=".7"/>
+        </filter>
+        {% for name, hue in accents.items() %}
+        <radialGradient id="glow-{{ name }}">
+          <stop offset="0%" stop-color="{{ hue }}" stop-opacity=".36"/>
+          <stop offset="55%" stop-color="{{ hue }}" stop-opacity=".11"/>
+          <stop offset="100%" stop-color="{{ hue }}" stop-opacity="0"/>
+        </radialGradient>
+        {% endfor %}
+        <path id="route" d="{{ route_d }}" fill="none"/>
+      </defs>
 
-{% if station.problems %}
-<div class="banner bad">
-  <b>Built from inputs that do not check out.</b>
-  <ul class="plain">{% for problem in station.problems %}<li>{{ problem }}</li>{% endfor %}</ul>
-</div>
-{% endif %}
+      <g id="camera">
+        <rect x="{{ world.x }}" y="{{ world.y }}" width="{{ world.w }}" height="{{ world.h }}"
+              fill="var(--plate)"/>
+        <rect x="{{ world.x }}" y="{{ world.y }}" width="{{ world.w }}" height="{{ world.h }}"
+              fill="url(#deck)" opacity=".5"/>
 
-{% if station.dead %}
-<div class="banner bad">
-  <b><span class="mono">{{ station.dead|join(', ') }}</span></b> &mdash;
-  {% if station.dead|length == 1 %}this switch is{% else %}these switches are{% endif %}
-  declared on every arm, hashed into every registered protocol, and read by no code path.
-  Flipping it leaves the kernel's switches identical, so an arm that sets it does not differ
-  from one that does not. The rooms it would have driven are drawn locked.
-</div>
-{% endif %}
-
-<div class="console">
-  <div>
-    <div class="plate">
-      <div class="viewport" id="viewport">
-      <svg id="map" viewBox="{{ world.x }} {{ world.y }} {{ world.w }} {{ world.h }}"
-           preserveAspectRatio="xMidYMid meet" role="img"
-           aria-label="Floor plan of the research station, one room per department">
-        <defs>
-          <pattern id="plating" width="48" height="48" patternUnits="userSpaceOnUse">
-            <path d="M48 0H0V48" fill="none" stroke="var(--walli)" stroke-width="1"
-                  stroke-opacity=".34"/>
-            <circle cx="4" cy="4" r="1.1" fill="var(--walli)" opacity=".5"/>
-          </pattern>
-          <pattern id="deck" width="96" height="96" patternUnits="userSpaceOnUse">
-            <path d="M96 0H0V96" fill="none" stroke="var(--plate-line)" stroke-width="1.2"
-                  stroke-opacity=".6"/>
-          </pattern>
-          <pattern id="sealedhatch" width="16" height="16" patternUnits="userSpaceOnUse"
-                   patternTransform="rotate(45)">
-            <line x1="0" y1="0" x2="0" y2="16" stroke="var(--walli)" stroke-width="5"
-                  stroke-opacity=".5"/>
-          </pattern>
-          <filter id="bloom" x="-90%" y="-90%" width="280%" height="280%">
-            <feGaussianBlur stdDeviation="7" result="b"/>
-            <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/>
-            </feMerge>
-          </filter>
-          <filter id="soft" x="-60%" y="-60%" width="220%" height="220%">
-            <feGaussianBlur stdDeviation="36"/>
-          </filter>
-          <filter id="drop" x="-30%" y="-30%" width="180%" height="190%">
-            <feDropShadow dx="0" dy="11" stdDeviation="13" flood-color="#000"
-                          flood-opacity=".62"/>
-          </filter>
-          <filter id="fixdrop" x="-40%" y="-40%" width="200%" height="220%">
-            <feDropShadow dx="2" dy="4" stdDeviation="3" flood-color="#000" flood-opacity=".55"/>
-          </filter>
-          {% for name, hue in accents.items() %}
-          <radialGradient id="glow-{{ name }}">
-            <stop offset="0%" stop-color="{{ hue }}" stop-opacity=".34"/>
-            <stop offset="55%" stop-color="{{ hue }}" stop-opacity=".10"/>
-            <stop offset="100%" stop-color="{{ hue }}" stop-opacity="0"/>
-          </radialGradient>
+        <g filter="url(#soft)">
+          {% for lamp in plan.lamps %}
+          <circle cx="{{ lamp.x }}" cy="{{ lamp.y }}" r="{{ lamp.r }}"
+                  fill="url(#glow-{{ lamp.accent }})"/>
           {% endfor %}
-          <path id="route" d="{{ route_d }}" fill="none"/>
-        </defs>
+        </g>
 
-        <g id="camera">
-          <rect x="{{ world.x }}" y="{{ world.y }}" width="{{ world.w }}" height="{{ world.h }}"
-                fill="var(--plate)"/>
-          <rect x="{{ world.x }}" y="{{ world.y }}" width="{{ world.w }}" height="{{ world.h }}"
-                fill="url(#deck)" opacity=".5"/>
+        <path d="{{ corridor_d }}" fill="none" stroke="var(--wallo)" stroke-width="80"
+              stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="{{ corridor_d }}" fill="none" stroke="var(--floor-2)" stroke-width="64"
+              stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="{{ corridor_d }}" fill="none" stroke="{{ accent('slate') }}" stroke-width="2"
+              stroke-opacity=".26" stroke-dasharray="26 22" stroke-linecap="round"/>
 
-          {# room light, cast on the deck before anything is built on it #}
-          <g filter="url(#soft)">
-            {% for lamp in plan.lamps %}
-            <circle cx="{{ lamp.x }}" cy="{{ lamp.y }}" r="{{ lamp.r }}"
-                    fill="url(#glow-{{ lamp.accent }})"/>
+        <line x1="1788" y1="-40" x2="1788" y2="1540" stroke="{{ accent('crimson') }}"
+              stroke-width="2.4" stroke-opacity=".36" stroke-dasharray="14 16"/>
+
+        {# ---- rooms: shell, floor, back and mid fixtures ---- #}
+        {% for occupied in rooms %}
+        {% set room = occupied.room %}
+        {% set hue = accent(room.accent) %}
+        {% set shell = plan.shells[room.room_id] %}
+        {% set floor = plan.floors[room.room_id] %}
+        <g class="room" data-room="{{ room.room_id }}" tabindex="0" role="button"
+           aria-label="{{ room.name }}, {{ occupied.backing }}"
+           opacity="{{ '1' if occupied.engaged else '.78' }}">
+          <g filter="url(#drop)">
+            <rect class="shell" x="{{ shell.x }}" y="{{ shell.y }}" width="{{ shell.w }}"
+                  height="{{ shell.h }}" rx="10" fill="var(--wallo)" stroke="{{ hue }}"
+                  stroke-width="{{ '2.8' if occupied.engaged else '1.4' }}"
+                  stroke-opacity="{{ '.92' if occupied.engaged else '.45' }}"/>
+          </g>
+          <rect x="{{ shell.x + 3.5 }}" y="{{ shell.y + 3.5 }}" width="{{ shell.w - 7 }}"
+                height="{{ shell.h - 7 }}" rx="8" fill="none" stroke="var(--walli)"
+                stroke-width="2"/>
+          <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
+                rx="4" fill="var(--floor)"/>
+          <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
+                rx="4" fill="url(#plating)" opacity=".5"/>
+          <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
+                rx="4" fill="{{ hue }}" opacity="{{ '.08' if occupied.engaged else '.03' }}"/>
+          {% if room.wing == 'sealed' %}
+          <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
+                rx="4" fill="url(#sealedhatch)" opacity=".5"/>
+          {% endif %}
+
+          {% for gap in plan.doorways[room.room_id] %}
+          {% if gap.side == 'left' %}
+          <rect x="{{ shell.x - 2 }}" y="{{ gap.at - gap.span / 2 }}" width="{{ wall + 4 }}"
+                height="{{ gap.span }}" fill="var(--floor-2)"/>
+          <rect x="{{ shell.x - 2 }}" y="{{ gap.at - gap.span / 2 }}" width="4"
+                height="{{ gap.span }}" fill="{{ hue }}" opacity=".55"/>
+          {% elif gap.side == 'right' %}
+          <rect x="{{ shell.x + shell.w - wall - 2 }}" y="{{ gap.at - gap.span / 2 }}"
+                width="{{ wall + 4 }}" height="{{ gap.span }}" fill="var(--floor-2)"/>
+          <rect x="{{ shell.x + shell.w - 2 }}" y="{{ gap.at - gap.span / 2 }}" width="4"
+                height="{{ gap.span }}" fill="{{ hue }}" opacity=".55"/>
+          {% elif gap.side == 'top' %}
+          <rect x="{{ shell.x + shell.w / 2 - gap.span / 2 }}" y="{{ shell.y - 2 }}"
+                width="{{ gap.span }}" height="{{ wall + 4 }}" fill="var(--floor-2)"/>
+          <rect x="{{ shell.x + shell.w / 2 - gap.span / 2 }}" y="{{ shell.y - 2 }}"
+                width="{{ gap.span }}" height="4" fill="{{ hue }}" opacity=".55"/>
+          {% else %}
+          <rect x="{{ shell.x + shell.w / 2 - gap.span / 2 }}"
+                y="{{ shell.y + shell.h - wall - 2 }}" width="{{ gap.span }}"
+                height="{{ wall + 4 }}" fill="var(--floor-2)"/>
+          <rect x="{{ shell.x + shell.w / 2 - gap.span / 2 }}" y="{{ shell.y + shell.h - 2 }}"
+                width="{{ gap.span }}" height="4" fill="{{ hue }}" opacity=".55"/>
+          {% endif %}
+          {% endfor %}
+
+          {% if room.locked %}
+          <g opacity=".85">
+            <rect x="{{ floor.x + floor.w - 42 }}" y="{{ floor.y + 16 }}" width="26" height="21"
+                  rx="3" fill="var(--fix-2)" stroke="var(--plate-dim)" stroke-width="2"/>
+            <path d="M{{ floor.x + floor.w - 36 }} {{ floor.y + 16 }} v-8 a7 7 0 0 1 14 0 v8"
+                  fill="none" stroke="var(--plate-dim)" stroke-width="2.4"/>
+          </g>
+          {% endif %}
+
+          <g filter="url(#fixdrop)">
+            {% for fixture in plan.fixtures[room.room_id] if fixture.depth == 'back' %}
+            {{ parts.fixture(fixture, hue, room.locked) }}
             {% endfor %}
           </g>
+          <rect class="selectring" x="{{ shell.x - 8 }}" y="{{ shell.y - 8 }}"
+                width="{{ shell.w + 16 }}" height="{{ shell.h + 16 }}" rx="15" fill="none"
+                stroke="{{ hue }}" stroke-width="3.6" stroke-dasharray="18 11"/>
+          <title>{{ room.name }} &#8212; {{ occupied.backing }}</title>
+        </g>
+        {% endfor %}
 
-          {# the corridor: room centres in the order the states are declared #}
-          <path d="{{ corridor_d }}" fill="none" stroke="var(--wallo)" stroke-width="78"
-                stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="{{ corridor_d }}" fill="none" stroke="var(--floor-2)" stroke-width="62"
-                stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="{{ corridor_d }}" fill="none" stroke="{{ accent('slate') }}" stroke-width="2"
-                stroke-opacity=".28" stroke-dasharray="26 22" stroke-linecap="round"/>
+        {# ---- the passes, behind the people and in front of the racks ---- #}
+        <g id="tokens" filter="url(#bloom)">
+          {% for token in moving %}
+          {% for ghost in token.trail %}
+          <circle r="{{ 7.5 - loop.index0 * 1.4 }}" fill="{{ token.colour }}"
+                  opacity="{{ ghost.opacity }}">
+            <animateMotion dur="{{ token.dur }}s" begin="{{ ghost.begin }}s"
+                           repeatCount="indefinite"><mpath href="#route"/></animateMotion>
+          </circle>
+          {% endfor %}
+          <circle r="9" fill="{{ token.colour }}">
+            <animateMotion dur="{{ token.dur }}s" begin="{{ token.begin }}s"
+                           repeatCount="indefinite"><mpath href="#route"/></animateMotion>
+            <animate attributeName="r" dur="{{ token.dur }}s" begin="{{ token.begin }}s"
+                     repeatCount="indefinite" values="{{ token.pulse }}"
+                     keyTimes="{{ token.key_times }}"/>
+            <title>{{ token.item_id }} &#8212; answered {{ token.verdict }}, truth
+              {{ token.truth }}</title>
+          </circle>
+          {% endfor %}
+        </g>
 
-          <line x1="1788" y1="-20" x2="1788" y2="1528" stroke="{{ accent('crimson') }}"
-                stroke-width="2.4" stroke-opacity=".38" stroke-dasharray="14 16"/>
-
-          {# ---- rooms, back to front: shell, floor, back fixtures ---- #}
-          {% for occupied in rooms %}
-          {% set room = occupied.room %}
-          {% set hue = accent(room.accent) %}
-          {% set shell = plan.shells[room.room_id] %}
-          {% set floor = plan.floors[room.room_id] %}
-          <g class="room" data-room="{{ room.room_id }}" tabindex="0" role="button"
-             aria-label="{{ room.name }}, {{ occupied.backing }}"
-             opacity="{{ '1' if occupied.engaged else '.76' }}">
-            <g filter="url(#drop)">
-              <rect class="shell" x="{{ shell.x }}" y="{{ shell.y }}" width="{{ shell.w }}"
-                    height="{{ shell.h }}" rx="10" fill="var(--wallo)" stroke="{{ hue }}"
-                    stroke-width="{{ '2.6' if occupied.engaged else '1.4' }}"
-                    stroke-opacity="{{ '.9' if occupied.engaged else '.45' }}"/>
-            </g>
-            <rect x="{{ shell.x + 3.5 }}" y="{{ shell.y + 3.5 }}" width="{{ shell.w - 7 }}"
-                  height="{{ shell.h - 7 }}" rx="8" fill="none" stroke="var(--walli)"
-                  stroke-width="2"/>
-            <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
-                  rx="4" fill="var(--floor)"/>
-            <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
-                  rx="4" fill="url(#plating)" opacity=".5"/>
-            <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
-                  rx="4" fill="{{ hue }}" opacity="{{ '.07' if occupied.engaged else '.03' }}"/>
-            {% if room.wing == 'sealed' %}
-            <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
-                  rx="4" fill="url(#sealedhatch)" opacity=".5"/>
-            {% endif %}
-
-            {# doorway: the corridor breaks the wall rather than stopping at it #}
-            {% for gap in plan.doorways[room.room_id] %}
-            {% if gap.side == 'left' %}
-            <rect x="{{ shell.x - 2 }}" y="{{ gap.at - gap.span / 2 }}" width="{{ wall + 4 }}"
-                  height="{{ gap.span }}" fill="var(--floor-2)"/>
-            <rect x="{{ shell.x - 2 }}" y="{{ gap.at - gap.span / 2 }}" width="4"
-                  height="{{ gap.span }}" fill="{{ hue }}" opacity=".55"/>
-            {% elif gap.side == 'right' %}
-            <rect x="{{ shell.x + shell.w - wall - 2 }}" y="{{ gap.at - gap.span / 2 }}"
-                  width="{{ wall + 4 }}" height="{{ gap.span }}" fill="var(--floor-2)"/>
-            <rect x="{{ shell.x + shell.w - 2 }}" y="{{ gap.at - gap.span / 2 }}" width="4"
-                  height="{{ gap.span }}" fill="{{ hue }}" opacity=".55"/>
-            {% elif gap.side == 'top' %}
-            <rect x="{{ shell.x + shell.w / 2 - gap.span / 2 }}" y="{{ shell.y - 2 }}"
-                  width="{{ gap.span }}" height="{{ wall + 4 }}" fill="var(--floor-2)"/>
-            <rect x="{{ shell.x + shell.w / 2 - gap.span / 2 }}" y="{{ shell.y - 2 }}"
-                  width="{{ gap.span }}" height="4" fill="{{ hue }}" opacity=".55"/>
-            {% else %}
-            <rect x="{{ shell.x + shell.w / 2 - gap.span / 2 }}"
-                  y="{{ shell.y + shell.h - wall - 2 }}" width="{{ gap.span }}"
-                  height="{{ wall + 4 }}" fill="var(--floor-2)"/>
-            <rect x="{{ shell.x + shell.w / 2 - gap.span / 2 }}" y="{{ shell.y + shell.h - 2 }}"
-                  width="{{ gap.span }}" height="4" fill="{{ hue }}" opacity=".55"/>
-            {% endif %}
+        {# ---- front of each room: the workstations and the people walking them ---- #}
+        {% for occupied in rooms %}
+        {% set room = occupied.room %}
+        {% set hue = accent(room.accent) %}
+        <g class="roomfront" pointer-events="none"
+           opacity="{{ '1' if occupied.engaged else '.78' }}">
+          <g filter="url(#fixdrop)">
+            {% for fixture in plan.fixtures[room.room_id] if fixture.depth == 'front' %}
+            {{ parts.fixture(fixture, hue, room.locked) }}
             {% endfor %}
+          </g>
+          {% for sprite in plan.sprites[room.room_id] %}
+          {{ parts.agent(sprite, hue, room.locked) }}
+          {% endfor %}
+        </g>
+        {% endfor %}
 
-            {# nameplate and chips, on plates rather than floating over the floor #}
-            <rect x="{{ floor.x - 4 }}" y="{{ floor.y + 4 }}" width="{{ floor.w + 8 }}"
-                  height="42" rx="5" fill="var(--fix-2)" stroke="{{ hue }}" stroke-width="1.4"
-                  stroke-opacity=".55"/>
-            <rect x="{{ floor.x - 4 }}" y="{{ floor.y + 4 }}" width="5" height="42" rx="2.5"
-                  fill="{{ hue }}" opacity=".9"/>
-            <circle class="lamp" cx="{{ floor.x + floor.w - 15 }}" cy="{{ floor.y + 25 }}" r="7"
-                    fill="{{ backing_colour(occupied.backing) }}"
-                    style="{{ 'animation:none' if not occupied.engaged }}"/>
-            {% for chip in plan.chips[room.room_id] %}
+        {# ---- the ways out, cut into the station's outer wall ---- #}
+        <g id="exits">
+          {% for door in plan.doors %}
+          {% set hue = accent(door.accent) %}
+          {% if door.used %}
+          <rect x="{{ door.rect.x - 4 }}" y="{{ door.rect.y - 4 }}" width="{{ door.rect.w + 8 }}"
+                height="{{ door.rect.h + 8 }}" rx="4" fill="{{ hue }}" opacity=".32"
+                filter="url(#bloom)" class="doorlamp"/>
+          {% endif %}
+          <rect x="{{ door.rect.x }}" y="{{ door.rect.y }}" width="{{ door.rect.w }}"
+                height="{{ door.rect.h }}" rx="2" fill="{{ hue }}"
+                opacity="{{ '.95' if door.used else '.32' }}"/>
+          <rect x="{{ door.plate.x }}" y="{{ door.plate.y }}" width="{{ door.plate.w }}"
+                height="{{ door.plate.h }}" rx="6" fill="var(--fix-2)" stroke="{{ hue }}"
+                stroke-width="1.6" stroke-opacity="{{ '.85' if door.used else '.42' }}"/>
+          <rect x="{{ door.plate.x }}"
+                y="{{ door.plate.y + (0 if door.vertical else door.plate.h - 4) }}"
+                width="{{ 4 if door.vertical else door.plate.w }}"
+                height="{{ door.plate.h if door.vertical else 4 }}" rx="2" fill="{{ hue }}"
+                opacity="{{ '.9' if door.used else '.35' }}"/>
+          {% endfor %}
+        </g>
+
+        {# ---- the callout above each room ---- #}
+        <g id="cards">
+          {% for card in plan.cards %}
+          {% set hue = accent(card.accent) %}
+          <g class="card" data-room="{{ card.room_id }}" tabindex="0" role="button">
+            <line x1="{{ card.leader.x1 }}" y1="{{ card.leader.y1 }}" x2="{{ card.leader.x2 }}"
+                  y2="{{ card.leader.y2 }}" stroke="{{ hue }}" stroke-width="2.4"
+                  stroke-opacity=".6" stroke-dasharray="7 6"/>
+            <circle cx="{{ card.leader.x2 }}" cy="{{ card.leader.y2 }}" r="5" fill="{{ hue }}"
+                    opacity=".85"/>
+            <g filter="url(#carddrop)">
+              <rect class="cardplate" x="{{ card.box.x }}" y="{{ card.box.y }}"
+                    width="{{ card.box.w }}" height="{{ card.box.h }}" rx="11"
+                    fill="var(--plate-2)" stroke="{{ hue }}" stroke-width="2"
+                    stroke-opacity="{{ '.9' if card.engaged else '.5' }}"/>
+            </g>
+            <rect x="{{ card.box.x }}" y="{{ card.box.y }}" width="6" height="{{ card.box.h }}"
+                  rx="3" fill="{{ hue }}" opacity=".95"/>
+            <rect x="{{ card.badge.x }}" y="{{ card.badge.y }}" width="{{ card.badge.w }}"
+                  height="{{ card.badge.h }}" rx="6" fill="{{ hue }}"
+                  opacity="{{ '1' if card.engaged else '.6' }}"/>
+            <circle class="lamp" cx="{{ card.box.x + card.box.w - 15 }}"
+                    cy="{{ card.box.y + card.box.h - 17 }}" r="7"
+                    fill="{{ backing_colour(card.backing) }}"
+                    style="{{ 'animation:none' if not card.engaged }}"/>
+            {% for chip in card.chips %}
             <rect x="{{ chip.x }}" y="{{ chip.y }}" width="{{ chip.w }}" height="{{ chip.h }}"
                   rx="{{ chip.h / 2 }}" fill="var(--fix-2)" stroke="{{ hue }}"
-                  stroke-width="1.1" stroke-opacity=".42"/>
-            {% endfor %}
-
-            {% if room.locked %}
-            <g opacity=".9">
-              <rect x="{{ floor.x + floor.w - 46 }}" y="{{ floor.y + 60 }}" width="26" height="21"
-                    rx="3" fill="var(--fix-2)" stroke="var(--plate-dim)" stroke-width="2"/>
-              <path d="M{{ floor.x + floor.w - 40 }} {{ floor.y + 60 }} v-8 a7 7 0 0 1 14 0 v8"
-                    fill="none" stroke="var(--plate-dim)" stroke-width="2.4"/>
-            </g>
-            {% endif %}
-
-            <g filter="url(#fixdrop)">
-              {% for fixture in plan.fixtures[room.room_id] if fixture.depth == 'back' %}
-              {{ parts.fixture(fixture, hue, room.locked) }}
-              {% endfor %}
-            </g>
-            <rect class="selectring" x="{{ shell.x - 8 }}" y="{{ shell.y - 8 }}"
-                  width="{{ shell.w + 16 }}" height="{{ shell.h + 16 }}" rx="15" fill="none"
-                  stroke="{{ hue }}" stroke-width="3.6" stroke-dasharray="18 11"/>
-            <title>{{ room.name }} &#8212; {{ occupied.backing }}</title>
-          </g>
-          {% endfor %}
-
-          {# ---- the passes, behind the people and in front of the racks ---- #}
-          <g id="tokens" filter="url(#bloom)">
-            {% for token in moving %}
-            {% for ghost in token.trail %}
-            <circle r="{{ 7.5 - loop.index0 * 1.4 }}" fill="{{ token.colour }}"
-                    opacity="{{ ghost.opacity }}">
-              <animateMotion dur="{{ token.dur }}s" begin="{{ ghost.begin }}s"
-                             repeatCount="indefinite"><mpath href="#route"/></animateMotion>
-            </circle>
-            {% endfor %}
-            <circle r="9" fill="{{ token.colour }}">
-              <animateMotion dur="{{ token.dur }}s" begin="{{ token.begin }}s"
-                             repeatCount="indefinite"><mpath href="#route"/></animateMotion>
-              <animate attributeName="r" dur="{{ token.dur }}s" begin="{{ token.begin }}s"
-                       repeatCount="indefinite" values="{{ token.pulse }}"
-                       keyTimes="{{ token.key_times }}"/>
-              <title>{{ token.item_id }} &#8212; answered {{ token.verdict }}, truth
-                {{ token.truth }}</title>
-            </circle>
-            {% endfor %}
-          </g>
-
-          {# ---- front of each room: the workstations and the people at them ---- #}
-          {% for occupied in rooms %}
-          {% set room = occupied.room %}
-          {% set hue = accent(room.accent) %}
-          <g class="roomfront" pointer-events="none"
-             opacity="{{ '1' if occupied.engaged else '.76' }}">
-            <g filter="url(#fixdrop)">
-              {% for fixture in plan.fixtures[room.room_id] if fixture.depth == 'front' %}
-              {{ parts.fixture(fixture, hue, room.locked) }}
-              {% endfor %}
-            </g>
-            {% for sprite in plan.sprites[room.room_id] %}
-            {{ parts.agent(sprite, hue, room.locked) }}
+                  stroke-width="1.1" stroke-opacity=".45"/>
             {% endfor %}
           </g>
           {% endfor %}
-
-          {# ---- the ways out, cut into the station's outer wall ---- #}
-          <g id="exits">
-            {% for door in plan.doors %}
-            {% set hue = accent(door.accent) %}
-            {% if door.used %}
-            <rect x="{{ door.rect.x - 4 }}" y="{{ door.rect.y - 4 }}"
-                  width="{{ door.rect.w + 8 }}" height="{{ door.rect.h + 8 }}" rx="4"
-                  fill="{{ hue }}" opacity=".32" filter="url(#bloom)" class="doorlamp"/>
-            {% endif %}
-            <rect x="{{ door.rect.x }}" y="{{ door.rect.y }}" width="{{ door.rect.w }}"
-                  height="{{ door.rect.h }}" rx="2" fill="{{ hue }}"
-                  opacity="{{ '.95' if door.used else '.32' }}"/>
-            <rect x="{{ door.plate.x }}" y="{{ door.plate.y }}" width="{{ door.plate.w }}"
-                  height="{{ door.plate.h }}" rx="6" fill="var(--fix-2)" stroke="{{ hue }}"
-                  stroke-width="1.6" stroke-opacity="{{ '.85' if door.used else '.42' }}"/>
-            <rect x="{{ door.plate.x }}"
-                  y="{{ door.plate.y + (0 if door.vertical else door.plate.h - 4) }}"
-                  width="{{ 4 if door.vertical else door.plate.w }}"
-                  height="{{ door.plate.h if door.vertical else 4 }}" rx="2" fill="{{ hue }}"
-                  opacity="{{ '.9' if door.used else '.35' }}"/>
-            {% endfor %}
-          </g>
-
-          {# ---- every string on the map, measured before it was placed ---- #}
-          <g id="labels" font-family="var(--mono)">
-            {% for label in plan.labels %}
-            <text x="{{ label.x }}" y="{{ label.y }}" font-size="{{ label.size }}"
-                  textLength="{{ label.length }}" lengthAdjust="spacing"
-                  text-anchor="{{ label.anchor }}" font-weight="{{ label.weight }}"
-                  fill="{{ label_fill(label.fill) }}">{{ label.text }}</text>
-            {% endfor %}
-          </g>
         </g>
-      </svg>
+
+        {# ---- every string on the map, measured before it was placed ---- #}
+        <g id="labels" font-family="var(--mono)" pointer-events="none">
+          {% for label in plan.labels %}
+          <text x="{{ label.x }}" y="{{ label.y }}" font-size="{{ label.size }}"
+                textLength="{{ label.length }}" lengthAdjust="spacing"
+                text-anchor="{{ label.anchor }}" font-weight="{{ label.weight }}"
+                fill="{{ label_fill(label.fill) }}">{{ label.text }}</text>
+          {% endfor %}
+        </g>
+      </g>
+    </svg>
+
+    <div class="hud hud-tl">
+      <div class="glass title-hud">
+        <b>NULLIUS &middot; RESEARCH STATION</b>
+        <span>protocol v{{ station.chapter.version }} &middot; arm {{ station.arm.arm_id }}
+          &middot; {{ station.provider }} provider &middot; {{ station.mode }}</span>
       </div>
-      <div class="controls">
-        <button type="button" id="zoom-out" aria-label="zoom out">&minus;</button>
-        <button type="button" id="zoom-in" aria-label="zoom in">+</button>
-        <button type="button" id="fit">fit</button>
-        <button type="button" id="motion">pause motion</button>
-        <span class="spacer"></span>
-        <span class="key"><i style="background:var(--good);color:var(--good)"></i>correct</span>
-        <span class="key"><i style="background:var(--warn);color:var(--warn)"></i>abstained</span>
-        <span class="key"><i style="background:var(--bad);color:var(--bad)"></i>wrong</span>
-      </div>
-      <div class="controls" style="border-top:none;padding-top:0">
-        <span class="faint">{{ moving|length }} of {{ station.tokens|length }} recorded passes
-          drawn in motion. Route from the arm's switches, colour from the recorded verdict against
-          planted truth, and a token swells as it reaches each room its arm engages; the pacing is
-          chosen for legibility and measures nothing.</span>
-      </div>
+    </div>
+
+    <div class="hud hud-tr">
+      <button type="button" id="zoom-out" aria-label="zoom out">&minus;</button>
+      <button type="button" id="zoom-in" aria-label="zoom in">+</button>
+      <button type="button" id="fit">fit</button>
+      <button type="button" id="motion">pause</button>
+    </div>
+
+    <div class="glass roster" id="roster">
+      <h4>departments</h4>
+      {% for card in plan.cards %}
+      <button type="button" class="rrow" data-room="{{ card.room_id }}">
+        <span class="no">{{ '%02d' % loop.index }}</span>
+        <span class="pip" style="background:{{ backing_colour(card.backing) }};
+              color:{{ backing_colour(card.backing) }}"></span>
+        <span class="nm">{{ rooms[loop.index0].room.name }}</span>
+        <span class="st">{{ card.status }}</span>
+      </button>
+      {% endfor %}
+    </div>
+
+    <div class="hud hud-bl">
+      <span class="glass key"><i style="background:var(--good);color:var(--good)"></i>
+        correct</span>
+      <span class="glass key"><i style="background:var(--warn);color:var(--warn)"></i>
+        abstained</span>
+      <span class="glass key"><i style="background:var(--bad);color:var(--bad)"></i>wrong</span>
+      <span class="glass">{{ moving|length }} of {{ station.tokens|length }} passes in motion
+        &middot; drag to pan, scroll to zoom, click a room</span>
     </div>
   </div>
+</div>
 
-  <div class="panels" id="panels">
-    <div class="panel on" id="panel-intro">
-      <header><h3>{{ rooms|length }} rooms, and no department without one</h3></header>
-      <p class="charter">The plan is generated from <span class="mono">db/enums.py</span>. Every
-      institutional role is stationed somewhere and every state of the research machine is owned by
-      exactly one room, so adding a role or a state to the code breaks this build until a room
-      claims it.</p>
-      <div class="invariant">The corridor's order is the order the states are declared in. The two
-      hatched rooms have no corridor into them: the Vault holds the evaluation split in its own
-      process, and the Oracle holds the ground truth the institution may never read.</div>
-      <p class="muted">Drag the map to pan, scroll to zoom, and click a room to open it. A dimmed
-      room is one the arm on display (<span class="mono">{{ station.arm.arm_id }}</span>) does not
-      engage.</p>
-      <div class="grid">
-        <div class="stat"><span class="v">{{ station.chapter.version }}</span>
-          <span class="l">protocol on display</span>
-          <span class="s">benchmark/protocol.v{{ station.chapter.version }}.lock.json</span></div>
-        <div class="stat"><span class="v">{{ station.paper.predictions_upheld }}</span>
-          <span class="l">registered predictions upheld</span>
-          <span class="s">benchmark/</span></div>
-        <div class="stat"><span class="v">{{ station.paper.predictions_refuted }}</span>
-          <span class="l">registered predictions refuted</span>
-          <span class="s">benchmark/</span></div>
-      </div>
-    </div>
-
+{# ------------------------------------------------------------- the dossier #}
+<div class="dossier" id="dossier" aria-hidden="true">
+  <div class="scrim" data-close></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="department dossier">
+    <button type="button" class="close" data-close aria-label="close">&times;</button>
     {% for occupied in rooms %}
     {% set room = occupied.room %}
     <div class="panel" id="panel-{{ room.room_id }}">
@@ -561,8 +624,8 @@ pan, scroll to zoom, click a room to open it.</p>
       doors, so the counter plate reads zero rather than the renderer having failed.</div>
       {% endif %}
       <p class="faint">Terminal states of the research machine, counted from
-      <span class="mono">hypothesis.state_changed</span> events. Drawn the same size as one another
-      because refuted and inconclusive are terminal successes of the process.</p>
+      <span class="mono">hypothesis.state_changed</span> events. Drawn the same size as one
+      another because refuted and inconclusive are terminal successes of the process.</p>
       {% endif %}
 
       {% if room.room_id == 'registry' %}{% include "registry.html" %}{% endif %}
@@ -573,71 +636,85 @@ pan, scroll to zoom, click a room to open it.</p>
   </div>
 </div>
 
-<h2>the ladder, read as rooms engaged</h2>
-<p class="lede">Every arm is the same pipeline with switches thrown, which is what makes the
-ablation mean anything: an ablation that differs in one boolean cannot accidentally differ in
-anything else. This is that ladder as a floor plan, computed from each arm's own switches.</p>
-<div class="scroll">
-  <table>
-    <thead><tr><th>arm</th><th></th><th>kind</th>
-      {% for room in switchboard_rooms %}<th>{{ room.name|lower }}</th>{% endfor %}
-    </tr></thead>
-    <tbody>
-      {% for row in switchboard %}
-      <tr>
-        <td class="mono"><b>{{ row.arm_id }}</b></td>
-        <td style="white-space:normal">{{ row.label }}{% if row.model_dependent %}
-          <span class="faint">&middot; model-dependent</span>{% endif %}</td>
-        <td class="faint mono">{{ row.kind }}</td>
-        {% for cell in row.cells %}
-        <td class="num">{% if cell %}&#9679;{% else %}<span class="faint">&#183;</span>{% endif %}</td>
+<div class="wrap tail">
+  <h2>the ladder, read as rooms engaged</h2>
+  <p class="lede">Every arm is the same pipeline with switches thrown, which is what makes the
+  ablation mean anything: an ablation that differs in one boolean cannot accidentally differ in
+  anything else. This is that ladder as a floor plan, computed from each arm's own switches.</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>arm</th><th></th><th>kind</th>
+        {% for room in switchboard_rooms %}<th>{{ room.name|lower }}</th>{% endfor %}
+      </tr></thead>
+      <tbody>
+        {% for row in switchboard %}
+        <tr>
+          <td class="mono"><b>{{ row.arm_id }}</b></td>
+          <td style="white-space:normal">{{ row.label }}{% if row.model_dependent %}
+            <span class="faint">&middot; model-dependent</span>{% endif %}</td>
+          <td class="faint mono">{{ row.kind }}</td>
+          {% for cell in row.cells %}
+          <td class="num">{% if cell %}&#9679;{% else %}<span class="faint">&#183;</span>
+            {% endif %}</td>
+          {% endfor %}
+        </tr>
         {% endfor %}
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-<p class="faint">A filled dot is a room the arm engages. B0 answers without looking, and B1 and B2
-ask a model and answer; walking no rooms at all is what an unstructured agent is, and it is the
-comparison the whole ladder rests on.</p>
+      </tbody>
+    </table>
+  </div>
+  <p class="faint">A filled dot is a room the arm engages. B0 answers without looking, and B1 and
+  B2 ask a model and answer; walking no rooms at all is what an unstructured agent is, and it is
+  the comparison the whole ladder rests on.</p>
 
-<h2>what the walls mean</h2>
-<div class="cols">
-  {% for principle in principles %}
-  <div class="card"><h3>{{ principle.title }}</h3><p>{{ principle.body }}</p></div>
-  {% endfor %}
-</div>
+  <h2>what the walls mean</h2>
+  <div class="cols">
+    {% for principle in principles %}
+    <div class="card-p"><h3>{{ principle.title }}</h3><p>{{ principle.body }}</p></div>
+    {% endfor %}
+  </div>
 
-<h2>what this page cannot show</h2>
-<ul class="plain">
-  {% for limitation in cannot_show %}<li class="muted">{{ limitation }}</li>{% endfor %}
-</ul>
+  <h2>what this page cannot show</h2>
+  <ul class="plain">
+    {% for limitation in cannot_show %}<li class="muted">{{ limitation }}</li>{% endfor %}
+  </ul>
 
-<footer>
-  Generated by <span class="mono">nullius station build</span> from
-  {% for chapter in station.paper.chapters %}<span class="mono">v{{ chapter.version }}
-  {{ chapter.protocol.protocol_hash[:12] }}</span>{% if not loop.last %}, {% endif %}{% endfor %}.
-  Every figure above names the artifact it was read out of. The build refuses to run when a
-  protocol fails to verify or a results file fails to re-score from its own per-item rows.
-</footer>
+  <footer>
+    Generated by <span class="mono">nullius station build</span> from
+    {% for chapter in station.paper.chapters %}<span class="mono">v{{ chapter.version }}
+    {{ chapter.protocol.protocol_hash[:12] }}</span>{% if not loop.last %}, {% endif %}
+    {% endfor %}. Every figure above names the artifact it was read out of. The build refuses to
+    run when a protocol fails to verify or a results file fails to re-score from its own per-item
+    rows.
+  </footer>
 </div>
 
 <script id="station-record" type="application/json">{{ payload|safe }}</script>
 <script>
 (function () {
-  var panels = document.getElementById('panels');
   var svg = document.getElementById('map');
   var camera = document.getElementById('camera');
   var viewport = document.getElementById('viewport');
+  var dossier = document.getElementById('dossier');
+  var roster = document.getElementById('roster');
   var view = { x: 0, y: 0, k: 1 };
-  var MIN = 1, MAX = 7;
+  var MIN = 0.55, MAX = 8;
 
   function apply(animated) {
     camera.classList.toggle('nudge', !animated);
     camera.setAttribute('transform', 'translate(' + view.x.toFixed(2) + ' ' +
       view.y.toFixed(2) + ') scale(' + view.k.toFixed(4) + ')');
   }
-  function fit(animated) { view = { x: 0, y: 0, k: 1 }; apply(animated === true); }
+  function fit(animated) {
+    // The roster sits over the right of the map, so fitting to the whole
+    // viewport would park a quarter of the station underneath it. Shrink to the
+    // clear width and pin the station's left edge where it already was.
+    var vb = svg.viewBox.baseVal;
+    var clear = viewport.clientWidth - (roster.offsetWidth + 34);
+    var s = viewport.clientWidth > 0 ? Math.max(0.5, clear / viewport.clientWidth) : 1;
+    if (window.matchMedia('(max-width: 900px)').matches) { s = 1; }
+    view = { x: vb.x * (1 - s), y: vb.y * (1 - s), k: s };
+    apply(animated === true);
+  }
 
   function point(event) {
     var ctm = svg.getScreenCTM();
@@ -657,12 +734,12 @@ comparison the whole ladder rests on.</p>
 
   viewport.addEventListener('wheel', function (event) {
     event.preventDefault();
-    zoomAt(event.deltaY < 0 ? 1.16 : 1 / 1.16, point(event));
+    zoomAt(event.deltaY < 0 ? 1.18 : 1 / 1.18, point(event));
   }, { passive: false });
 
   var dragging = null, moved = 0;
   viewport.addEventListener('pointerdown', function (event) {
-    if (event.button !== 0) { return; }
+    if (event.button !== 0 || event.target.closest('.hud, .roster')) { return; }
     dragging = { at: point(event), x: view.x, y: view.y };
     moved = 0;
     viewport.classList.add('dragging');
@@ -688,51 +765,71 @@ comparison the whole ladder rests on.</p>
   viewport.addEventListener('pointerup', endDrag);
   viewport.addEventListener('pointercancel', endDrag);
 
-  function show(id) {
-    var wanted = document.getElementById('panel-' + id);
-    if (!wanted) { return; }
-    Array.prototype.forEach.call(panels.querySelectorAll('.panel'), function (panel) {
-      panel.classList.toggle('on', panel === wanted);
-    });
+  function highlight(id) {
     Array.prototype.forEach.call(svg.querySelectorAll('.room'), function (room) {
       room.classList.toggle('selected', room.dataset.room === id);
     });
-    panels.scrollTop = 0;
-    if (window.matchMedia('(max-width: 1100px)').matches) {
-      wanted.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }
+    Array.prototype.forEach.call(roster.querySelectorAll('.rrow'), function (row) {
+      row.classList.toggle('selected', row.dataset.room === id);
+    });
   }
-  function focusRoom(group) {
+  function focusRoom(id) {
+    var group = svg.querySelector('.room[data-room="' + id + '"]');
+    if (!group) { return; }
     var box = group.getBBox();
     var vb = svg.viewBox.baseVal;
     var k = Math.min(MAX, Math.max(MIN,
-      Math.min(vb.width / box.width, vb.height / box.height) * 0.44));
+      Math.min(vb.width / box.width, vb.height / box.height) * 0.5));
     view.k = k;
     view.x = vb.x + vb.width / 2 - (box.x + box.width / 2) * k;
     view.y = vb.y + vb.height / 2 - (box.y + box.height / 2) * k;
     apply(true);
   }
-  Array.prototype.forEach.call(svg.querySelectorAll('.room'), function (room) {
-    room.addEventListener('click', function () {
-      if (moved > 16) { return; }
-      show(room.dataset.room);
-      focusRoom(room);
+  function open(id) {
+    var wanted = document.getElementById('panel-' + id);
+    if (!wanted) { return; }
+    Array.prototype.forEach.call(dossier.querySelectorAll('.panel'), function (panel) {
+      panel.classList.toggle('on', panel === wanted);
     });
-    room.addEventListener('keydown', function (event) {
+    dossier.classList.add('on');
+    dossier.setAttribute('aria-hidden', 'false');
+    dossier.querySelector('.sheet').scrollTop = 0;
+    highlight(id);
+    focusRoom(id);
+  }
+  function close() {
+    dossier.classList.remove('on');
+    dossier.setAttribute('aria-hidden', 'true');
+  }
+  Array.prototype.forEach.call(dossier.querySelectorAll('[data-close]'), function (node) {
+    node.addEventListener('click', close);
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') { close(); }
+  });
+
+  Array.prototype.forEach.call(svg.querySelectorAll('.room, .card'), function (node) {
+    node.addEventListener('click', function () {
+      if (moved > 16) { return; }
+      open(node.dataset.room);
+    });
+    node.addEventListener('keydown', function (event) {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
-        show(room.dataset.room);
-        focusRoom(room);
+        open(node.dataset.room);
       }
     });
+  });
+  Array.prototype.forEach.call(roster.querySelectorAll('.rrow'), function (row) {
+    row.addEventListener('click', function () { open(row.dataset.room); });
   });
 
   var vb0 = svg.viewBox.baseVal;
   document.getElementById('zoom-in').addEventListener('click', function () {
-    zoomAt(1.35, { x: vb0.x + vb0.width / 2, y: vb0.y + vb0.height / 2 });
+    zoomAt(1.4, { x: vb0.x + vb0.width / 2, y: vb0.y + vb0.height / 2 });
   });
   document.getElementById('zoom-out').addEventListener('click', function () {
-    zoomAt(1 / 1.35, { x: vb0.x + vb0.width / 2, y: vb0.y + vb0.height / 2 });
+    zoomAt(1 / 1.4, { x: vb0.x + vb0.width / 2, y: vb0.y + vb0.height / 2 });
   });
   document.getElementById('fit').addEventListener('click', function () { fit(true); });
 
@@ -743,7 +840,7 @@ comparison the whole ladder rests on.</p>
     if (svg.pauseAnimations) {
       if (still) { svg.pauseAnimations(); } else { svg.unpauseAnimations(); }
     }
-    button.textContent = still ? 'resume motion' : 'pause motion';
+    button.textContent = still ? 'play' : 'pause';
   }
   button.addEventListener('click', function () { still = !still; motion(); });
 

@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M24 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M25 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -855,6 +855,84 @@ of the drawing.
   refuses to build on input that does not verify.
 - `prefers-reduced-motion` stops every animation and the pause control starts pressed when it is
   set.
+
+---
+
+### M25 · A map, not a plan ✅ — callouts, a roster, and people who walk
+M24 drew the station at a size worth looking at and then framed it as a diagram: a map in one
+column, a permanent dashboard in the other, room labels printed on the floors, and staff who
+stood still. This milestone makes it a map you play with. Presentation only again — `model.py`,
+`map.py` and `ledger.py` are untouched and every test written against them still passes.
+
+**The label came off the floor.** Each room is named by a callout card that floats beside it,
+with a numbered badge, the room's name, chips for the roles stationed there and the states it
+owns, a status lamp and one word for what it is doing: `WORKING`, `IDLE`, `NO DATA`, `LOCKED` or
+`SEALED`. Every one of those words is read off the assembled record — a locked room is one whose
+feature is unbuilt, a sealed one has no corridor into it by design, an idle one is a room the arm
+on display does not engage. Moving the label out gave the interior back its top third, which is
+now a third row of furniture.
+
+**Cards are placed by search, not by hand.** For each room the layout sweeps every position
+around it — four sides, three distances, nine slides along each wall — discards any that leaves
+the viewBox, sorts what is left by distance from the room, and takes the nearest that hits
+nothing already on the map. The result is that each card sits directly above or beside the room
+it names, and no two of them touch. Screening's card stacks above its own exit plate because that
+is the only clear space its room has.
+
+**The map is the page.** Full width, up to 88% of the viewport height, with a head-up display
+over it: the station's identity top-left, zoom and pause top-right, the legend bottom-left, and a
+department roster down the right — fourteen rows with a status pip each, which is also how you
+reach a room without hunting for it on the map. Clicking a room, its card or its roster row opens
+the dashboard as a sheet over the map rather than in a column beside it, so the dossier gets the
+width it deserves and the map keeps all of its own.
+
+**People walk.** Every stationed role paces a patrol on the clear floor in front of its
+workstations, with its own stretch of the room, its own lane and its own phase. They stay in
+their rooms: the token is what moves through the station, and a role walking the corridor would
+say something about the architecture that is not true.
+
+#### What building it revealed was wrong
+
+**1. A search whose failure mode is "use the answer it started with" is not a search.** The first
+card placer had six fixed slots and fell back to the first one when all six were rejected. It
+silently put Screening's card over its own exit plate, and then — once the sweep was widened —
+put the Oracle's card over the Vault. Both are the same bug: the fallback was a guess dressed as
+a result. It now takes the slot with the least overlap, which is a defensible answer, and a test
+asserts no card sits over any room, so a future crowding shows up as a failure rather than as a
+drawing.
+
+**2. The right edge of the plan had no margin, and the sealed column had nowhere to put its
+cards.** The world's margins were symmetric because that is the obvious way to write them. The
+two edges are asked for different things: the record's counter plates hang off the left, and the
+Vault, the Oracle, the Archive and the Treasury are stacked against the right with sixty units
+between them and no room on any side. Asymmetric margins, and the column's cards sit outside it
+where they belong.
+
+**3. Two actors in one room walked the same lane and drew as one shape.** Screening's Director
+and Literature, and the Registry's Designer and the system servitor, were given the same stretch
+of floor with different phases — which keeps them apart most of the time and merges them the rest
+of it. Each now gets its own slice of the width, so they cannot occupy the same place whatever
+the phase. A test asserts the patrols are disjoint.
+
+**4. A card wider than the gap between two rooms cannot sit above its own room.** The room pitch
+is 348 units; the first cards were up to 520. Each pushed the next along the row until Screening's
+label was hanging over Registry, three rooms from the thing it named, with a leader line making it
+traceable rather than readable. Cards are capped at the pitch, and the index moved into a badge so
+the name has the width instead.
+
+**Acceptance**
+- Every test from M22, M23 and M24 still passes; the data layer was not touched.
+- Every room is named by exactly one card, the card carries the room's own name, and no card sits
+  over any room or leaves the viewBox. Tested.
+- Every card's status word is derived from the record, and matches what the record says about
+  that room. Tested against all five states.
+- Every stationed role walks a patrol that stays inside its own room's floor and never shares
+  floor with another actor. Tested.
+- The dossier holds a panel for every room and opens over the map; the roster lists every
+  department. Tested.
+- No two labels on the map overlap, at any zoom. Still tested, now with the cards in it.
+- Still one self-contained file, still refuses to build on input that does not verify, and
+  `prefers-reduced-motion` still stops every animation including the walking.
 
 ---
 

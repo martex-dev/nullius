@@ -40,7 +40,7 @@ from typing import Any
 from jinja2 import Environment, PackageLoader, StrictUndefined, select_autoescape
 
 from nullius.station.map import ROOMS, TERMINAL_DOORS, Room, corridor, room_named
-from nullius.station.model import Station, assemble, payload
+from nullius.station.model import Occupancy, Station, assemble, payload
 
 __all__ = [
     "ACCENTS",
@@ -158,15 +158,19 @@ SCALE = 12.0
 #: a doorway that reads as a gap rather than as a dashed line.
 WALL = 9.0
 
-#: Margin around the plan, where the exit plates and the outer lamps live.
-MARGIN_X = 236.0
-MARGIN_TOP = 70.0
-MARGIN_BOTTOM = 120.0
+#: Margin around the plan, where the exit plates and the callout cards live.
+#: Asymmetric because the two edges are asked for different things: the record's
+#: counter plates hang off the left, and the sealed column's cards have nowhere
+#: to go but the right.
+MARGIN_LEFT = 236.0
+MARGIN_RIGHT = 400.0
+MARGIN_TOP = 116.0
+MARGIN_BOTTOM = 104.0
 
 WORLD: tuple[float, float, float, float] = (
-    -MARGIN_X,
+    -MARGIN_LEFT,
     -MARGIN_TOP,
-    200.0 * SCALE + 2 * MARGIN_X,
+    200.0 * SCALE + MARGIN_LEFT + MARGIN_RIGHT,
     124.0 * SCALE + MARGIN_TOP + MARGIN_BOTTOM,
 )
 """The drawing's viewBox: the plan, scaled, with room around it for the exits."""
@@ -177,28 +181,42 @@ WORLD: tuple[float, float, float, float] = (
 #: platform, at any zoom, whichever fallback font is actually resolved.
 EM_ADVANCE = 0.6
 
-#: The nameplate and the chips under it, in units below the floor's top edge.
-#: Fixed rather than proportional because they hold text, and text does not
-#: scale with the room it is in.
-NAMEPLATE_TOP = 8.0
-NAMEPLATE_H = 40.0
-CHIP_TOP = 54.0
-CHIP_H = 23.0
-CHIP_LINES = 2
+#: The callout card that names a room. It floats beside the room rather than
+#: sitting on its floor, which is what lets the interior be an interior: M24
+#: gave a third of every room to a nameplate and two lines of chips.
+CARD_H = 118.0
+CARD_PAD = 14.0
+CARD_MAX = 344.0
+"""No wider than the gap between two rooms, which is what keeps a card above
+the room it names."""
 
-#: Where the interior starts: below two lines of chips, whatever the room's
-#: height. Anchoring the furniture here rather than to a fraction of the floor
-#: is what keeps a short room's back row from being drawn under its own labels.
-CONTENT_TOP = CHIP_TOP + CHIP_LINES * (CHIP_H + 4.0) + 10.0
+BADGE = 42.0
+NAME_SIZE = 20.0
+STATUS_W = 82.0
+CARD_GAP = 20.0
+"""How far a card sits from the wall it points at."""
+
+CHIP_H = 27.0
+
+#: Where the interior starts, now that nothing is written on it.
+CONTENT_TOP = 16.0
 
 #: The rest of the interior, as fractions of what is left below that. The
 #: off-corridor rooms are shorter than the pipeline rooms and the same layout
 #: has to read in both, so the bands are proportional from here down.
-BACK_AT, BACK_H = 0.0, 0.24
-LANE_AT = 0.38
-FRONT_AT, FRONT_H = 0.46, 0.22
-FEET_AT = 0.99
-AGENT_H = 58.0
+BACK_AT, BACK_H = 0.02, 0.19
+MID_AT, MID_H = 0.25, 0.17
+LANE_AT = 0.50
+FRONT_AT, FRONT_H = 0.62, 0.18
+FEET_AT = 0.965
+AGENT_H = 68.0
+
+#: How wide a lane an agent paces, as a fraction of the floor, and how long one
+#: length of it takes. Agents patrol their own room and never leave it: the
+#: token is what moves through the station, and a role walking the corridor
+#: would say something about the architecture that is not true.
+PATROL_INSET = 34.0
+PATROL_SECONDS = 19.0
 
 
 def _rng(seed: str) -> Callable[[float, float], float]:
@@ -376,11 +394,13 @@ def lane_y(room: Room) -> float:
 
 @dataclass(frozen=True, slots=True)
 class Kit:
-    """What is in a room: the fixtures against the back wall, and the ones the
-    people stand at. Art, not a claim — but a room with nothing in it reads as a
-    room that does nothing, which would be a claim, and a false one."""
+    """What is in a room: the fixtures against the back wall, the ones halfway
+    in, and the ones the people stand at. Art, not a claim — but a room with
+    nothing in it reads as a room that does nothing, which would be a claim, and
+    a false one."""
 
     back: tuple[str, ...]
+    mid: tuple[str, ...]
     front: tuple[str, ...]
 
 
@@ -388,23 +408,25 @@ class Kit:
 #: :data:`DEFAULT_KIT`, so adding a room to the map draws something rather than
 #: leaving an empty box.
 FURNITURE: dict[str, Kit] = {
-    "drafting": Kit(("board", "shelf", "board"), ("desk", "desk")),
-    "screening": Kit(("board", "cabinet", "shelf"), ("desk", "desk")),
-    "registry": Kit(("cabinet", "cabinet", "rack"), ("console", "console")),
-    "workshop": Kit(("rack", "rack", "bench"), ("bench", "crate")),
-    "execution": Kit(("rack", "rack", "rack"), ("table", "table")),
-    "analysis": Kit(("screen", "screen", "screen"), ("console", "console")),
-    "challenge": Kit(("board", "screen", "cabinet"), ("console", "desk")),
-    "blind": Kit(("cabinet", "rack", "cabinet"), ("console", "console")),
-    "review": Kit(("shelf", "board", "shelf"), ("desk", "desk")),
-    "record": Kit(("shelf", "shelf", "shelf"), ("plinth", "plinth")),
-    "vault": Kit(("cabinet", "cabinet", "cabinet", "cabinet"), ("terminal",)),
-    "treasury": Kit(("cabinet", "rack", "cabinet"), ("console", "crate")),
-    "archive": Kit(("shelf", "shelf", "shelf", "shelf"), ("shelf", "crate")),
-    "oracle": Kit(("cabinet", "cabinet", "cabinet"), ("plinth", "plinth")),
+    "drafting": Kit(("board", "board", "shelf"), ("crate", "shelf"), ("desk", "desk")),
+    "screening": Kit(("board", "shelf", "board"), ("cabinet", "crate"), ("desk", "desk")),
+    "registry": Kit(("cabinet", "cabinet", "cabinet"), ("rack", "shelf"), ("console", "console")),
+    "workshop": Kit(("rack", "rack", "rack"), ("bench", "crate"), ("bench", "bench")),
+    "execution": Kit(("rack", "rack", "rack"), ("table", "table"), ("table", "console")),
+    "analysis": Kit(("screen", "screen", "screen"), ("board", "shelf"), ("console", "console")),
+    "challenge": Kit(("board", "screen", "board"), ("cabinet", "shelf"), ("console", "desk")),
+    "blind": Kit(("cabinet", "cabinet", "cabinet"), ("rack", "crate"), ("console", "console")),
+    "review": Kit(("shelf", "board", "shelf"), ("cabinet", "crate"), ("desk", "desk")),
+    "record": Kit(("shelf", "shelf", "shelf"), ("cabinet", "cabinet"), ("plinth", "plinth")),
+    "vault": Kit(
+        ("cabinet", "cabinet", "cabinet", "cabinet"), ("cabinet", "cabinet"), ("terminal",)
+    ),
+    "treasury": Kit(("cabinet", "rack", "cabinet"), ("crate", "crate"), ("console", "desk")),
+    "archive": Kit(("shelf", "shelf", "shelf", "shelf"), ("shelf", "shelf"), ("shelf", "crate")),
+    "oracle": Kit(("cabinet", "cabinet", "cabinet"), ("shelf", "shelf"), ("plinth", "plinth")),
 }
 
-DEFAULT_KIT = Kit(("rack", "cabinet", "shelf"), ("console", "desk"))
+DEFAULT_KIT = Kit(("rack", "cabinet", "shelf"), ("crate", "shelf"), ("console", "desk"))
 
 
 def _row(
@@ -448,12 +470,13 @@ def _fixtures(room: Room) -> list[dict[str, Any]]:
     floor = _inner(room)
     usable = _usable(floor)
     back = _row(kit.back, floor, _band(floor, BACK_AT), usable * BACK_H, nxt)
+    mid = _row(kit.mid, floor, _band(floor, MID_AT), usable * MID_H, nxt)
     front = _row(kit.front, floor, _band(floor, FRONT_AT), usable * FRONT_H, nxt)
-    for fixture in back:
+    for fixture in back + mid:
         fixture["depth"] = "back"
     for fixture in front:
         fixture["depth"] = "front"
-    return back + front
+    return back + mid + front
 
 
 def _sprites(room: Room) -> list[dict[str, Any]]:
@@ -468,22 +491,37 @@ def _sprites(room: Room) -> list[dict[str, Any]]:
         return out
     nxt = _rng(room.room_id + "-staff")
     floor = _inner(room)
-    stations = [f for f in _fixtures(room) if f["depth"] == "front"] or _fixtures(room)
+    feet = _band(floor, FEET_AT)
+    left = floor.x + PATROL_INSET
+    right = floor.x + floor.w - PATROL_INSET
+    span = right - left
+    share = span / len(room.roles)
     for index, role in enumerate(room.roles):
-        station = stations[index % len(stations)] if stations else None
-        if station is not None and len(room.roles) <= len(stations):
-            x = float(station["x"]) + float(station["w"]) / 2
-        else:
-            step = floor.w / (len(room.roles) + 1)
-            x = floor.x + step * (index + 1)
+        # Each actor gets its own stretch of floor, its own lane and its own
+        # phase. Two people sharing one lane walked into each other and drew as
+        # one shape; splitting the width is what keeps them separate whatever
+        # the phase happens to be. The lane is the clear floor in front of the
+        # workstations, which is the only part of the room nothing stands on.
+        left, right = floor.x + PATROL_INSET + index * share, 0.0
+        right = left + share - (12.0 if len(room.roles) > 1 else 0.0)
+        lane = feet - index * 15.0
+        drift = 4.0 + nxt(0.0, 4.0)
+        turn = left + (right - left) * (0.3 + nxt(0.0, 0.4))
         out.append(
             {
                 "role": role.value,
-                "x": round(x, 2),
-                "y": round(_band(floor, FEET_AT), 2),
+                "x": round((left + right) / 2, 2),
+                "y": round(lane, 2),
                 "h": AGENT_H,
+                "d": (
+                    f"M{left:.1f} {lane:.1f} L{turn:.1f} {lane - drift:.1f} "
+                    f"L{right:.1f} {lane:.1f} L{turn:.1f} {lane - drift:.1f} "
+                    f"L{left:.1f} {lane:.1f}"
+                ),
+                "dur": round(PATROL_SECONDS + nxt(0.0, 9.0), 2),
+                "begin": round(-nxt(0.0, 18.0), 2),
                 "delay": round(nxt(0.0, 2.6), 2),
-                "period": round(3.0 + nxt(0.0, 1.8), 2),
+                "period": round(1.1 + nxt(0.0, 0.5), 2),
             }
         )
     return out
@@ -608,40 +646,44 @@ def _exits(station: Station, doorways: dict[str, list[dict[str, Any]]]) -> list[
 # -------------------------------------------------------------------- labelling
 
 
-def _chips(
-    items: list[tuple[str, str]],
-    floor: Box,
+#: What a room is doing, in one word, for the card. Every branch is read off
+#: the assembled record: a locked room is one whose feature is unbuilt, a sealed
+#: one has no corridor into it by design, an idle one is a room the arm on
+#: display does not engage, and a room with no rows behind it says so.
+def _status(occupied: Occupancy) -> str:
+    if occupied.room.locked:
+        return "LOCKED"
+    if not occupied.engaged:
+        return "SEALED" if occupied.room.wing == "sealed" else "IDLE"
+    if occupied.backing.value == "empty":
+        return "NO DATA"
+    return "WORKING"
+
+
+def _chip_row(
+    items: list[str],
+    x: float,
+    y: float,
+    max_width: float,
     owner: str,
     accent: str,
-) -> tuple[list[dict[str, Any]], list[Label]]:
-    """Role and state chips, wrapped so that none of them leaves the room.
-
-    Two lines at most. The chip band is sized for two, and a third line would
-    walk into the furniture — so anything that does not fit is dropped and the
-    count said instead, which is a true statement where an overlapping one is
-    not.
-    """
-    size = 13.0
-    pad = 9.0
-    lines = CHIP_LINES
+    size: float = 15.0,
+) -> tuple[list[dict[str, Any]], list[Label], float]:
+    """One line of chips, clipped to the width it was given."""
+    pad = 8.0
     chips: list[dict[str, Any]] = []
     labels: list[Label] = []
-    x, line = floor.x, 0
-    for kind, text in items:
-        shown = _truncate(text, size, floor.w - 2 * pad)
+    at = x
+    for text in items:
+        shown = _truncate(text, size, max_width - 2 * pad)
         drawn = _measure(shown, size)
         width = drawn + 2 * pad
-        if x + width > floor.x + floor.w and x > floor.x:
-            line += 1
-            x = floor.x
-            if line >= lines:
-                break
-        top = floor.y + CHIP_TOP + line * (CHIP_H + 4.0)
+        if at + width > x + max_width and at > x:
+            break
         chips.append(
             {
-                "kind": kind,
-                "x": round(x, 2),
-                "y": round(top, 2),
+                "x": round(at, 2),
+                "y": round(y, 2),
                 "w": round(width, 2),
                 "h": CHIP_H,
                 "accent": accent,
@@ -650,53 +692,230 @@ def _chips(
         labels.append(
             _label(
                 shown,
-                x=x + pad,
-                y=top + CHIP_H * 0.71,
+                x=at + pad,
+                y=y + CHIP_H * 0.72,
                 size=size,
                 fill="chip",
                 owner=owner,
                 max_width=drawn,
             )
         )
-        x += width + 7.0
-    return chips, labels
+        at += width + 6.0
+    return chips, labels, at - x
 
 
-def _room_labels(
-    station: Station, exits: list[dict[str, Any]]
-) -> tuple[list[Label], dict[str, list[dict[str, Any]]]]:
-    """Every string on the map, measured, and the chips they sit on."""
+def _overlap(one: Box, two: Box) -> float:
+    """Area shared by two boxes, for choosing the least-bad placement."""
+    wide = min(one.x + one.w, two.x + two.w) - max(one.x, two.x)
+    tall = min(one.y + one.h, two.y + two.h) - max(one.y, two.y)
+    return max(0.0, wide) * max(0.0, tall)
+
+
+def _inside_world(box: Box) -> bool:
+    """Whether a card would still be on the map.
+
+    A slot that leaves the viewBox is not a slot: the first sweep put one card
+    seventy units past the left edge, where it renders and cannot be reached.
+    """
+    x, y, w, h = WORLD
+    return (
+        box.x >= x + 8
+        and box.y >= y + 8
+        and box.x + box.w <= x + w - 8
+        and (box.y + box.h <= y + h - 8)
+    )
+
+
+def _card_slots(shell: Box, card_w: float) -> list[Box]:
+    """Where a room's card may go, best first.
+
+    A sweep rather than a handful of fixed positions: above the room first, then
+    below, then either side, each at two distances and slid along the wall. The
+    card is a label and labels here are placed by search — the first slot that
+    hits nothing already on the map wins.
+
+    Six fixed slots was the first attempt and it was not enough. Screening is
+    boxed in on all four sides by two neighbours, the room below it and its own
+    exit plate, so every slot was rejected and the search fell back to the one it
+    started with, which is where the collision came from. A search whose failure
+    mode is "use the bad answer anyway" is not a search.
+    """
+    mid_x = shell.x + shell.w / 2 - card_w / 2
+    mid_y = shell.y + shell.h / 2 - CARD_H / 2
+    slides = (0.0, -0.3, 0.3, -0.62, 0.62, -0.95, 0.95, -1.3, 1.3)
+    out: list[Box] = []
+    for distance in (CARD_GAP, CARD_GAP + CARD_H + 16.0, CARD_GAP + 2 * (CARD_H + 16.0)):
+        for slide in slides:
+            out.append(Box(mid_x + slide * card_w, shell.y - distance - CARD_H, card_w, CARD_H))
+            out.append(Box(mid_x + slide * card_w, shell.y + shell.h + distance, card_w, CARD_H))
+            out.append(
+                Box(shell.x - distance - card_w, mid_y + slide * CARD_H * 1.5, card_w, CARD_H)
+            )
+            out.append(
+                Box(shell.x + shell.w + distance, mid_y + slide * CARD_H * 1.5, card_w, CARD_H)
+            )
+    # Nearest first. Ordering the candidates by preference rather than by
+    # distance put Screening's card over Registry — legal, unoccupied, and
+    # three rooms from the thing it names. A leader line makes that traceable;
+    # it does not make it readable.
+    centre = (shell.x + shell.w / 2, shell.y + shell.h / 2)
+    out.sort(key=lambda b: (b.x + b.w / 2 - centre[0]) ** 2 + (b.y + b.h / 2 - centre[1]) ** 2)
+    return out
+
+
+def _cards(
+    station: Station, exits: list[dict[str, Any]], reserved: list[Box]
+) -> tuple[list[dict[str, Any]], list[Label]]:
+    """The callout above each room: its number, its name, who works there, and
+    what it is doing. This is the room's label, moved off its floor.
+
+    Placed by search against everything already on the map — the rooms, the exit
+    plates and the cards placed before it — so no two of them can land on top of
+    one another and none of them can sit over a room.
+    """
+    cards: list[dict[str, Any]] = []
     labels: list[Label] = []
-    chips: dict[str, list[dict[str, Any]]] = {}
+    taken: list[Box] = [
+        Box(_shell(r).x - 6, _shell(r).y - 6, _shell(r).w + 12, _shell(r).h + 12) for r in ROOMS
+    ]
+    taken += [
+        Box(d["plate"]["x"] - 6, d["plate"]["y"] - 6, d["plate"]["w"] + 12, d["plate"]["h"] + 12)
+        for d in exits
+    ]
+    # The station's own captions are placed before the cards and therefore have
+    # first claim on the space. A card that landed on the header was how the
+    # search found out it had not been told about it.
+    taken += [Box(b.x - 6, b.y - 6, b.w + 12, b.h + 12) for b in reserved]
+    placed: list[Box] = []
 
-    for occupied in station.occupancy:
+    for index, occupied in enumerate(station.occupancy, start=1):
         room = occupied.room
-        floor = _inner(room)
+        shell = _shell(room)
+        status = _status(occupied)
+        name = room.name.upper()
+        chips_text = [role.value.upper() for role in room.roles] or ["NO ACTOR STATIONED"]
+        terminal = {state.value for state in TERMINAL_DOORS}
+        states = [s.value for s in room.states if s.value not in terminal]
+        # Never wider than the gap between two rooms. A card wider than the room
+        # pitch cannot sit above its own room without touching its neighbour's,
+        # and the search then walks it along the row until the label for
+        # Screening is hanging over Registry.
+        width = min(
+            CARD_MAX,
+            max(
+                320.0,
+                BADGE + _measure(name, NAME_SIZE) + 2 * CARD_PAD + STATUS_W,
+                _measure(" ".join(chips_text), 15.0) + 2 * CARD_PAD + 26.0,
+            ),
+        )
+
+        slots = [slot for slot in _card_slots(shell, width) if _inside_world(slot)] or [
+            _card_slots(shell, width)[0]
+        ]
+        blocked = taken + placed
+        box = next(
+            (slot for slot in slots if not any(slot.intersects(o) for o in blocked)),
+            # Nothing free. Take the least-bad slot rather than the first one:
+            # a search whose failure mode is "use the answer it started with"
+            # put the Oracle's card over the Vault and said nothing about it.
+            min(slots, key=lambda slot: sum(_overlap(slot, o) for o in blocked)),
+        )
+        placed.append(box)
+
         labels.append(
             _label(
-                room.name,
-                x=floor.x,
-                y=floor.y + NAMEPLATE_TOP + NAMEPLATE_H * 0.66,
-                size=25.0,
-                fill="ink",
+                f"{index:02d}",
+                x=box.x + CARD_PAD + BADGE / 2 - 5.0,
+                y=box.y + 33.0,
+                size=17.0,
+                fill="badge",
                 owner=room.room_id,
-                max_width=floor.w - 34.0,
-                weight=650,
+                max_width=BADGE - 10.0,
+                weight=700,
+                anchor="middle",
             )
         )
-        items: list[tuple[str, str]] = [(role.value, role.value.upper()) for role in room.roles]
-        if not room.roles:
-            items.append(("none", "NO ACTOR STATIONED"))
-        terminal = {state.value for state in TERMINAL_DOORS}
-        items += [
-            ("state", f"state · {state.value}")
-            for state in room.states
-            if state.value not in terminal
-        ]
-        room_chips, chip_labels = _chips(items, floor, room.room_id, room.accent)
-        chips[room.room_id] = room_chips
-        labels += chip_labels
+        labels.append(
+            _label(
+                name,
+                x=box.x + CARD_PAD + BADGE + 2.0,
+                y=box.y + 33.0,
+                size=NAME_SIZE,
+                fill="ink",
+                owner=room.room_id,
+                max_width=box.w - 2 * CARD_PAD - BADGE - STATUS_W,
+                weight=700,
+            )
+        )
+        labels.append(
+            _label(
+                status,
+                x=box.x + box.w - CARD_PAD,
+                y=box.y + 32.0,
+                size=14.0,
+                fill="status",
+                owner=room.room_id,
+                max_width=STATUS_W - 10.0,
+                weight=700,
+                anchor="end",
+            )
+        )
+        role_chips, role_labels, _ = _chip_row(
+            chips_text,
+            box.x + CARD_PAD,
+            box.y + 46.0,
+            box.w - 2 * CARD_PAD,
+            room.room_id,
+            room.accent,
+        )
+        state_chips, state_labels, _ = _chip_row(
+            [f"state · {state}" for state in states] or ["no state of its own"],
+            box.x + CARD_PAD,
+            box.y + 46.0 + CHIP_H + 7.0,
+            box.w - 2 * CARD_PAD,
+            room.room_id,
+            room.accent,
+        )
+        labels += role_labels + state_labels
+        cards.append(
+            {
+                "room_id": room.room_id,
+                "accent": room.accent,
+                "status": status,
+                "engaged": occupied.engaged,
+                "locked": room.locked,
+                "backing": occupied.backing.value,
+                "badge": {
+                    "x": round(box.x + CARD_PAD, 2),
+                    "y": round(box.y + 14.0, 2),
+                    "w": BADGE,
+                    "h": 26.0,
+                },
+                "box": box.as_dict(),
+                "chips": role_chips + state_chips,
+                "leader": _leader(box, shell),
+            }
+        )
+    return cards, labels
 
+
+def _leader(box: Box, shell: Box) -> dict[str, float]:
+    """The line from a card to the room it names, drawn to the nearest wall."""
+    cx, cy = box.x + box.w / 2, box.y + box.h / 2
+    tx = min(max(cx, shell.x + 18.0), shell.x + shell.w - 18.0)
+    ty = min(max(cy, shell.y + 18.0), shell.y + shell.h - 18.0)
+    if box.y + box.h <= shell.y:
+        return {"x1": tx, "y1": box.y + box.h, "x2": tx, "y2": shell.y}
+    if box.y >= shell.y + shell.h:
+        return {"x1": tx, "y1": box.y, "x2": tx, "y2": shell.y + shell.h}
+    if box.x + box.w <= shell.x:
+        return {"x1": box.x + box.w, "y1": ty, "x2": shell.x, "y2": ty}
+    return {"x1": box.x, "y1": ty, "x2": shell.x + shell.w, "y2": ty}
+
+
+def _exit_labels(exits: list[dict[str, Any]]) -> list[Label]:
+    """The counter plate over each way out."""
+    labels: list[Label] = []
     for door in exits:
         plate = door["plate"]
         centre = plate["x"] + plate["w"] / 2
@@ -750,42 +969,29 @@ def _room_labels(
                     anchor="middle",
                 )
             )
-    return labels, chips
+    return labels
 
 
 def _map_labels(station: Station, exits: list[dict[str, Any]]) -> list[Label]:
-    """The captions that belong to the station rather than to a room."""
+    """The captions that belong to the station rather than to a room.
+
+    The title and the mode used to be drawn across the top of the plan. They are
+    the head-up display's job now — it sits over the map at a fixed size and does
+    not have to be panned to — so what is left here is the two things that are
+    about the map itself and have to move with it.
+    """
     world_x, world_y, world_w, _ = WORLD
+    del station, world_y
     labels = [
         _label(
-            f"NULLIUS · RESEARCH STATION · PROTOCOL v{station.chapter.version} "
-            f"· ARM {station.arm.arm_id} · {station.provider.upper()} PROVIDER",
-            x=world_x + 26.0,
-            y=world_y + 42.0,
-            size=22.0,
-            fill="dim",
-            owner="map",
-            max_width=world_w * 0.62,
-        ),
-        _label(
-            station.mode.upper(),
-            x=world_x + world_w - 26.0,
-            y=world_y + 42.0,
-            size=22.0,
-            fill="dim",
-            owner="map",
-            max_width=world_w * 0.3,
-            anchor="end",
-        ),
-        _label(
             "no corridor crosses this line",
-            x=149.0 * SCALE + 24.0,
+            x=149.0 * SCALE + 26.0,
             y=124.0 * SCALE + 74.0,
-            size=17.0,
+            size=18.0,
             fill="faint",
             owner="map",
-            max_width=420.0,
-        ),
+            max_width=460.0,
+        )
     ]
     if exits and not any(door["used"] for door in exits):
         labels.append(
@@ -793,10 +999,10 @@ def _map_labels(station: Station, exits: list[dict[str, Any]]) -> list[Label]:
                 UNUSED_EXITS,
                 x=world_x + 26.0,
                 y=124.0 * SCALE + 74.0,
-                size=17.0,
+                size=18.0,
                 fill="faint",
                 owner="map",
-                max_width=149.0 * SCALE - 60.0,
+                max_width=min(149.0 * SCALE - 60.0, world_w),
             )
         )
     return labels
@@ -823,8 +1029,9 @@ def plan(station: Station) -> dict[str, Any]:
     ]
     doorways = _doorways(walk)
     exits = _exits(station, doorways)
-    labels, chips = _room_labels(station, exits)
-    labels += _map_labels(station, exits)
+    fixed = _exit_labels(exits) + _map_labels(station, exits)
+    cards, labels = _cards(station, exits, [label.box for label in fixed])
+    labels += fixed
 
     shells = {room.room_id: _shell(room).as_dict() for room in ROOMS}
     floors = {room.room_id: _inner(room).as_dict() for room in ROOMS}
@@ -840,7 +1047,7 @@ def plan(station: Station) -> dict[str, Any]:
         "doorways": doorways,
         "shells": shells,
         "floors": floors,
-        "chips": chips,
+        "cards": cards,
         "labels": [label.as_dict() for label in labels],
         "boxes": [label.box for label in labels],
         "fixtures": {room.room_id: _fixtures(room) for room in ROOMS},
@@ -898,7 +1105,7 @@ def _route_path(station: Station, layout: dict[str, Any]) -> str:
     route = [centres[room_id] for room_id in station.arm_route if room_id in centres]
     if len(route) < 2:
         bottom = 124.0 * SCALE + 48.0
-        left, right = -MARGIN_X + 30.0, 200.0 * SCALE + MARGIN_X - 30.0
+        left, right = -MARGIN_LEFT + 30.0, 200.0 * SCALE + MARGIN_RIGHT - 30.0
         return f"M{left:.0f} {bottom:.0f} L{right:.0f} {bottom:.0f}"
     return _polyline(route)
 
@@ -941,6 +1148,8 @@ _LABEL_FILLS = {
     "dim": "var(--plate-dim)",
     "chip": "var(--plate-dim)",
     "faint": "var(--plate-faint)",
+    "status": "var(--plate-ink)",
+    "badge": "var(--plate)",
 }
 
 
