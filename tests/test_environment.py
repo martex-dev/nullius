@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import subprocess
 
 import pytest
 from typer.testing import CliRunner
@@ -29,6 +30,24 @@ def test_digest_is_stable_and_sensitive() -> None:
 
     weaker = dataclasses.replace(caps, isolation_tier=IsolationTier.NONE)
     assert weaker.digest() != caps.digest(), "the tier must change the provenance digest"
+
+
+@pytest.mark.invariant
+def test_a_slow_host_cannot_move_the_provenance_digest(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The digest is a run's record of what its host could enforce, so two calls
+    inside one run have to agree. They did not: `docker --version` can take
+    longer than the timeout on a loaded machine, the timeout is caught, and the
+    probe then reports what it reports for a host with no docker at all. The
+    isolation tier fell from docker to subprocess between one call and the next
+    and the digest moved with it.
+    """
+    before = detect().digest()
+
+    def refuse(*_args: object, **_kwargs: object) -> object:
+        raise subprocess.TimeoutExpired(cmd="docker", timeout=10)
+
+    monkeypatch.setattr(subprocess, "run", refuse)
+    assert detect().digest() == before
 
 
 @pytest.mark.parametrize(

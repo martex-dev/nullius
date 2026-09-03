@@ -21,6 +21,7 @@ import subprocess
 import sys
 from dataclasses import asdict, dataclass
 from enum import StrEnum
+from functools import cache
 from importlib.util import find_spec
 
 
@@ -92,7 +93,24 @@ class Capabilities:
         return out
 
 
+@cache
 def _tool_version(executable: str, *args: str) -> str | None:
+    """Ask an external tool what version it is, once per process.
+
+    Cached because it must be: the digest this feeds is a *run's* provenance,
+    and two calls inside one run have to agree about the host. They did not.
+    A loaded machine can take longer than the timeout to answer `docker
+    --version`, the timeout is caught, and the probe reports the same thing it
+    reports for a host with no docker at all -- so the isolation tier fell from
+    docker to subprocess between one call and the next and the digest moved
+    with it. Windows CI found it; the failure is a property of load, not of
+    platform.
+
+    Failing to probe still reads as absent, which under-claims what the host
+    can enforce. That is the safe direction to be wrong in for this project,
+    and it is the reason the fix is to stop the answer changing rather than to
+    make a timeout mean something new.
+    """
     path = shutil.which(executable)
     if path is None:
         return None
