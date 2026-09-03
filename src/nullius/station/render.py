@@ -148,6 +148,102 @@ ACCENTS: dict[str, str] = {
     "crimson": "#f87171",
 }
 
+#: What a thing is made of, as a body colour and the colour of its shadowed
+#: side. Until M28 every fixture in the station was drawn in two greys and the
+#: room's own hue, which is why a workbench and a filing cabinet and a reactor
+#: were the same object at different proportions. A material is not a claim
+#: about the institution -- it is the difference between a drawing of a room and
+#: a diagram of one.
+MATERIALS: dict[str, tuple[str, str]] = {
+    "steel": ("var(--m-steel)", "var(--m-steel-2)"),
+    "enamel": ("var(--m-enamel)", "var(--m-enamel-2)"),
+    "wood": ("var(--m-wood)", "var(--m-wood-2)"),
+    "brass": ("var(--m-brass)", "var(--m-brass-2)"),
+    "glass": ("var(--m-glass)", "var(--m-glass-2)"),
+    "rubber": ("var(--m-rubber)", "var(--m-rubber-2)"),
+    "paint": ("var(--m-paint)", "var(--m-paint-2)"),
+    "dark": ("var(--fix)", "var(--fix-2)"),
+}
+
+#: What each kind of thing is made of.
+TONES: dict[str, str] = {
+    "rack": "steel",
+    "cabinet": "enamel",
+    "shelf": "wood",
+    "board": "dark",
+    "screen": "glass",
+    "console": "steel",
+    "desk": "wood",
+    "bench": "steel",
+    "table": "enamel",
+    "crate": "wood",
+    "terminal": "glass",
+    "plinth": "brass",
+    "vent": "steel",
+    "conduit": "steel",
+    "sign": "dark",
+    "locker": "enamel",
+    "printer": "enamel",
+    "chair": "rubber",
+    "barrel": "paint",
+    "cart": "steel",
+    "cables": "dark",
+    "hatch": "steel",
+    "drawingtable": "wood",
+    "pinboard": "wood",
+    "scanner": "enamel",
+    "binbank": "enamel",
+    "sealpress": "brass",
+    "filewall": "enamel",
+    "workbench": "wood",
+    "partsbin": "paint",
+    "reactor": "steel",
+    "coolant": "steel",
+    "plotwall": "enamel",
+    "scope": "glass",
+    "dummy": "rubber",
+    "targetboard": "paint",
+    "maskcase": "glass",
+    "keysafe": "steel",
+    "readingdesk": "wood",
+    "podium": "wood",
+    "press": "steel",
+    "spool": "brass",
+    "vaultdoor": "steel",
+    "bullion": "brass",
+    "counter": "wood",
+    "scales": "brass",
+    "catalogue": "wood",
+    "stacks": "wood",
+    "orb": "glass",
+    "dish": "enamel",
+    "plant": "dark",
+    "stool": "steel",
+    "pipes": "steel",
+    "poster": "paint",
+}
+
+#: Things that light up in a colour of their own rather than the room's. A
+#: pass/fail bin is green wherever it stands and a coolant line is cold
+#: everywhere, and a room where every lamp agrees with every other lamp reads as
+#: one object rather than as a place with equipment in it.
+GLOWS: dict[str, str] = {
+    "binbank": "green",
+    "targetboard": "crimson",
+    "coolant": "cyan",
+    "reactor": "amber",
+    "plant": "green",
+    "bullion": "gold",
+    "scales": "gold",
+    "spool": "amber",
+    "scope": "green",
+    "maskcase": "cyan",
+    "orb": "magenta",
+    "poster": "crimson",
+    "dummy": "crimson",
+    "sealpress": "gold",
+}
+
 
 # ------------------------------------------------------------------- the world
 
@@ -215,7 +311,7 @@ MID_AT, MID_H = 0.27, 0.16
 LANE_AT = 0.505
 FRONT_AT, FRONT_H = 0.635, 0.175
 FEET_AT = 0.965
-AGENT_H = 74.0
+AGENT_H = 82.0
 
 #: The hallway between two rooms: as wide as the doorways it joins, so the walk
 #: reads as one run of floor rather than as a line drawn between two boxes.
@@ -431,101 +527,101 @@ class Kit:
 FURNITURE: dict[str, Kit] = {
     "drafting": Kit(
         ("vent", "conduit", "sign"),
-        ("board", "board", "shelf"),
-        ("crate", "shelf"),
-        ("desk", "desk"),
-        ("chair", "cables"),
+        ("pinboard", "pinboard", "shelf"),
+        ("plotwall", "stool"),
+        ("drawingtable", "drawingtable"),
+        ("plant", "cables", "stool"),
     ),
     "screening": Kit(
         ("conduit", "sign", "vent"),
-        ("board", "shelf", "board"),
-        ("cabinet", "crate"),
+        ("filewall", "scanner", "pinboard"),
+        ("binbank", "cart"),
         ("desk", "desk"),
-        ("chair", "barrel"),
+        ("stool", "crate", "plant"),
     ),
     "registry": Kit(
         ("vent", "sign", "conduit"),
-        ("cabinet", "cabinet", "cabinet"),
-        ("rack", "printer"),
+        ("filewall", "filewall", "filewall"),
+        ("sealpress", "printer"),
         ("console", "console"),
-        ("chair", "hatch"),
+        ("stool", "hatch", "poster"),
     ),
     "workshop": Kit(
-        ("conduit", "conduit", "vent"),
-        ("rack", "rack", "rack"),
-        ("bench", "crate"),
-        ("bench", "bench"),
-        ("barrel", "cart"),
+        ("conduit", "pipes", "vent"),
+        ("partsbin", "partsbin", "rack"),
+        ("workbench", "coolant"),
+        ("workbench", "bench"),
+        ("barrel", "cart", "stool"),
     ),
     "execution": Kit(
-        ("vent", "conduit", "vent"),
-        ("rack", "rack", "rack"),
-        ("table", "table"),
-        ("table", "console"),
-        ("hatch", "barrel"),
+        ("vent", "pipes", "vent"),
+        ("rack", "reactor", "rack"),
+        ("coolant", "coolant"),
+        ("console", "table"),
+        ("hatch", "barrel", "stool"),
     ),
     "analysis": Kit(
         ("sign", "conduit", "vent"),
-        ("screen", "screen", "screen"),
-        ("board", "printer"),
+        ("plotwall", "plotwall", "screen"),
+        ("scope", "printer"),
         ("console", "console"),
-        ("chair", "cables"),
+        ("stool", "plant", "cables"),
     ),
     "challenge": Kit(
-        ("vent", "sign", "conduit"),
-        ("board", "screen", "board"),
-        ("cabinet", "locker"),
+        ("vent", "sign", "pipes"),
+        ("targetboard", "pinboard", "targetboard"),
+        ("dummy", "dummy"),
         ("console", "desk"),
-        ("chair", "crate"),
+        ("stool", "crate", "barrel"),
     ),
     "blind": Kit(
         ("conduit", "vent", "sign"),
-        ("cabinet", "cabinet", "cabinet"),
-        ("rack", "locker"),
+        ("maskcase", "maskcase", "keysafe"),
+        ("locker", "locker"),
         ("console", "console"),
-        ("hatch", "cables"),
+        ("hatch", "cables", "stool"),
     ),
     "review": Kit(
         ("vent", "sign", "conduit"),
-        ("shelf", "board", "shelf"),
-        ("cabinet", "crate"),
-        ("desk", "desk"),
-        ("chair", "barrel"),
+        ("podium", "plotwall", "shelf"),
+        ("catalogue", "printer"),
+        ("readingdesk", "readingdesk"),
+        ("stool", "plant", "poster"),
     ),
     "record": Kit(
         ("conduit", "sign", "conduit"),
-        ("shelf", "shelf", "shelf"),
-        ("cabinet", "cabinet"),
+        ("filewall", "press", "filewall"),
+        ("spool", "spool"),
         ("plinth", "plinth"),
-        ("cables", "hatch"),
+        ("cables", "hatch", "crate"),
     ),
     "vault": Kit(
         ("vent", "conduit", "vent", "sign"),
-        ("cabinet", "cabinet", "cabinet", "cabinet"),
-        ("locker", "locker", "cabinet"),
+        ("vaultdoor", "keysafe", "vaultdoor"),
+        ("bullion", "bullion", "locker"),
         ("terminal",),
-        ("hatch", "barrel"),
+        ("hatch", "barrel", "stool"),
     ),
     "treasury": Kit(
         ("sign", "conduit", "vent"),
-        ("cabinet", "rack", "cabinet"),
-        ("crate", "crate"),
-        ("console", "desk"),
-        ("cart", "barrel"),
+        ("filewall", "scales", "bullion"),
+        ("catalogue", "printer"),
+        ("counter", "desk"),
+        ("cart", "plant", "stool"),
     ),
     "archive": Kit(
         ("conduit", "vent", "conduit", "sign"),
-        ("shelf", "shelf", "shelf", "shelf"),
-        ("shelf", "shelf"),
-        ("shelf", "crate"),
-        ("cart", "cables"),
+        ("catalogue", "catalogue", "catalogue", "catalogue"),
+        ("stacks", "spool"),
+        ("stacks", "crate"),
+        ("cart", "cables", "stool"),
     ),
     "oracle": Kit(
         ("vent", "sign", "vent"),
-        ("cabinet", "cabinet", "cabinet"),
-        ("shelf", "locker"),
+        ("dish", "orb", "dish"),
+        ("scope", "keysafe"),
         ("plinth", "plinth"),
-        ("hatch", "barrel"),
+        ("hatch", "barrel", "cables"),
     ),
 }
 
@@ -534,8 +630,21 @@ DEFAULT_KIT = Kit(
     ("rack", "cabinet", "shelf"),
     ("crate", "shelf"),
     ("console", "desk"),
-    ("chair", "cables"),
+    ("stool", "cables", "plant"),
 )
+
+
+def _finish(fixture: dict[str, Any], accent: str) -> dict[str, Any]:
+    """Give a fixture what it is made of and what colour it lights up.
+
+    The glow is the room's own accent unless the thing means something the room
+    does not get to decide: a pass bin is green in every room that has one.
+    """
+    body, shade = MATERIALS[TONES.get(str(fixture["kind"]), "steel")]
+    fixture["body"] = body
+    fixture["shade"] = shade
+    fixture["glow"] = ACCENTS[GLOWS.get(str(fixture["kind"]), accent)]
+    return fixture
 
 
 def _row(
@@ -544,6 +653,7 @@ def _row(
     top: float,
     height: float,
     nxt: Callable[[float, float], float],
+    accent: str = "slate",
 ) -> list[dict[str, Any]]:
     """Space a row of fixtures evenly along the floor, with a little jitter."""
     if not kinds:
@@ -557,13 +667,16 @@ def _row(
         # hold one thing, not one thing stretched across the whole floor.
         width = min(cell * (0.62 + nxt(0.0, 0.16)), 168.0)
         out.append(
-            {
-                "kind": kind,
-                "x": floor.x + pad + index * cell + (cell - width) / 2,
-                "y": top,
-                "w": width,
-                "h": height,
-            }
+            _finish(
+                {
+                    "kind": kind,
+                    "x": floor.x + pad + index * cell + (cell - width) / 2,
+                    "y": top,
+                    "w": width,
+                    "h": height,
+                },
+                accent,
+            )
         )
     return out
 
@@ -578,11 +691,12 @@ def _fixtures(room: Room) -> list[dict[str, Any]]:
     kit = FURNITURE.get(room.room_id, DEFAULT_KIT)
     floor = _inner(room)
     usable = _usable(floor)
-    wall = _row(kit.wall, floor, _band(floor, WALL_AT), usable * WALL_H, nxt)
-    back = _row(kit.back, floor, _band(floor, BACK_AT), usable * BACK_H, nxt)
-    mid = _row(kit.mid, floor, _band(floor, MID_AT), usable * MID_H, nxt)
-    front = _row(kit.front, floor, _band(floor, FRONT_AT), usable * FRONT_H, nxt)
-    props = _props(kit.props, floor, nxt)
+    hue = room.accent
+    wall = _row(kit.wall, floor, _band(floor, WALL_AT), usable * WALL_H, nxt, hue)
+    back = _row(kit.back, floor, _band(floor, BACK_AT), usable * BACK_H, nxt, hue)
+    mid = _row(kit.mid, floor, _band(floor, MID_AT), usable * MID_H, nxt, hue)
+    front = _row(kit.front, floor, _band(floor, FRONT_AT), usable * FRONT_H, nxt, hue)
+    props = _props(kit.props, floor, nxt, hue)
     for fixture in wall + back + mid:
         fixture["depth"] = "back"
     for fixture in front + props:
@@ -594,6 +708,7 @@ def _props(
     kinds: tuple[str, ...],
     floor: Box,
     nxt: Callable[[float, float], float],
+    accent: str = "slate",
 ) -> list[dict[str, Any]]:
     """Loose things, tucked into the corners either side of the walk.
 
@@ -605,13 +720,16 @@ def _props(
         size = 26.0 + nxt(0.0, 12.0)
         left = index % 2 == 0
         out.append(
-            {
-                "kind": kind,
-                "x": (floor.x + 6.0) if left else (floor.x + floor.w - 6.0 - size),
-                "y": _band(floor, 0.36 + 0.3 * (index // 2)) + nxt(0.0, 10.0),
-                "w": size,
-                "h": size * 0.7,
-            }
+            _finish(
+                {
+                    "kind": kind,
+                    "x": (floor.x + 6.0) if left else (floor.x + floor.w - 6.0 - size),
+                    "y": _band(floor, 0.3 + 0.23 * (index // 2)) + nxt(0.0, 10.0),
+                    "w": size,
+                    "h": size * 0.7,
+                },
+                accent,
+            )
         )
     return out
 
@@ -726,7 +844,14 @@ def _hallways(walk: list[Room]) -> list[dict[str, Any]]:
                     "vertical": True,
                 }
             )
-    return [hall for hall in out if hall["w"] > 1 and hall["h"] > 1]
+    kept = [hall for hall in out if hall["w"] > 1 and hall["h"] > 1]
+    for index, hall in enumerate(kept):
+        # The index is the hall's own number on its deck plate and the seed for
+        # the rivets, arrows and grating drawn along it, so the run between
+        # Drafting and Screening is not the run between Screening and Registry
+        # a second time.
+        hall["index"] = index + 1
+    return kept
 
 
 def _is_outer(room: Room, side: str) -> bool:

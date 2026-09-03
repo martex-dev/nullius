@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M27 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M28 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -1052,6 +1052,66 @@ written.
 - A room holds at least five drawn fixtures, all inside its floor — now twelve to fourteen.
   Tested.
 - No two labels overlap, including the new floor stencils, at any zoom. Tested.
+- Still one self-contained file; still refuses to build on input that does not verify.
+
+---
+
+### M28 · Materials, and a room built out of its own work ✅
+Presentation only for the third time — `model.py`, `map.py` and `ledger.py` untouched.
+
+**Every object in the station was made of the same two greys.** `--fix` and `--fix-2`, plus the
+room's own accent for anything that lit up. That is why a workbench, a filing cabinet and a
+reactor were the same rectangle at different proportions, and why a room read as a plan of a room
+rather than as a place. Things are now made of something: steel, enamel, wood, brass, glass,
+rubber, painted metal, each with a lit side and a shadowed one, and a handful of fittings light up
+in a colour the room does not get to choose — a pass bin is green wherever it stands and a coolant
+line is cold everywhere.
+
+**And the kit was generic.** Nine of the fourteen rooms held a rack, a cabinet and a shelf, which
+says the nine departments do the same work — the one thing the map exists to deny. Each room now
+owns equipment nobody else has: a drafting table and a corkboard strung with red thread in
+Drafting; a scanner arch and three sorting bins in Screening; a seal press and a wall of numbered
+drawers in Registry; pegboards, parts bins and coolant valves in the Workshop; a core in a cage on
+the Execution floor; plot walls and an oscilloscope in Analysis; targets and a training dummy in
+Challenge; a case of blanks and a key safe in the Blind room; a reading lamp and a podium in
+Review; a press and tape reels in the Record; two vault doors and bullion on pallets in the Vault;
+a teller counter and a balance in the Treasury; card catalogues in the Archive; an orb in a gimbal
+and two dishes in the Oracle. Thirty-two new kinds of object; twelve to fifteen in every room.
+
+**The corridor got wider and got equipment.** Hazard-striped edges, grating across the run, rivets
+along the wall panels, direction arrows down the middle, a pipe run with a junction box, pools of
+light under the lamps, and the run's own number stencilled on the deck. Each of those is placed
+from the hall's index, so the run between Drafting and Screening is not the run between Screening
+and Registry drawn a second time.
+
+**The actors got volume.** Boots with soles, a far leg in shadow, a torso with a lit shoulder edge
+and a shaded side, sleeves ending in gloved hands, a face with a brow, an ear and a shadowed
+cheek — and a chest insignia whose shape is the role's own.
+
+#### What building it revealed was wrong
+
+**1. `.glowpane` animates opacity, so the opacity you wrote is not the opacity you get.** The
+class exists to make a screen breathe between 0.7 and 1. Put it on a twelve-percent halo over the
+bullion and the halo is composited at eighty-five percent: a solid lens of gold sitting on top of
+the bars. The animation wins because it is the animated value, not the presentation attribute.
+Anything that wants to be faint has to not be told to hum. Soft edges now come from a radial
+gradient, which is also what the three hard-edged elliptical smudges in every room turned out to
+need.
+
+**2. The arms went on before the coat, so the hands were inside it.** Boots, legs and arms were
+drawn first and the torso over the top, which is right at the shoulder and wrong at the wrist:
+the hand sits a hair inside the coat's own silhouette and disappears, leaving every figure with
+two stubs. It was invisible while the figures were flat and obvious the moment they had gloves to
+lose. Arms now go on after the body and before whatever the figure is carrying.
+
+**Acceptance**
+- Every test from M22 through M27 still passes.
+- Every kind a kit names has a branch in the fixture macro and a material. Tested — a kind
+  without one falls through to a grey box that looks like furniture from a distance, which is
+  exactly how the station got here.
+- No two rooms are furnished the same way; each owns at least one thing nobody else has. Tested.
+- Every room is drawn in at least three materials and lit by at least two colours. Tested.
+- Each run of corridor knows which run it is. Tested.
 - Still one self-contained file; still refuses to build on input that does not verify.
 
 ---

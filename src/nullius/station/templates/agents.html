@@ -9,19 +9,41 @@
    writes the events — and giving it a face would be the drawing making a claim
    the architecture does not.
 
+   M28 gave them volume. Until then a figure was flat colour: one hue for the
+   coat, one dark for everything else, and past the second click of zoom it read
+   as a paper cut-out. Everything below is built from the same five parts —
+   boots with soles, legs where the far one sits in shadow, a torso with a lit
+   edge and a shaded side, sleeved arms ending in gloved hands, and a face with
+   a brow — plus the one piece of kit that belongs to that role and nobody
+   else. Each also wears an insignia, which is the only thing on the figure that
+   differs by construction rather than by draughtsmanship.
+
    Everything is drawn about the origin with the feet at y=0, so the caller can
    put the figure anywhere and walk it. #}
 
-{% macro boots(h, dark) %}
-  <path d="M{{ -h * 0.155 }} {{ -h * 0.05 }} h{{ h * 0.11 }} v{{ h * 0.05 }} h{{ -h * 0.14 }} z
-           M{{ h * 0.045 }} {{ -h * 0.05 }} h{{ h * 0.11 }} v{{ h * 0.05 }} h{{ -h * 0.14 }} z"
-        fill="{{ dark }}"/>
+{% macro boots(h, dark, hue) %}
+  <path d="M{{ -h * 0.155 }} {{ -h * 0.06 }} h{{ h * 0.115 }} v{{ h * 0.045 }}
+           h{{ h * 0.022 }} v{{ h * 0.015 }} h{{ -h * 0.16 }} z
+           M{{ h * 0.04 }} {{ -h * 0.06 }} h{{ h * 0.115 }} v{{ h * 0.045 }}
+           h{{ h * 0.022 }} v{{ h * 0.015 }} h{{ -h * 0.16 }} z" fill="{{ dark }}"/>
+  <path d="M{{ -h * 0.177 }} {{ -h * 0.015 }} h{{ h * 0.16 }} v{{ h * 0.015 }} h{{ -h * 0.16 }} z
+           M{{ h * 0.018 }} {{ -h * 0.015 }} h{{ h * 0.16 }} v{{ h * 0.015 }} h{{ -h * 0.16 }} z"
+        fill="var(--m-rubber)"/>
+  <rect x="{{ -h * 0.155 }}" y="{{ -h * 0.055 }}" width="{{ h * 0.115 }}"
+        height="{{ h * 0.012 }}" fill="{{ hue }}" opacity=".7"/>
+  <rect x="{{ h * 0.04 }}" y="{{ -h * 0.055 }}" width="{{ h * 0.115 }}"
+        height="{{ h * 0.012 }}" fill="{{ hue }}" opacity=".7"/>
 {% endmacro %}
 
 {% macro legs(h, dark, hue) %}
   <path d="M{{ -h * 0.115 }} {{ -h * 0.3 }} h{{ h * 0.09 }} v{{ h * 0.25 }} h{{ -h * 0.09 }} z
            M{{ h * 0.025 }} {{ -h * 0.3 }} h{{ h * 0.09 }} v{{ h * 0.25 }} h{{ -h * 0.09 }} z"
         fill="{{ dark }}"/>
+  {# the far leg sits in shadow, which is what stops the two reading as one slab #}
+  <rect x="{{ h * 0.025 }}" y="{{ -h * 0.3 }}" width="{{ h * 0.09 }}" height="{{ h * 0.25 }}"
+        fill="#000" opacity=".28"/>
+  <rect x="{{ -h * 0.115 }}" y="{{ -h * 0.155 }}" width="{{ h * 0.09 }}"
+        height="{{ h * 0.012 }}" fill="#fff" opacity=".09"/>
   <rect x="{{ -h * 0.115 }}" y="{{ -h * 0.3 }}" width="{{ h * 0.205 }}" height="{{ h * 0.035 }}"
         fill="{{ hue }}" opacity=".5"/>
 {% endmacro %}
@@ -29,44 +51,162 @@
 {% macro arms(h, dark, hue, skin) %}
   <path d="M{{ -h * 0.2 }} {{ -h * 0.56 }} q{{ -h * 0.07 }} {{ h * 0.13 }} {{ -h * 0.03 }} {{ h * 0.2 }}
            M{{ h * 0.2 }} {{ -h * 0.56 }} q{{ h * 0.07 }} {{ h * 0.13 }} {{ h * 0.03 }} {{ h * 0.2 }}"
-        fill="none" stroke="{{ dark }}" stroke-width="{{ h * 0.062 }}" stroke-linecap="round"/>
+        fill="none" stroke="{{ dark }}" stroke-width="{{ h * 0.066 }}" stroke-linecap="round"/>
   <path d="M{{ -h * 0.2 }} {{ -h * 0.555 }} q{{ -h * 0.065 }} {{ h * 0.12 }} {{ -h * 0.028 }} {{ h * 0.185 }}
            M{{ h * 0.2 }} {{ -h * 0.555 }} q{{ h * 0.065 }} {{ h * 0.12 }} {{ h * 0.028 }} {{ h * 0.185 }}"
-        fill="none" stroke="{{ hue }}" stroke-width="{{ h * 0.036 }}" stroke-linecap="round"/>
-  <circle cx="{{ -h * 0.226 }}" cy="{{ -h * 0.345 }}" r="{{ h * 0.032 }}" fill="{{ skin }}"/>
-  <circle cx="{{ h * 0.226 }}" cy="{{ -h * 0.345 }}" r="{{ h * 0.032 }}" fill="{{ skin }}"/>
+        fill="none" stroke="{{ hue }}" stroke-width="{{ h * 0.04 }}" stroke-linecap="round"/>
+  {# a cuff, then a gloved hand, so the arm ends in something rather than stopping #}
+  <rect x="{{ -h * 0.257 }}" y="{{ -h * 0.395 }}" width="{{ h * 0.062 }}"
+        height="{{ h * 0.022 }}" rx="{{ h * 0.011 }}" fill="{{ dark }}"/>
+  <rect x="{{ h * 0.195 }}" y="{{ -h * 0.395 }}" width="{{ h * 0.062 }}"
+        height="{{ h * 0.022 }}" rx="{{ h * 0.011 }}" fill="{{ dark }}"/>
+  <circle cx="{{ -h * 0.229 }}" cy="{{ -h * 0.345 }}" r="{{ h * 0.036 }}" fill="{{ skin }}"/>
+  <circle cx="{{ h * 0.229 }}" cy="{{ -h * 0.345 }}" r="{{ h * 0.036 }}" fill="{{ skin }}"/>
+  <path d="M{{ -h * 0.229 }} {{ -h * 0.381 }} a{{ h * 0.036 }} {{ h * 0.036 }} 0 0 1 0 {{ h * 0.072 }} z
+           M{{ h * 0.229 }} {{ -h * 0.381 }} a{{ h * 0.036 }} {{ h * 0.036 }} 0 0 1 0 {{ h * 0.072 }} z"
+        fill="var(--fig-skin-2)" opacity=".55"/>
+{% endmacro %}
+
+{# The torso as a solid rather than a swatch: the hue in shadow down the far
+   side, a lit edge along the near shoulder, and a seam where the coat closes. #}
+{% macro shading(h, top, bottom, half, flare) %}
+  <path d="M0 {{ -h * top }} L{{ h * half }} {{ -h * top }}
+           L{{ h * flare }} {{ -h * bottom }} L0 {{ -h * bottom }} Z"
+        fill="#000" opacity=".26"/>
+  <path d="M{{ -h * half }} {{ -h * top }} L{{ -h * half * 0.45 }} {{ -h * top }}
+           L{{ -h * flare * 0.5 }} {{ -h * bottom }} L{{ -h * flare }} {{ -h * bottom }} Z"
+        fill="#fff" opacity=".07"/>
+  <line x1="0" y1="{{ -h * top }}" x2="0" y2="{{ -h * bottom }}" stroke="#000"
+        stroke-width="{{ h * 0.012 }}" opacity=".35"/>
+{% endmacro %}
+
+{% macro belt(h, dark, hue, at, half) %}
+  <rect x="{{ -h * half }}" y="{{ -h * at }}" width="{{ h * half * 2 }}"
+        height="{{ h * 0.045 }}" fill="{{ dark }}"/>
+  <rect x="{{ -h * 0.03 }}" y="{{ -h * (at + 0.004) }}" width="{{ h * 0.06 }}"
+        height="{{ h * 0.05 }}" rx="{{ h * 0.008 }}" fill="var(--m-brass)"/>
+  <rect x="{{ -h * (half - 0.02) }}" y="{{ -h * (at - 0.03) }}" width="{{ h * 0.05 }}"
+        height="{{ h * 0.06 }}" rx="{{ h * 0.01 }}" fill="{{ dark }}" stroke="{{ hue }}"
+        stroke-width="{{ h * 0.008 }}" stroke-opacity=".6"/>
+  <rect x="{{ h * (half - 0.07) }}" y="{{ -h * (at - 0.03) }}" width="{{ h * 0.05 }}"
+        height="{{ h * 0.06 }}" rx="{{ h * 0.01 }}" fill="{{ dark }}" stroke="{{ hue }}"
+        stroke-width="{{ h * 0.008 }}" stroke-opacity=".6"/>
+{% endmacro %}
+
+{# An insignia on the chest. The shape is the role's own. #}
+{% macro patch(h, dark, hue, shape) %}
+<g transform="translate({{ -h * 0.115 }} {{ -h * 0.52 }})">
+  <circle cx="0" cy="0" r="{{ h * 0.05 }}" fill="{{ dark }}" stroke="{{ hue }}"
+          stroke-width="{{ h * 0.012 }}"/>
+  {% if shape == 'triangle' %}
+  <path d="M0 {{ -h * 0.028 }} L{{ h * 0.026 }} {{ h * 0.018 }} L{{ -h * 0.026 }} {{ h * 0.018 }} Z"
+        fill="{{ hue }}"/>
+  {% elif shape == 'square' %}
+  <rect x="{{ -h * 0.022 }}" y="{{ -h * 0.022 }}" width="{{ h * 0.044 }}"
+        height="{{ h * 0.044 }}" fill="{{ hue }}"/>
+  {% elif shape == 'ring' %}
+  <circle cx="0" cy="0" r="{{ h * 0.024 }}" fill="none" stroke="{{ hue }}"
+          stroke-width="{{ h * 0.014 }}"/>
+  {% elif shape == 'bars' %}
+  <path d="M{{ -h * 0.026 }} {{ -h * 0.02 }} h{{ h * 0.052 }}
+           M{{ -h * 0.026 }} 0 h{{ h * 0.052 }} M{{ -h * 0.026 }} {{ h * 0.02 }} h{{ h * 0.052 }}"
+        stroke="{{ hue }}" stroke-width="{{ h * 0.011 }}"/>
+  {% elif shape == 'cross' %}
+  <path d="M0 {{ -h * 0.028 }} v{{ h * 0.056 }} M{{ -h * 0.028 }} 0 h{{ h * 0.056 }}"
+        stroke="{{ hue }}" stroke-width="{{ h * 0.013 }}"/>
+  {% elif shape == 'chevron' %}
+  <path d="M{{ -h * 0.026 }} {{ h * 0.012 }} L0 {{ -h * 0.02 }} L{{ h * 0.026 }} {{ h * 0.012 }}"
+        fill="none" stroke="{{ hue }}" stroke-width="{{ h * 0.013 }}"/>
+  {% elif shape == 'diamond' %}
+  <path d="M0 {{ -h * 0.03 }} L{{ h * 0.026 }} 0 L0 {{ h * 0.03 }} L{{ -h * 0.026 }} 0 Z"
+        fill="{{ hue }}"/>
+  {% elif shape == 'dot' %}
+  <circle cx="0" cy="0" r="{{ h * 0.02 }}" fill="{{ hue }}"/>
+  {% elif shape == 'slash' %}
+  <path d="M{{ -h * 0.024 }} {{ h * 0.024 }} L{{ h * 0.024 }} {{ -h * 0.024 }}"
+        stroke="{{ hue }}" stroke-width="{{ h * 0.015 }}"/>
+  {% else %}
+  <path d="M{{ -h * 0.026 }} {{ -h * 0.01 }} h{{ h * 0.052 }} M0 {{ -h * 0.026 }} v{{ h * 0.05 }}"
+        stroke="{{ hue }}" stroke-width="{{ h * 0.011 }}"/>
+  {% endif %}
+</g>
 {% endmacro %}
 
 {% macro face(h, dark, skin) %}
   <circle cx="0" cy="{{ -h * 0.715 }}" r="{{ h * 0.105 }}" fill="{{ skin }}"/>
-  <circle cx="{{ -h * 0.04 }}" cy="{{ -h * 0.725 }}" r="{{ h * 0.014 }}" fill="{{ dark }}"/>
-  <circle cx="{{ h * 0.04 }}" cy="{{ -h * 0.725 }}" r="{{ h * 0.014 }}" fill="{{ dark }}"/>
+  {# the far side of the head in shadow, and an ear on the near side #}
+  <path d="M0 {{ -h * 0.82 }} a{{ h * 0.105 }} {{ h * 0.105 }} 0 0 1 0 {{ h * 0.21 }} z"
+        fill="var(--fig-skin-2)" opacity=".5"/>
+  <ellipse cx="{{ -h * 0.104 }}" cy="{{ -h * 0.712 }}" rx="{{ h * 0.018 }}"
+           ry="{{ h * 0.026 }}" fill="var(--fig-skin-2)"/>
+  <path d="M{{ -h * 0.062 }} {{ -h * 0.746 }} q{{ h * 0.022 }} {{ -h * 0.012 }} {{ h * 0.044 }} 0
+           M{{ h * 0.018 }} {{ -h * 0.746 }} q{{ h * 0.022 }} {{ -h * 0.012 }} {{ h * 0.044 }} 0"
+        fill="none" stroke="var(--fig-hair)" stroke-width="{{ h * 0.011 }}"
+        stroke-linecap="round"/>
+  <circle cx="{{ -h * 0.04 }}" cy="{{ -h * 0.722 }}" r="{{ h * 0.015 }}" fill="{{ dark }}"/>
+  <circle cx="{{ h * 0.04 }}" cy="{{ -h * 0.722 }}" r="{{ h * 0.015 }}" fill="{{ dark }}"/>
+  <circle cx="{{ -h * 0.036 }}" cy="{{ -h * 0.726 }}" r="{{ h * 0.005 }}" fill="#fff"
+          opacity=".8"/>
+  <path d="M{{ -h * 0.02 }} {{ -h * 0.678 }} q{{ h * 0.02 }} {{ h * 0.01 }} {{ h * 0.04 }} 0"
+        fill="none" stroke="var(--fig-skin-2)" stroke-width="{{ h * 0.01 }}"
+        stroke-linecap="round"/>
+{% endmacro %}
+
+{% macro hair(h, style) %}
+  {% if style == 'crop' %}
+  <path d="M{{ -h * 0.113 }} {{ -h * 0.775 }} a{{ h * 0.113 }} {{ h * 0.098 }} 0 0 1 {{ h * 0.226 }} 0 z"
+        fill="var(--fig-hair)"/>
+  <path d="M{{ -h * 0.113 }} {{ -h * 0.775 }} h{{ h * 0.04 }} l{{ h * 0.02 }} {{ h * 0.022 }}
+           h{{ -h * 0.06 }} z" fill="var(--fig-hair)"/>
+  {% elif style == 'tied' %}
+  <path d="M{{ -h * 0.115 }} {{ -h * 0.772 }} a{{ h * 0.115 }} {{ h * 0.1 }} 0 0 1 {{ h * 0.23 }} 0 z"
+        fill="var(--fig-hair)"/>
+  <path d="M{{ h * 0.1 }} {{ -h * 0.765 }} q{{ h * 0.07 }} {{ h * 0.03 }} {{ h * 0.03 }} {{ h * 0.09 }}"
+        fill="none" stroke="var(--fig-hair)" stroke-width="{{ h * 0.032 }}"
+        stroke-linecap="round"/>
+  {% else %}
+  <path d="M{{ -h * 0.115 }} {{ -h * 0.79 }} q{{ h * 0.04 }} {{ -h * 0.07 }} {{ h * 0.09 }} {{ -h * 0.02 }}
+           q{{ h * 0.03 }} {{ -h * 0.06 }} {{ h * 0.08 }} {{ -h * 0.01 }}
+           q{{ h * 0.05 }} {{ -h * 0.04 }} {{ h * 0.055 }} {{ h * 0.045 }}
+           a{{ h * 0.115 }} {{ h * 0.1 }} 0 0 0 {{ -h * 0.225 }} 0 z"
+        fill="var(--fig-hair)"/>
+  {% endif %}
 {% endmacro %}
 
 {% macro build(role, h, hue) %}
 {% set dark = 'var(--fig-dark)' %}
 {% set skin = 'var(--fig-skin)' %}
-{% set metal = 'var(--fix)' %}
 {% set panel = 'var(--fix-2)' %}
 
 {% if role == 'system' %}
   {# a servitor: no face, no legs, and it hovers #}
   <g transform="translate(0 {{ -h * 0.5 }})">
     <g class="hover">
+      <ellipse cx="0" cy="{{ h * 0.42 }}" rx="{{ h * 0.2 }}" ry="{{ h * 0.05 }}" fill="{{ hue }}"
+               opacity=".14"/>
       <path d="M0 {{ -h * 0.26 }} L{{ h * 0.25 }} {{ -h * 0.12 }} L{{ h * 0.25 }} {{ h * 0.12 }}
                L0 {{ h * 0.26 }} L{{ -h * 0.25 }} {{ h * 0.12 }} L{{ -h * 0.25 }} {{ -h * 0.12 }} Z"
-            fill="{{ metal }}" stroke="{{ hue }}" stroke-width="{{ h * 0.03 }}"/>
+            fill="var(--m-steel)" stroke="{{ hue }}" stroke-width="{{ h * 0.03 }}"/>
+      <path d="M0 {{ -h * 0.26 }} L{{ h * 0.25 }} {{ -h * 0.12 }} L{{ h * 0.25 }} {{ h * 0.12 }}
+               L0 {{ h * 0.26 }} Z" fill="#000" opacity=".26"/>
       <path d="M0 {{ -h * 0.17 }} L{{ h * 0.16 }} {{ -h * 0.08 }} L{{ h * 0.16 }} {{ h * 0.08 }}
                L0 {{ h * 0.17 }} L{{ -h * 0.16 }} {{ h * 0.08 }} L{{ -h * 0.16 }} {{ -h * 0.08 }} Z"
             fill="{{ panel }}"/>
+      {% for i in range(6) %}
+      <line x1="{{ h * 0.17 * [0, 0.87, 0.87, 0, -0.87, -0.87][i] }}"
+            y1="{{ h * 0.17 * [-1, -0.5, 0.5, 1, 0.5, -0.5][i] }}"
+            x2="{{ h * 0.25 * [0, 0.87, 0.87, 0, -0.87, -0.87][i] }}"
+            y2="{{ h * 0.25 * [-1, -0.5, 0.5, 1, 0.5, -0.5][i] }}" stroke="{{ hue }}"
+            stroke-width="{{ h * 0.016 }}" opacity=".7"/>
+      {% endfor %}
       <circle cx="0" cy="0" r="{{ h * 0.075 }}" fill="{{ hue }}" class="blink"/>
       <circle cx="0" cy="0" r="{{ h * 0.032 }}" fill="{{ panel }}"/>
       <line x1="{{ -h * 0.26 }}" y1="{{ -h * 0.2 }}" x2="{{ -h * 0.38 }}" y2="{{ -h * 0.36 }}"
-            stroke="{{ hue }}" stroke-width="{{ h * 0.025 }}" stroke-linecap="round"/>
+            stroke="var(--m-steel)" stroke-width="{{ h * 0.032 }}" stroke-linecap="round"/>
       <line x1="{{ h * 0.26 }}" y1="{{ -h * 0.2 }}" x2="{{ h * 0.38 }}" y2="{{ -h * 0.36 }}"
-            stroke="{{ hue }}" stroke-width="{{ h * 0.025 }}" stroke-linecap="round"/>
-      <circle cx="{{ -h * 0.38 }}" cy="{{ -h * 0.36 }}" r="{{ h * 0.028 }}" fill="{{ hue }}"/>
-      <circle cx="{{ h * 0.38 }}" cy="{{ -h * 0.36 }}" r="{{ h * 0.028 }}" fill="{{ hue }}"/>
+            stroke="var(--m-steel)" stroke-width="{{ h * 0.032 }}" stroke-linecap="round"/>
+      <circle cx="{{ -h * 0.38 }}" cy="{{ -h * 0.36 }}" r="{{ h * 0.034 }}" fill="{{ hue }}"/>
+      <circle cx="{{ h * 0.38 }}" cy="{{ -h * 0.36 }}" r="{{ h * 0.034 }}" fill="{{ hue }}"/>
       <circle cx="{{ -h * 0.3 }}" cy="{{ h * 0.2 }}" r="{{ h * 0.022 }}" fill="{{ hue }}"
               opacity=".8"/>
       <circle cx="{{ h * 0.3 }}" cy="{{ h * 0.2 }}" r="{{ h * 0.022 }}" fill="{{ hue }}"
@@ -75,66 +215,121 @@
   </g>
 
 {% elif role == 'custodian' %}
-  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}{{ arms(h, dark, hue, skin) }}
+  {{ boots(h, dark, hue) }}{{ legs(h, dark, hue) }}
   <path d="M{{ -h * 0.24 }} {{ -h * 0.28 }} L{{ -h * 0.22 }} {{ -h * 0.6 }}
            L{{ h * 0.22 }} {{ -h * 0.6 }} L{{ h * 0.24 }} {{ -h * 0.28 }} Z"
         fill="{{ hue }}" stroke="{{ dark }}" stroke-width="{{ h * 0.02 }}"/>
+  {{ shading(h, 0.6, 0.28, 0.22, 0.24) }}
+  {{ arms(h, dark, hue, skin) }}
+  {# a sealed suit: ribbed seams, a chest regulator, a keyring on the hip #}
+  {% for i in range(3) %}
+  <line x1="{{ -h * 0.21 }}" y1="{{ -h * (0.53 - 0.07 * i) }}" x2="{{ h * 0.21 }}"
+        y2="{{ -h * (0.53 - 0.07 * i) }}" stroke="{{ dark }}" stroke-width="{{ h * 0.011 }}"
+        opacity=".55"/>
+  {% endfor %}
   <rect x="{{ -h * 0.31 }}" y="{{ -h * 0.63 }}" width="{{ h * 0.62 }}" height="{{ h * 0.075 }}"
         rx="{{ h * 0.037 }}" fill="{{ dark }}"/>
-  <rect x="{{ -h * 0.2 }}" y="{{ -h * 0.46 }}" width="{{ h * 0.4 }}" height="{{ h * 0.05 }}"
-        rx="{{ h * 0.02 }}" fill="{{ dark }}" opacity=".8"/>
-  <circle cx="{{ h * 0.26 }}" cy="{{ -h * 0.34 }}" r="{{ h * 0.055 }}" fill="none"
-          stroke="{{ dark }}" stroke-width="{{ h * 0.022 }}"/>
-  <circle cx="{{ h * 0.29 }}" cy="{{ -h * 0.28 }}" r="{{ h * 0.03 }}" fill="none"
-          stroke="{{ dark }}" stroke-width="{{ h * 0.018 }}"/>
+  <rect x="{{ -h * 0.29 }}" y="{{ -h * 0.622 }}" width="{{ h * 0.2 }}" height="{{ h * 0.02 }}"
+        rx="{{ h * 0.01 }}" fill="#fff" opacity=".12"/>
+  <rect x="{{ h * 0.05 }}" y="{{ -h * 0.5 }}" width="{{ h * 0.11 }}" height="{{ h * 0.09 }}"
+        rx="{{ h * 0.014 }}" fill="{{ panel }}" stroke="{{ dark }}"
+        stroke-width="{{ h * 0.012 }}"/>
+  <circle cx="{{ h * 0.105 }}" cy="{{ -h * 0.455 }}" r="{{ h * 0.022 }}" fill="{{ hue }}"
+          class="blink"/>
+  {{ belt(h, dark, hue, 0.33, 0.235) }}
+  <circle cx="{{ h * 0.27 }}" cy="{{ -h * 0.3 }}" r="{{ h * 0.05 }}" fill="none"
+          stroke="var(--m-brass)" stroke-width="{{ h * 0.018 }}"/>
+  {% for i in range(3) %}
+  <line x1="{{ h * (0.25 + 0.02 * i) }}" y1="{{ -h * 0.26 }}"
+        x2="{{ h * (0.24 + 0.025 * i) }}" y2="{{ -h * 0.2 }}" stroke="var(--m-brass)"
+        stroke-width="{{ h * 0.012 }}"/>
+  {% endfor %}
   {# sealed helmet: a visor slot instead of a face #}
   <path d="M{{ -h * 0.14 }} {{ -h * 0.62 }} a{{ h * 0.14 }} {{ h * 0.16 }} 0 0 1 {{ h * 0.28 }} 0
            v{{ -h * 0.02 }} a{{ h * 0.14 }} {{ h * 0.14 }} 0 0 0 {{ -h * 0.28 }} 0 z"
         fill="{{ dark }}"/>
-  <circle cx="0" cy="{{ -h * 0.73 }}" r="{{ h * 0.135 }}" fill="{{ dark }}"/>
-  <rect x="{{ -h * 0.1 }}" y="{{ -h * 0.765 }}" width="{{ h * 0.2 }}" height="{{ h * 0.045 }}"
-        rx="{{ h * 0.022 }}" fill="{{ hue }}" class="glowpane"/>
+  <circle cx="0" cy="{{ -h * 0.73 }}" r="{{ h * 0.135 }}" fill="var(--m-steel)"/>
+  <path d="M0 {{ -h * 0.865 }} a{{ h * 0.135 }} {{ h * 0.135 }} 0 0 1 0 {{ h * 0.27 }} z"
+        fill="#000" opacity=".3"/>
+  <path d="M{{ -h * 0.112 }} {{ -h * 0.79 }} a{{ h * 0.112 }} {{ h * 0.09 }} 0 0 1 {{ h * 0.11 }} {{ -h * 0.014 }}"
+        fill="none" stroke="#fff" stroke-width="{{ h * 0.014 }}" opacity=".22"/>
+  <rect x="{{ -h * 0.105 }}" y="{{ -h * 0.768 }}" width="{{ h * 0.21 }}" height="{{ h * 0.05 }}"
+        rx="{{ h * 0.024 }}" fill="{{ hue }}" class="glowpane"/>
   <circle cx="{{ -h * 0.14 }}" cy="{{ -h * 0.63 }}" r="{{ h * 0.03 }}" fill="{{ hue }}"
           class="blink"/>
+  {{ patch(h, dark, hue, 'cross') }}
 
 {% elif role == 'director' %}
-  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}{{ arms(h, dark, hue, skin) }}
+  {{ boots(h, dark, hue) }}{{ legs(h, dark, hue) }}
   {# long coat with a flared hem #}
   <path d="M{{ -h * 0.21 }} {{ -h * 0.6 }} L{{ h * 0.21 }} {{ -h * 0.6 }}
            L{{ h * 0.26 }} {{ -h * 0.18 }} L{{ -h * 0.26 }} {{ -h * 0.18 }} Z"
         fill="{{ hue }}" stroke="{{ dark }}" stroke-width="{{ h * 0.02 }}"/>
-  <path d="M0 {{ -h * 0.6 }} v{{ h * 0.42 }}" stroke="{{ dark }}" stroke-width="{{ h * 0.016 }}"/>
+  {{ shading(h, 0.6, 0.18, 0.21, 0.26) }}
+  {{ arms(h, dark, hue, skin) }}
   <path d="M{{ -h * 0.21 }} {{ -h * 0.6 }} L0 {{ -h * 0.48 }} L{{ h * 0.21 }} {{ -h * 0.6 }}"
         fill="{{ dark }}" opacity=".85"/>
+  <path d="M{{ -h * 0.09 }} {{ -h * 0.585 }} L0 {{ -h * 0.5 }} L{{ h * 0.09 }} {{ -h * 0.585 }}"
+        fill="none" stroke="{{ hue }}" stroke-width="{{ h * 0.014 }}" opacity=".7"/>
+  {# epaulettes with rank pips #}
   <rect x="{{ -h * 0.3 }}" y="{{ -h * 0.62 }}" width="{{ h * 0.13 }}" height="{{ h * 0.05 }}"
         rx="{{ h * 0.02 }}" fill="{{ dark }}"/>
   <rect x="{{ h * 0.17 }}" y="{{ -h * 0.62 }}" width="{{ h * 0.13 }}" height="{{ h * 0.05 }}"
         rx="{{ h * 0.02 }}" fill="{{ dark }}"/>
+  {% for i in range(2) %}
+  <line x1="{{ -h * (0.28 - 0.04 * i) }}" y1="{{ -h * 0.612 }}"
+        x2="{{ -h * (0.28 - 0.04 * i) }}" y2="{{ -h * 0.578 }}" stroke="var(--m-brass)"
+        stroke-width="{{ h * 0.011 }}"/>
+  <line x1="{{ h * (0.2 + 0.04 * i) }}" y1="{{ -h * 0.612 }}"
+        x2="{{ h * (0.2 + 0.04 * i) }}" y2="{{ -h * 0.578 }}" stroke="var(--m-brass)"
+        stroke-width="{{ h * 0.011 }}"/>
+  {% endfor %}
+  {{ belt(h, dark, hue, 0.32, 0.24) }}
   {# tablet #}
-  <rect x="{{ h * 0.2 }}" y="{{ -h * 0.46 }}" width="{{ h * 0.17 }}" height="{{ h * 0.13 }}"
-        rx="{{ h * 0.016 }}" fill="{{ panel }}" stroke="{{ dark }}"
-        stroke-width="{{ h * 0.016 }}" transform="rotate(-16 {{ h * 0.28 }} {{ -h * 0.4 }})"/>
-  <rect x="{{ h * 0.225 }}" y="{{ -h * 0.44 }}" width="{{ h * 0.12 }}" height="{{ h * 0.085 }}"
-        fill="{{ hue }}" opacity=".55" class="glowpane"
-        transform="rotate(-16 {{ h * 0.28 }} {{ -h * 0.4 }})"/>
+  <g transform="rotate(-16 {{ h * 0.28 }} {{ -h * 0.4 }})">
+    <rect x="{{ h * 0.2 }}" y="{{ -h * 0.46 }}" width="{{ h * 0.17 }}" height="{{ h * 0.13 }}"
+          rx="{{ h * 0.016 }}" fill="{{ panel }}" stroke="{{ dark }}"
+          stroke-width="{{ h * 0.016 }}"/>
+    <rect x="{{ h * 0.225 }}" y="{{ -h * 0.44 }}" width="{{ h * 0.12 }}" height="{{ h * 0.085 }}"
+          fill="{{ hue }}" opacity=".6" class="glowpane"/>
+    {% for i in range(3) %}
+    <line x1="{{ h * 0.235 }}" y1="{{ -h * (0.425 - 0.022 * i) }}"
+          x2="{{ h * (0.28 + 0.015 * i) }}" y2="{{ -h * (0.425 - 0.022 * i) }}"
+          stroke="{{ panel }}" stroke-width="{{ h * 0.009 }}"/>
+    {% endfor %}
+  </g>
   {{ face(h, dark, skin) }}
   {# peaked cap #}
   <path d="M{{ -h * 0.13 }} {{ -h * 0.79 }} a{{ h * 0.13 }} {{ h * 0.11 }} 0 0 1 {{ h * 0.26 }} 0 z"
         fill="{{ dark }}"/>
+  <path d="M0 {{ -h * 0.885 }} a{{ h * 0.13 }} {{ h * 0.11 }} 0 0 1 0 {{ h * 0.095 }} z"
+        fill="#fff" opacity=".07"/>
   <rect x="{{ -h * 0.155 }}" y="{{ -h * 0.795 }}" width="{{ h * 0.31 }}" height="{{ h * 0.035 }}"
         rx="{{ h * 0.017 }}" fill="{{ hue }}"/>
   <rect x="{{ -h * 0.145 }}" y="{{ -h * 0.79 }}" width="{{ h * 0.19 }}" height="{{ h * 0.028 }}"
         rx="{{ h * 0.014 }}" fill="{{ dark }}"/>
+  <circle cx="0" cy="{{ -h * 0.842 }}" r="{{ h * 0.022 }}" fill="var(--m-brass)"/>
+  {{ patch(h, dark, hue, 'bars') }}
 
 {% elif role == 'theorist' %}
-  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}{{ arms(h, dark, hue, skin) }}
+  {{ boots(h, dark, hue) }}{{ legs(h, dark, hue) }}
   <path d="M{{ -h * 0.16 }} {{ -h * 0.6 }} L{{ h * 0.16 }} {{ -h * 0.6 }}
            L{{ h * 0.18 }} {{ -h * 0.26 }} L{{ -h * 0.18 }} {{ -h * 0.26 }} Z"
         fill="{{ hue }}" stroke="{{ dark }}" stroke-width="{{ h * 0.02 }}"/>
+  {{ shading(h, 0.6, 0.26, 0.16, 0.18) }}
+  {{ arms(h, dark, hue, skin) }}
+  {# a cardigan over it, hanging open #}
+  <path d="M{{ -h * 0.165 }} {{ -h * 0.6 }} L{{ -h * 0.09 }} {{ -h * 0.6 }}
+           L{{ -h * 0.11 }} {{ -h * 0.26 }} L{{ -h * 0.185 }} {{ -h * 0.26 }} Z
+           M{{ h * 0.165 }} {{ -h * 0.6 }} L{{ h * 0.09 }} {{ -h * 0.6 }}
+           L{{ h * 0.11 }} {{ -h * 0.26 }} L{{ h * 0.185 }} {{ -h * 0.26 }} Z"
+        fill="{{ dark }}" opacity=".55"/>
   {# a scarf that trails behind #}
   <path d="M{{ -h * 0.17 }} {{ -h * 0.58 }} q{{ -h * 0.2 }} {{ h * 0.1 }} {{ -h * 0.12 }} {{ h * 0.26 }}"
         fill="none" stroke="{{ hue }}" stroke-width="{{ h * 0.05 }}" stroke-linecap="round"
         opacity=".85"/>
+  <path d="M{{ -h * 0.24 }} {{ -h * 0.5 }} q{{ -h * 0.1 }} {{ h * 0.08 }} {{ -h * 0.05 }} {{ h * 0.18 }}"
+        fill="none" stroke="{{ dark }}" stroke-width="{{ h * 0.014 }}" opacity=".5"/>
   <rect x="{{ -h * 0.19 }}" y="{{ -h * 0.63 }}" width="{{ h * 0.38 }}" height="{{ h * 0.06 }}"
         rx="{{ h * 0.03 }}" fill="{{ hue }}" stroke="{{ dark }}" stroke-width="{{ h * 0.014 }}"/>
   {# slate with a scribble #}
@@ -145,117 +340,166 @@
     <path d="M{{ h * 0.2 }} {{ -h * 0.44 }} l{{ h * 0.05 }} {{ -h * 0.03 }}
              l{{ h * 0.04 }} {{ h * 0.03 }} l{{ h * 0.05 }} {{ -h * 0.05 }}"
           fill="none" stroke="{{ hue }}" stroke-width="{{ h * 0.02 }}" stroke-linecap="round"/>
+    <path d="M{{ h * 0.2 }} {{ -h * 0.33 }} h{{ h * 0.1 }} M{{ h * 0.2 }} {{ -h * 0.36 }} h{{ h * 0.13 }}"
+          stroke="{{ dark }}" stroke-width="{{ h * 0.011 }}" opacity=".7"/>
   </g>
   {{ face(h, dark, skin) }}
-  {# unruly hair #}
-  <path d="M{{ -h * 0.11 }} {{ -h * 0.79 }} q{{ h * 0.04 }} {{ -h * 0.07 }} {{ h * 0.09 }} {{ -h * 0.02 }}
-           q{{ h * 0.03 }} {{ -h * 0.06 }} {{ h * 0.08 }} {{ -h * 0.01 }}
-           q{{ h * 0.05 }} {{ -h * 0.04 }} {{ h * 0.05 }} {{ h * 0.04 }} z" fill="{{ dark }}"/>
+  {{ hair(h, 'unruly') }}
+  {{ patch(h, dark, hue, 'diamond') }}
 
 {% elif role == 'literature' %}
-  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}{{ arms(h, dark, hue, skin) }}
+  {{ boots(h, dark, hue) }}{{ legs(h, dark, hue) }}
   <path d="M{{ -h * 0.19 }} {{ -h * 0.6 }} L{{ h * 0.19 }} {{ -h * 0.6 }}
            L{{ h * 0.21 }} {{ -h * 0.26 }} L{{ -h * 0.21 }} {{ -h * 0.26 }} Z"
         fill="{{ hue }}" stroke="{{ dark }}" stroke-width="{{ h * 0.02 }}"/>
-  {# satchel strap across the chest #}
+  {{ shading(h, 0.6, 0.26, 0.19, 0.21) }}
+  {{ arms(h, dark, hue, skin) }}
+  {# satchel strap across the chest, and the bag on the hip #}
   <path d="M{{ -h * 0.17 }} {{ -h * 0.59 }} L{{ h * 0.18 }} {{ -h * 0.32 }}"
-        stroke="{{ dark }}" stroke-width="{{ h * 0.035 }}"/>
-  <rect x="{{ h * 0.13 }}" y="{{ -h * 0.36 }}" width="{{ h * 0.14 }}" height="{{ h * 0.12 }}"
-        rx="{{ h * 0.02 }}" fill="{{ dark }}"/>
+        stroke="var(--m-wood-2)" stroke-width="{{ h * 0.038 }}"/>
+  <rect x="{{ h * 0.13 }}" y="{{ -h * 0.36 }}" width="{{ h * 0.15 }}" height="{{ h * 0.13 }}"
+        rx="{{ h * 0.02 }}" fill="var(--m-wood)" stroke="var(--m-wood-2)"
+        stroke-width="{{ h * 0.014 }}"/>
+  <rect x="{{ h * 0.13 }}" y="{{ -h * 0.36 }}" width="{{ h * 0.15 }}" height="{{ h * 0.04 }}"
+        rx="{{ h * 0.014 }}" fill="var(--m-wood-2)"/>
+  <circle cx="{{ h * 0.205 }}" cy="{{ -h * 0.318 }}" r="{{ h * 0.012 }}" fill="var(--m-brass)"/>
   {# a stack of books held in both arms #}
   {% for i in range(4) %}
-  <rect x="{{ -h * 0.2 }}" y="{{ -h * (0.5 - 0.062 * i) }}" width="{{ h * 0.4 }}"
-        height="{{ h * 0.05 }}" rx="{{ h * 0.012 }}" fill="{{ panel }}" stroke="{{ dark }}"
-        stroke-width="{{ h * 0.014 }}"/>
-  <rect x="{{ -h * 0.2 }}" y="{{ -h * (0.5 - 0.062 * i) }}" width="{{ h * 0.055 }}"
-        height="{{ h * 0.05 }}" fill="{{ hue }}" opacity="{{ 0.5 + 0.12 * i }}"/>
+  <rect x="{{ -h * 0.16 }}" y="{{ -h * (0.44 - 0.052 * i) }}" width="{{ h * 0.32 }}"
+        height="{{ h * 0.042 }}" rx="{{ h * 0.01 }}"
+        fill="{{ ['#c0483c', '#4f8fbf', '#d8a341', '#3f8f5c'][i] }}" stroke="{{ dark }}"
+        stroke-width="{{ h * 0.013 }}"/>
+  <rect x="{{ -h * 0.16 }}" y="{{ -h * (0.44 - 0.052 * i) }}" width="{{ h * 0.045 }}"
+        height="{{ h * 0.042 }}" fill="#eef2f8" opacity=".8"/>
   {% endfor %}
   {{ face(h, dark, skin) }}
   {# round spectacles #}
-  <g fill="none" stroke="{{ dark }}" stroke-width="{{ h * 0.016 }}">
-    <circle cx="{{ -h * 0.045 }}" cy="{{ -h * 0.725 }}" r="{{ h * 0.038 }}"/>
-    <circle cx="{{ h * 0.045 }}" cy="{{ -h * 0.725 }}" r="{{ h * 0.038 }}"/>
-    <line x1="{{ -h * 0.007 }}" y1="{{ -h * 0.725 }}" x2="{{ h * 0.007 }}" y2="{{ -h * 0.725 }}"/>
+  <g fill="none" stroke="var(--m-brass)" stroke-width="{{ h * 0.016 }}">
+    <circle cx="{{ -h * 0.045 }}" cy="{{ -h * 0.722 }}" r="{{ h * 0.04 }}"/>
+    <circle cx="{{ h * 0.045 }}" cy="{{ -h * 0.722 }}" r="{{ h * 0.04 }}"/>
+    <line x1="{{ -h * 0.005 }}" y1="{{ -h * 0.722 }}" x2="{{ h * 0.005 }}" y2="{{ -h * 0.722 }}"/>
   </g>
-  <path d="M{{ -h * 0.115 }} {{ -h * 0.78 }} a{{ h * 0.115 }} {{ h * 0.1 }} 0 0 1 {{ h * 0.23 }} 0 z"
-        fill="{{ dark }}"/>
+  {{ hair(h, 'tied') }}
+  {{ patch(h, dark, hue, 'ring') }}
 
 {% elif role == 'designer' %}
-  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}{{ arms(h, dark, hue, skin) }}
+  {{ boots(h, dark, hue) }}{{ legs(h, dark, hue) }}
   <path d="M{{ -h * 0.19 }} {{ -h * 0.6 }} L{{ h * 0.19 }} {{ -h * 0.6 }}
            L{{ h * 0.21 }} {{ -h * 0.26 }} L{{ -h * 0.21 }} {{ -h * 0.26 }} Z"
         fill="{{ hue }}" stroke="{{ dark }}" stroke-width="{{ h * 0.02 }}"/>
-  {# apron #}
+  {{ shading(h, 0.6, 0.26, 0.19, 0.21) }}
+  {{ arms(h, dark, hue, skin) }}
+  {# apron, with a row of pencils in the pocket #}
   <path d="M{{ -h * 0.12 }} {{ -h * 0.56 }} h{{ h * 0.24 }} v{{ h * 0.1 }}
            l{{ h * 0.04 }} {{ h * 0.2 }} h{{ -h * 0.32 }} l{{ h * 0.04 }} {{ -h * 0.2 }} z"
-        fill="{{ panel }}" stroke="{{ dark }}" stroke-width="{{ h * 0.016 }}"/>
-  <rect x="{{ -h * 0.07 }}" y="{{ -h * 0.36 }}" width="{{ h * 0.14 }}" height="{{ h * 0.07 }}"
-        rx="{{ h * 0.012 }}" fill="{{ dark }}" opacity=".7"/>
+        fill="var(--m-enamel)" stroke="{{ dark }}" stroke-width="{{ h * 0.016 }}"/>
+  <path d="M{{ h * 0.02 }} {{ -h * 0.56 }} h{{ h * 0.1 }} v{{ h * 0.1 }}
+           l{{ h * 0.04 }} {{ h * 0.2 }} h{{ -h * 0.14 }} z" fill="#000" opacity=".16"/>
+  <rect x="{{ -h * 0.07 }}" y="{{ -h * 0.38 }}" width="{{ h * 0.14 }}" height="{{ h * 0.08 }}"
+        rx="{{ h * 0.012 }}" fill="var(--m-enamel-2)"/>
+  {% for i in range(3) %}
+  <rect x="{{ -h * (0.055 - 0.04 * i) }}" y="{{ -h * 0.41 }}" width="{{ h * 0.014 }}"
+        height="{{ h * 0.05 }}" rx="{{ h * 0.007 }}"
+        fill="{{ ['#c0483c', '#4f8fbf', '#3f8f5c'][i] }}"/>
+  {% endfor %}
   {# drafting triangle and T-square #}
   <path d="M{{ h * 0.16 }} {{ -h * 0.22 }} L{{ h * 0.45 }} {{ -h * 0.22 }}
-           L{{ h * 0.16 }} {{ -h * 0.51 }} Z" fill="none" stroke="{{ dark }}"
-        stroke-width="{{ h * 0.026 }}" stroke-linejoin="round"/>
+           L{{ h * 0.16 }} {{ -h * 0.51 }} Z" fill="{{ hue }}" fill-opacity=".18"
+        stroke="var(--m-enamel)" stroke-width="{{ h * 0.026 }}" stroke-linejoin="round"/>
   <path d="M{{ -h * 0.44 }} {{ -h * 0.4 }} h{{ h * 0.26 }} M{{ -h * 0.44 }} {{ -h * 0.45 }}
-           v{{ h * 0.1 }}" stroke="{{ dark }}" stroke-width="{{ h * 0.024 }}"
+           v{{ h * 0.1 }}" stroke="var(--m-enamel)" stroke-width="{{ h * 0.024 }}"
         stroke-linecap="round"/>
   {{ face(h, dark, skin) }}
   {# pencil behind the ear #}
-  <rect x="{{ h * 0.09 }}" y="{{ -h * 0.79 }}" width="{{ h * 0.025 }}" height="{{ h * 0.09 }}"
-        fill="{{ hue }}" transform="rotate(24 {{ h * 0.1 }} {{ -h * 0.75 }})"/>
-  <path d="M{{ -h * 0.115 }} {{ -h * 0.78 }} a{{ h * 0.115 }} {{ h * 0.1 }} 0 0 1 {{ h * 0.23 }} 0 z"
-        fill="{{ dark }}"/>
+  <g transform="rotate(24 {{ h * 0.1 }} {{ -h * 0.75 }})">
+    <rect x="{{ h * 0.09 }}" y="{{ -h * 0.79 }}" width="{{ h * 0.026 }}" height="{{ h * 0.09 }}"
+          fill="var(--m-hazard)"/>
+    <path d="M{{ h * 0.09 }} {{ -h * 0.7 }} h{{ h * 0.026 }} l{{ -h * 0.013 }} {{ h * 0.02 }} z"
+          fill="{{ dark }}"/>
+  </g>
+  {{ hair(h, 'crop') }}
+  {{ patch(h, dark, hue, 'triangle') }}
 
 {% elif role == 'builder' %}
-  {{ boots(h, dark) }}
+  {{ boots(h, dark, hue) }}
   <path d="M{{ -h * 0.135 }} {{ -h * 0.3 }} h{{ h * 0.105 }} v{{ h * 0.25 }} h{{ -h * 0.105 }} z
            M{{ h * 0.03 }} {{ -h * 0.3 }} h{{ h * 0.105 }} v{{ h * 0.25 }} h{{ -h * 0.105 }} z"
         fill="{{ dark }}"/>
+  <rect x="{{ h * 0.03 }}" y="{{ -h * 0.3 }}" width="{{ h * 0.105 }}" height="{{ h * 0.25 }}"
+        fill="#000" opacity=".28"/>
   <path d="M{{ -h * 0.23 }} {{ -h * 0.6 }} L{{ h * 0.23 }} {{ -h * 0.6 }}
            L{{ h * 0.25 }} {{ -h * 0.3 }} L{{ -h * 0.25 }} {{ -h * 0.3 }} Z"
         fill="{{ hue }}" stroke="{{ dark }}" stroke-width="{{ h * 0.02 }}"/>
-  {# hi-vis bands and a tool belt #}
+  {{ shading(h, 0.6, 0.3, 0.23, 0.25) }}
+  {{ arms(h, dark, hue, skin) }}
+  {# hi-vis bands #}
   <path d="M{{ -h * 0.15 }} {{ -h * 0.6 }} L{{ -h * 0.06 }} {{ -h * 0.3 }}
            M{{ h * 0.15 }} {{ -h * 0.6 }} L{{ h * 0.06 }} {{ -h * 0.3 }}"
-        stroke="{{ panel }}" stroke-width="{{ h * 0.03 }}" opacity=".9"/>
-  <rect x="{{ -h * 0.27 }}" y="{{ -h * 0.34 }}" width="{{ h * 0.54 }}" height="{{ h * 0.06 }}"
-        rx="{{ h * 0.012 }}" fill="{{ dark }}"/>
+        stroke="var(--m-hazard)" stroke-width="{{ h * 0.032 }}" opacity=".95"/>
+  <path d="M{{ -h * 0.235 }} {{ -h * 0.47 }} h{{ h * 0.47 }}" stroke="var(--m-hazard)"
+        stroke-width="{{ h * 0.026 }}" opacity=".8"/>
+  {# tool belt, loaded #}
+  <rect x="{{ -h * 0.27 }}" y="{{ -h * 0.35 }}" width="{{ h * 0.54 }}" height="{{ h * 0.062 }}"
+        rx="{{ h * 0.012 }}" fill="var(--m-wood-2)"/>
+  <rect x="{{ -h * 0.03 }}" y="{{ -h * 0.355 }}" width="{{ h * 0.06 }}" height="{{ h * 0.07 }}"
+        rx="{{ h * 0.008 }}" fill="var(--m-brass)"/>
   {% for i in range(3) %}
-  <rect x="{{ -h * (0.2 - 0.14 * i) }}" y="{{ -h * 0.29 }}" width="{{ h * 0.05 }}"
-        height="{{ h * 0.09 }}" rx="{{ h * 0.014 }}" fill="{{ panel }}" stroke="{{ dark }}"
-        stroke-width="{{ h * 0.012 }}"/>
+  <rect x="{{ -h * (0.2 - 0.14 * i) }}" y="{{ -h * 0.29 }}" width="{{ h * 0.055 }}"
+        height="{{ h * 0.095 }}" rx="{{ h * 0.014 }}" fill="var(--m-wood)"
+        stroke="var(--m-wood-2)" stroke-width="{{ h * 0.012 }}"/>
+  <rect x="{{ -h * (0.19 - 0.14 * i) }}" y="{{ -h * 0.315 }}" width="{{ h * 0.014 }}"
+        height="{{ h * 0.035 }}" fill="var(--m-steel)"/>
   {% endfor %}
   {# wrench #}
   <g transform="rotate(28 {{ h * 0.31 }} {{ -h * 0.42 }})">
-    <rect x="{{ h * 0.29 }}" y="{{ -h * 0.55 }}" width="{{ h * 0.045 }}" height="{{ h * 0.24 }}"
-          rx="{{ h * 0.02 }}" fill="{{ dark }}"/>
-    <path d="M{{ h * 0.275 }} {{ -h * 0.58 }} h{{ h * 0.075 }} v{{ h * 0.045 }}
-             h{{ -h * 0.025 }} v{{ -h * 0.02 }} h{{ -h * 0.025 }} v{{ h * 0.02 }}
-             h{{ -h * 0.025 }} z" fill="{{ dark }}"/>
+    <rect x="{{ h * 0.29 }}" y="{{ -h * 0.55 }}" width="{{ h * 0.048 }}" height="{{ h * 0.24 }}"
+          rx="{{ h * 0.02 }}" fill="var(--m-steel)" stroke="var(--m-steel-2)"
+          stroke-width="{{ h * 0.01 }}"/>
+    <path d="M{{ h * 0.275 }} {{ -h * 0.58 }} h{{ h * 0.078 }} v{{ h * 0.045 }}
+             h{{ -h * 0.026 }} v{{ -h * 0.02 }} h{{ -h * 0.026 }} v{{ h * 0.02 }}
+             h{{ -h * 0.026 }} z" fill="var(--m-steel)"/>
   </g>
   <circle cx="0" cy="{{ -h * 0.715 }}" r="{{ h * 0.105 }}" fill="{{ skin }}"/>
+  <path d="M0 {{ -h * 0.82 }} a{{ h * 0.105 }} {{ h * 0.105 }} 0 0 1 0 {{ h * 0.21 }} z"
+        fill="var(--fig-skin-2)" opacity=".5"/>
+  <circle cx="{{ -h * 0.04 }}" cy="{{ -h * 0.722 }}" r="{{ h * 0.015 }}" fill="{{ dark }}"/>
+  <circle cx="{{ h * 0.04 }}" cy="{{ -h * 0.722 }}" r="{{ h * 0.015 }}" fill="{{ dark }}"/>
   {# hard hat with a lamp #}
   <path d="M{{ -h * 0.155 }} {{ -h * 0.775 }} a{{ h * 0.155 }} {{ h * 0.15 }} 0 0 1 {{ h * 0.31 }} 0 z"
-        fill="{{ dark }}"/>
-  <rect x="{{ -h * 0.19 }}" y="{{ -h * 0.785 }}" width="{{ h * 0.38 }}" height="{{ h * 0.04 }}"
-        rx="{{ h * 0.02 }}" fill="{{ dark }}"/>
-  <circle cx="0" cy="{{ -h * 0.83 }}" r="{{ h * 0.032 }}" fill="{{ hue }}" class="blink"/>
+        fill="var(--m-hazard)"/>
+  <path d="M0 {{ -h * 0.925 }} a{{ h * 0.155 }} {{ h * 0.15 }} 0 0 1 0 {{ h * 0.15 }} z"
+        fill="#000" opacity=".2"/>
+  <path d="M0 {{ -h * 0.925 }} v{{ h * 0.15 }}" stroke="{{ dark }}"
+        stroke-width="{{ h * 0.012 }}" opacity=".4"/>
+  <rect x="{{ -h * 0.19 }}" y="{{ -h * 0.785 }}" width="{{ h * 0.38 }}" height="{{ h * 0.042 }}"
+        rx="{{ h * 0.021 }}" fill="var(--m-hazard)" stroke="{{ dark }}"
+        stroke-width="{{ h * 0.01 }}"/>
+  <circle cx="0" cy="{{ -h * 0.837 }}" r="{{ h * 0.034 }}" fill="{{ hue }}" class="blink"/>
+  {{ patch(h, dark, hue, 'chevron') }}
 
 {% elif role == 'analyst' %}
-  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}{{ arms(h, dark, hue, skin) }}
+  {{ boots(h, dark, hue) }}{{ legs(h, dark, hue) }}
   <path d="M{{ -h * 0.19 }} {{ -h * 0.6 }} L{{ h * 0.19 }} {{ -h * 0.6 }}
            L{{ h * 0.21 }} {{ -h * 0.26 }} L{{ -h * 0.21 }} {{ -h * 0.26 }} Z"
         fill="{{ hue }}" stroke="{{ dark }}" stroke-width="{{ h * 0.02 }}"/>
+  {{ shading(h, 0.6, 0.26, 0.19, 0.21) }}
+  {{ arms(h, dark, hue, skin) }}
   <path d="M{{ -h * 0.19 }} {{ -h * 0.6 }} L0 {{ -h * 0.44 }} L{{ h * 0.19 }} {{ -h * 0.6 }}"
-        fill="{{ panel }}" opacity=".8"/>
-  {# a floating panel of bars, read rather than held #}
-  <g opacity=".92">
-    <rect x="{{ h * 0.22 }}" y="{{ -h * 0.62 }}" width="{{ h * 0.27 }}" height="{{ h * 0.22 }}"
+        fill="{{ panel }}" opacity=".85"/>
+  <path d="M{{ -h * 0.08 }} {{ -h * 0.53 }} L0 {{ -h * 0.46 }} L{{ h * 0.08 }} {{ -h * 0.53 }}"
+        fill="none" stroke="{{ hue }}" stroke-width="{{ h * 0.012 }}" opacity=".6"/>
+  {{ belt(h, dark, hue, 0.31, 0.2) }}
+  {# a panel of bars, read rather than held #}
+  <g opacity=".95">
+    <rect x="{{ h * 0.22 }}" y="{{ -h * 0.62 }}" width="{{ h * 0.29 }}" height="{{ h * 0.24 }}"
           rx="{{ h * 0.02 }}" fill="{{ panel }}" stroke="{{ hue }}"
           stroke-width="{{ h * 0.018 }}"/>
+    <line x1="{{ h * 0.235 }}" y1="{{ -h * 0.405 }}" x2="{{ h * 0.495 }}" y2="{{ -h * 0.405 }}"
+          stroke="{{ hue }}" stroke-width="{{ h * 0.01 }}" opacity=".6"/>
     {% for i in range(4) %}
-    <rect x="{{ h * (0.245 + 0.06 * i) }}" y="{{ -h * (0.44 + 0.035 * ((i * 5 + 3) % 4)) }}"
-          width="{{ h * 0.04 }}" height="{{ h * (0.03 + 0.035 * ((i * 5 + 3) % 4)) }}"
-          fill="{{ hue }}" class="glowpane"/>
+    <rect x="{{ h * (0.245 + 0.065 * i) }}" y="{{ -h * (0.42 + 0.04 * ((i * 5 + 3) % 4)) }}"
+          width="{{ h * 0.045 }}" height="{{ h * (0.015 + 0.04 * ((i * 5 + 3) % 4)) }}"
+          fill="{{ ['#4f8fbf', '#3f8f5c', '#d8a341', '#c0483c'][i] }}" class="glowpane"/>
     {% endfor %}
   </g>
   {{ face(h, dark, skin) }}
@@ -266,36 +510,51 @@
         rx="{{ h * 0.022 }}" fill="{{ dark }}"/>
   <rect x="{{ h * 0.11 }}" y="{{ -h * 0.755 }}" width="{{ h * 0.05 }}" height="{{ h * 0.075 }}"
         rx="{{ h * 0.022 }}" fill="{{ dark }}"/>
+  <circle cx="{{ -h * 0.135 }}" cy="{{ -h * 0.718 }}" r="{{ h * 0.012 }}" fill="{{ hue }}"
+          class="blink"/>
   <path d="M{{ h * 0.13 }} {{ -h * 0.69 }} q{{ -h * 0.04 }} {{ h * 0.05 }} {{ -h * 0.1 }} {{ h * 0.05 }}"
         fill="none" stroke="{{ dark }}" stroke-width="{{ h * 0.016 }}"/>
-  <path d="M{{ -h * 0.115 }} {{ -h * 0.78 }} a{{ h * 0.115 }} {{ h * 0.1 }} 0 0 1 {{ h * 0.23 }} 0 z"
-        fill="{{ dark }}"/>
+  {{ hair(h, 'crop') }}
+  {{ patch(h, dark, hue, 'square') }}
 
 {% elif role == 'skeptic' %}
-  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}{{ arms(h, dark, hue, skin) }}
+  {{ boots(h, dark, hue) }}{{ legs(h, dark, hue) }}
   {# a long hooded coat: the hood is the silhouette #}
   <path d="M{{ -h * 0.24 }} {{ -h * 0.16 }} L{{ -h * 0.2 }} {{ -h * 0.56 }}
            L0 {{ -h * 0.68 }} L{{ h * 0.2 }} {{ -h * 0.56 }} L{{ h * 0.24 }} {{ -h * 0.16 }} Z"
         fill="{{ hue }}" stroke="{{ dark }}" stroke-width="{{ h * 0.02 }}"/>
+  <path d="M0 {{ -h * 0.68 }} L{{ h * 0.2 }} {{ -h * 0.56 }} L{{ h * 0.24 }} {{ -h * 0.16 }}
+           L0 {{ -h * 0.16 }} Z" fill="#000" opacity=".26"/>
   <path d="M{{ -h * 0.2 }} {{ -h * 0.56 }} L0 {{ -h * 0.3 }} L{{ h * 0.2 }} {{ -h * 0.56 }}"
         fill="{{ dark }}" opacity=".5"/>
+  {{ arms(h, dark, hue, skin) }}
+  {% for i in range(3) %}
+  <path d="M{{ -h * (0.215 + 0.008 * i) }} {{ -h * (0.44 - 0.09 * i) }}
+           q{{ h * 0.21 }} {{ h * 0.05 }} {{ h * (0.43 + 0.016 * i) }} 0" fill="none"
+        stroke="{{ dark }}" stroke-width="{{ h * 0.01 }}" opacity=".4"/>
+  {% endfor %}
   <path d="M{{ -h * 0.175 }} {{ -h * 0.7 }} a{{ h * 0.175 }} {{ h * 0.2 }} 0 0 1 {{ h * 0.35 }} 0
            l{{ -h * 0.04 }} {{ h * 0.09 }} a{{ h * 0.135 }} {{ h * 0.15 }} 0 0 0 {{ -h * 0.27 }} 0 z"
         fill="{{ dark }}"/>
+  <path d="M{{ -h * 0.175 }} {{ -h * 0.72 }} a{{ h * 0.175 }} {{ h * 0.18 }} 0 0 1 {{ h * 0.16 }} {{ -h * 0.055 }}"
+        fill="none" stroke="{{ hue }}" stroke-width="{{ h * 0.014 }}" opacity=".45"/>
   <path d="M{{ -h * 0.105 }} {{ -h * 0.75 }} a{{ h * 0.105 }} {{ h * 0.1 }} 0 0 0 {{ h * 0.21 }} 0
            v{{ h * 0.06 }} a{{ h * 0.105 }} {{ h * 0.1 }} 0 0 1 {{ -h * 0.21 }} 0 z"
-        fill="{{ skin }}" opacity=".55"/>
-  <circle cx="{{ -h * 0.04 }}" cy="{{ -h * 0.735 }}" r="{{ h * 0.016 }}" fill="{{ hue }}"
+        fill="{{ skin }}" opacity=".45"/>
+  <circle cx="{{ -h * 0.04 }}" cy="{{ -h * 0.735 }}" r="{{ h * 0.018 }}" fill="{{ hue }}"
           class="blink"/>
-  <circle cx="{{ h * 0.04 }}" cy="{{ -h * 0.735 }}" r="{{ h * 0.016 }}" fill="{{ hue }}"
+  <circle cx="{{ h * 0.04 }}" cy="{{ -h * 0.735 }}" r="{{ h * 0.018 }}" fill="{{ hue }}"
           class="blink"/>
   {# the glass #}
   <g transform="rotate(-14 {{ h * 0.33 }} {{ -h * 0.42 }})">
-    <circle cx="{{ h * 0.33 }}" cy="{{ -h * 0.47 }}" r="{{ h * 0.1 }}" fill="{{ panel }}"
-            fill-opacity=".55" stroke="{{ dark }}" stroke-width="{{ h * 0.026 }}"/>
+    <circle cx="{{ h * 0.33 }}" cy="{{ -h * 0.47 }}" r="{{ h * 0.1 }}" fill="var(--m-glass)"
+            fill-opacity=".6" stroke="var(--m-brass)" stroke-width="{{ h * 0.026 }}"/>
+    <path d="M{{ h * 0.29 }} {{ -h * 0.51 }} a{{ h * 0.06 }} {{ h * 0.06 }} 0 0 1 {{ h * 0.05 }} {{ -h * 0.02 }}"
+          fill="none" stroke="#fff" stroke-width="{{ h * 0.014 }}" opacity=".5"/>
     <line x1="{{ h * 0.33 }}" y1="{{ -h * 0.37 }}" x2="{{ h * 0.33 }}" y2="{{ -h * 0.24 }}"
-          stroke="{{ dark }}" stroke-width="{{ h * 0.032 }}" stroke-linecap="round"/>
+          stroke="var(--m-wood-2)" stroke-width="{{ h * 0.034 }}" stroke-linecap="round"/>
   </g>
+  {{ patch(h, dark, hue, 'slash') }}
 
 {% elif role == 'replicator' %}
   {# the ghost: the same figure, offset and faint. It is drawn first so the
@@ -308,60 +567,79 @@
              M{{ h * 0.025 }} {{ -h * 0.3 }} h{{ h * 0.09 }} v{{ h * 0.25 }} h{{ -h * 0.09 }} z"
           fill="{{ hue }}"/>
   </g>
-  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}{{ arms(h, dark, hue, skin) }}
+  {{ boots(h, dark, hue) }}{{ legs(h, dark, hue) }}
   <path d="M{{ -h * 0.2 }} {{ -h * 0.6 }} L{{ h * 0.2 }} {{ -h * 0.6 }}
            L{{ h * 0.22 }} {{ -h * 0.26 }} L{{ -h * 0.22 }} {{ -h * 0.26 }} Z"
         fill="{{ hue }}" stroke="{{ dark }}" stroke-width="{{ h * 0.02 }}"/>
+  {{ shading(h, 0.6, 0.26, 0.2, 0.22) }}
+  {{ arms(h, dark, hue, skin) }}
   {# a sealed suit: seams, no pockets, nothing to carry anything in #}
-  <path d="M0 {{ -h * 0.6 }} v{{ h * 0.34 }} M{{ -h * 0.2 }} {{ -h * 0.44 }} h{{ h * 0.4 }}"
-        stroke="{{ dark }}" stroke-width="{{ h * 0.016 }}" opacity=".8"/>
+  <path d="M{{ -h * 0.2 }} {{ -h * 0.44 }} h{{ h * 0.4 }}" stroke="{{ dark }}"
+        stroke-width="{{ h * 0.016 }}" opacity=".8"/>
+  <path d="M{{ -h * 0.2 }} {{ -h * 0.52 }} h{{ h * 0.4 }} M{{ -h * 0.21 }} {{ -h * 0.36 }} h{{ h * 0.42 }}"
+        stroke="{{ dark }}" stroke-width="{{ h * 0.01 }}" opacity=".5"/>
+  <rect x="{{ -h * 0.24 }}" y="{{ -h * 0.615 }}" width="{{ h * 0.48 }}" height="{{ h * 0.03 }}"
+        rx="{{ h * 0.015 }}" fill="{{ dark }}"/>
   <circle cx="0" cy="{{ -h * 0.715 }}" r="{{ h * 0.105 }}" fill="{{ skin }}"/>
+  <path d="M0 {{ -h * 0.82 }} a{{ h * 0.105 }} {{ h * 0.105 }} 0 0 1 0 {{ h * 0.21 }} z"
+        fill="var(--fig-skin-2)" opacity=".5"/>
+  <path d="M{{ -h * 0.02 }} {{ -h * 0.678 }} q{{ h * 0.02 }} {{ h * 0.01 }} {{ h * 0.04 }} 0"
+        fill="none" stroke="var(--fig-skin-2)" stroke-width="{{ h * 0.01 }}"
+        stroke-linecap="round"/>
   {# the blindfold band: it is given the spec and nothing else #}
   <rect x="{{ -h * 0.135 }}" y="{{ -h * 0.755 }}" width="{{ h * 0.27 }}" height="{{ h * 0.062 }}"
         rx="{{ h * 0.014 }}" fill="{{ dark }}"/>
   <rect x="{{ -h * 0.055 }}" y="{{ -h * 0.745 }}" width="{{ h * 0.11 }}" height="{{ h * 0.04 }}"
-        rx="{{ h * 0.01 }}" fill="{{ hue }}" opacity=".8" class="glowpane"/>
-  <path d="M{{ -h * 0.115 }} {{ -h * 0.78 }} a{{ h * 0.115 }} {{ h * 0.1 }} 0 0 1 {{ h * 0.23 }} 0 z"
-        fill="{{ dark }}"/>
+        rx="{{ h * 0.01 }}" fill="{{ hue }}" opacity=".85" class="glowpane"/>
+  {{ hair(h, 'crop') }}
+  {{ patch(h, dark, hue, 'dot') }}
 
 {% elif role == 'reviewer' %}
-  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}{{ arms(h, dark, hue, skin) }}
+  {{ boots(h, dark, hue) }}{{ legs(h, dark, hue) }}
   <path d="M{{ -h * 0.2 }} {{ -h * 0.6 }} L{{ h * 0.2 }} {{ -h * 0.6 }}
            L{{ h * 0.23 }} {{ -h * 0.22 }} L{{ -h * 0.23 }} {{ -h * 0.22 }} Z"
         fill="{{ hue }}" stroke="{{ dark }}" stroke-width="{{ h * 0.02 }}"/>
+  {{ shading(h, 0.6, 0.22, 0.2, 0.23) }}
+  {{ arms(h, dark, hue, skin) }}
   {# a mantle with a high collar #}
   <path d="M{{ -h * 0.24 }} {{ -h * 0.58 }} L0 {{ -h * 0.42 }} L{{ h * 0.24 }} {{ -h * 0.58 }}
            L{{ h * 0.19 }} {{ -h * 0.64 }} L{{ -h * 0.19 }} {{ -h * 0.64 }} Z"
         fill="{{ dark }}"/>
+  <path d="M{{ -h * 0.2 }} {{ -h * 0.575 }} L0 {{ -h * 0.44 }} L{{ h * 0.2 }} {{ -h * 0.575 }}"
+        fill="none" stroke="var(--m-brass)" stroke-width="{{ h * 0.012 }}" opacity=".7"/>
   <path d="M{{ -h * 0.1 }} {{ -h * 0.64 }} L{{ -h * 0.15 }} {{ -h * 0.79 }}
            M{{ h * 0.1 }} {{ -h * 0.64 }} L{{ h * 0.15 }} {{ -h * 0.79 }}"
         stroke="{{ dark }}" stroke-width="{{ h * 0.045 }}" stroke-linecap="round"/>
   {# stamp and ink pad #}
   <g>
     <rect x="{{ h * 0.24 }}" y="{{ -h * 0.52 }}" width="{{ h * 0.11 }}" height="{{ h * 0.07 }}"
-          rx="{{ h * 0.014 }}" fill="{{ dark }}"/>
+          rx="{{ h * 0.014 }}" fill="var(--m-wood)" stroke="var(--m-wood-2)"
+          stroke-width="{{ h * 0.012 }}"/>
     <rect x="{{ h * 0.275 }}" y="{{ -h * 0.58 }}" width="{{ h * 0.04 }}" height="{{ h * 0.07 }}"
-          rx="{{ h * 0.016 }}" fill="{{ dark }}"/>
-    <rect x="{{ h * 0.24 }}" y="{{ -h * 0.45 }}" width="{{ h * 0.11 }}" height="{{ h * 0.022 }}"
-          fill="{{ hue }}" opacity=".9"/>
+          rx="{{ h * 0.016 }}" fill="var(--m-wood-2)"/>
+    <rect x="{{ h * 0.24 }}" y="{{ -h * 0.45 }}" width="{{ h * 0.11 }}" height="{{ h * 0.024 }}"
+          fill="#c0483c" opacity=".95"/>
   </g>
   {{ face(h, dark, skin) }}
   <g fill="none" stroke="{{ dark }}" stroke-width="{{ h * 0.014 }}">
-    <rect x="{{ -h * 0.085 }}" y="{{ -h * 0.745 }}" width="{{ h * 0.07 }}" height="{{ h * 0.04 }}"
+    <rect x="{{ -h * 0.085 }}" y="{{ -h * 0.742 }}" width="{{ h * 0.07 }}" height="{{ h * 0.04 }}"
           rx="{{ h * 0.008 }}"/>
-    <rect x="{{ h * 0.015 }}" y="{{ -h * 0.745 }}" width="{{ h * 0.07 }}" height="{{ h * 0.04 }}"
+    <rect x="{{ h * 0.015 }}" y="{{ -h * 0.742 }}" width="{{ h * 0.07 }}" height="{{ h * 0.04 }}"
           rx="{{ h * 0.008 }}"/>
-    <line x1="{{ -h * 0.015 }}" y1="{{ -h * 0.727 }}" x2="{{ h * 0.015 }}" y2="{{ -h * 0.727 }}"/>
+    <line x1="{{ -h * 0.015 }}" y1="{{ -h * 0.724 }}" x2="{{ h * 0.015 }}" y2="{{ -h * 0.724 }}"/>
   </g>
-  <path d="M{{ -h * 0.115 }} {{ -h * 0.78 }} a{{ h * 0.115 }} {{ h * 0.1 }} 0 0 1 {{ h * 0.23 }} 0 z"
-        fill="{{ dark }}"/>
+  {{ hair(h, 'tied') }}
+  {{ patch(h, dark, hue, 'stamp') }}
 
 {% else %}
-  {{ boots(h, dark) }}{{ legs(h, dark, hue) }}{{ arms(h, dark, hue, skin) }}
+  {{ boots(h, dark, hue) }}{{ legs(h, dark, hue) }}
   <path d="M{{ -h * 0.19 }} {{ -h * 0.6 }} L{{ h * 0.19 }} {{ -h * 0.6 }}
            L{{ h * 0.21 }} {{ -h * 0.26 }} L{{ -h * 0.21 }} {{ -h * 0.26 }} Z"
         fill="{{ hue }}" stroke="{{ dark }}" stroke-width="{{ h * 0.02 }}"/>
+  {{ shading(h, 0.6, 0.26, 0.19, 0.21) }}
+  {{ arms(h, dark, hue, skin) }}
   {{ face(h, dark, skin) }}
+  {{ hair(h, 'crop') }}
 {% endif %}
 {% endmacro %}
 
@@ -371,7 +649,8 @@
    style="--step:{{ s.period }}s;--step-delay:-{{ s.delay }}s">
   <animateMotion dur="{{ s.dur }}s" begin="{{ s.begin }}s" repeatCount="indefinite"
                  calcMode="linear" path="{{ s.d }}"/>
-  <ellipse cx="0" cy="1.5" rx="{{ h * 0.26 }}" ry="{{ h * 0.075 }}" fill="#000" opacity=".45"/>
+  <ellipse cx="0" cy="1.5" rx="{{ h * 0.27 }}" ry="{{ h * 0.08 }}" fill="#000" opacity=".5"/>
+  <ellipse cx="0" cy="1.5" rx="{{ h * 0.17 }}" ry="{{ h * 0.05 }}" fill="#000" opacity=".35"/>
   <g class="walk">{{ build(s.role, h, hue) }}</g>
   <title>{{ s.role }}</title>
 </g>

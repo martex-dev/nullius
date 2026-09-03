@@ -12,7 +12,19 @@
     --plate-dim:#9aa9c2; --plate-faint:#63728e;
     --floor:#111a29; --floor-2:#0b1220; --wallo:#1d293e; --walli:#33455f;
     --fix:#182437; --fix-2:#0e1725;
-    --fig-dark:#0a1120; --fig-skin:#f0d9c2;
+    /* What things are made of. The map is lit the same way whichever theme the
+       page is in, so these are defined once and never swapped: a brass valve
+       wheel is brass in both. */
+    --m-steel:#54687f; --m-steel-2:#2e3d52;
+    --m-enamel:#c3cfdd; --m-enamel-2:#7d8ea4;
+    --m-wood:#8a5c39; --m-wood-2:#553520;
+    --m-brass:#c69440; --m-brass-2:#7d5a1e;
+    --m-glass:#20495c; --m-glass-2:#0f2b39;
+    --m-rubber:#3a3f4a; --m-rubber-2:#20242c;
+    --m-paint:#b8483c; --m-paint-2:#77281f;
+    --m-hazard:#e0a52a;
+    --fig-dark:#0a1120; --fig-skin:#f0d9c2; --fig-skin-2:#c9a684;
+    --fig-hair:#2a1f18;
     --good:#1c6b3f; --bad:#97231f; --warn:#8a5a10;
     --good-bg:#e7f3ec; --bad-bg:#fbeceb; --warn-bg:#fbf3e2;
     --sans: ui-sans-serif, system-ui, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
@@ -333,6 +345,16 @@
         <pattern id="deck" width="96" height="96" patternUnits="userSpaceOnUse">
           <path d="M96 0H0V96" fill="none" stroke="var(--plate-line)" stroke-width="1.2"
                 stroke-opacity=".55"/>
+        </pattern>
+        <radialGradient id="lightpool">
+          <stop offset="0" stop-color="#fff" stop-opacity=".1"/>
+          <stop offset=".55" stop-color="#fff" stop-opacity=".045"/>
+          <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+        </radialGradient>
+        <pattern id="hazard" width="14" height="14" patternUnits="userSpaceOnUse"
+                 patternTransform="rotate(45)">
+          <rect width="14" height="14" fill="var(--m-hazard)"/>
+          <rect width="7" height="14" fill="var(--fig-dark)"/>
         </pattern>
         <pattern id="sealedhatch" width="16" height="16" patternUnits="userSpaceOnUse"
                  patternTransform="rotate(45)">

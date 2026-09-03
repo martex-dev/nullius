@@ -39,8 +39,11 @@ from nullius.station.map import (
 from nullius.station.model import Station, assemble, engaged_rooms, route_for
 from nullius.station.render import (
     CANNOT_SHOW,
+    DEFAULT_KIT,
+    FURNITURE,
     ITEM_COLUMNS,
     PRINCIPLES,
+    TONES,
     UNUSED_EXITS,
     Box,
     _arrivals,
@@ -942,3 +945,55 @@ def test_every_role_is_drawn_as_its_own_build(tmp_path: Path) -> None:
     page = _built(tmp_path)
     for role in Role:
         assert f"<title>{role.value}</title>" in page, role.value
+
+
+# ------------------------------------------ M28: a room made of its own things
+
+
+def _kinds(kit: object) -> set[str]:
+    rows = (kit.wall, kit.back, kit.mid, kit.front, kit.props)  # type: ignore[attr-defined]
+    return {kind for row in rows for kind in row}
+
+
+def test_every_thing_a_room_asks_for_is_drawn_as_that_thing() -> None:
+    """A kit naming a kind the fixture macro has no branch for falls through to
+    the fallback rectangle, which is a grey box that looks like furniture from a
+    distance. That is exactly how the station came to be twelve rooms of the
+    same object at different proportions."""
+    source = Path("src/nullius/station/templates/parts.html").read_text(encoding="utf-8")
+    drawn = set(re.findall(r"f\.kind == '([a-z]+)'", source))
+    asked = set().union(*(_kinds(kit) for kit in [*FURNITURE.values(), DEFAULT_KIT]))
+    assert asked <= drawn, f"drawn as a plain box: {sorted(asked - drawn)}"
+    assert asked <= set(TONES), f"made of nothing: {sorted(asked - set(TONES))}"
+
+
+def test_no_two_rooms_are_furnished_the_same_way() -> None:
+    """Fourteen rooms of racks and cabinets say the fourteen departments do the
+    same work, which is the one thing the map exists to deny."""
+    kits = {room_id: _kinds(kit) for room_id, kit in FURNITURE.items()}
+    assert set(kits) == {room.room_id for room in ROOMS}
+    for room_id, kinds in kits.items():
+        others = set().union(*(other for name, other in kits.items() if name != room_id))
+        assert kinds - others, f"{room_id} owns nothing nobody else has"
+
+
+def test_a_room_is_not_drawn_in_one_colour() -> None:
+    """M27's rooms were two greys and the room's accent, which reads as a plan
+    rather than as a place. A room has to be made of more than one material and
+    to hold at least one light that is not its own hue."""
+    layout = plan(assemble())
+    for room in ROOMS:
+        fixtures = layout["fixtures"][room.room_id]
+        assert len({TONES[fixture["kind"]] for fixture in fixtures}) >= 3, room.room_id
+        assert len({fixture["glow"] for fixture in fixtures}) >= 2, room.room_id
+        for fixture in fixtures:
+            assert fixture["body"].startswith("var(--"), fixture
+            assert fixture["shade"] != fixture["body"], fixture
+
+
+def test_each_run_of_corridor_knows_which_run_it_is() -> None:
+    """Every hallway drew the same rivets, the same arrows and the same number,
+    because none of them knew where it was in the walk."""
+    halls = plan(assemble())["halls"]
+    assert len(halls) >= 8
+    assert [hall["index"] for hall in halls] == list(range(1, len(halls) + 1))
