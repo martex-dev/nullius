@@ -173,6 +173,31 @@
   {% endfor %}
   <rect x="{{ f.x + 4 }}" y="{{ f.y + 2 }}" width="{{ f.w - 8 }}" height="{{ th - 4 }}" rx="1.4"
         fill="{{ d }}" opacity=".5"/>
+{% elif f.kind == 'bigboard' %}
+  {# the status board: the whole institution on one wall, which is what this
+     room is for and what no other room has #}
+  {{ solid(f, d, d, 3) }}
+  <rect x="{{ f.x + 3 }}" y="{{ fy + 2.5 }}" width="{{ f.w - 6 }}" height="{{ z - 5 }}" rx="2"
+        fill="#0a1220"/>
+  <rect x="{{ f.x + 3 }}" y="{{ fy + 2.5 }}" width="{{ f.w - 6 }}" height="{{ z - 5 }}" rx="2"
+        fill="{{ g }}" opacity=".08" class="glowpane"/>
+  {% for i in range(5) %}
+  <line x1="{{ f.x + 6 + i * (f.w - 12) / 5 }}" y1="{{ fy + 4 }}"
+        x2="{{ f.x + 6 + i * (f.w - 12) / 5 }}" y2="{{ by - 4 }}" stroke="{{ g }}"
+        stroke-width="1" opacity=".2"/>
+  {% endfor %}
+  {% for i in range(15) %}
+  <rect x="{{ f.x + 7 + (i % 5) * (f.w - 14) / 5 }}"
+        y="{{ fy + 5 + (i // 5) * (z - 11) / 3 }}"
+        width="{{ (f.w - 14) / 5 * (0.34 + 0.12 * (i % 4)) }}"
+        height="{{ (z - 11) / 3 - 2.6 }}" rx="1.2"
+        fill="{{ ['#3f8f5c', '#d8a341', '#4f8fbf', '#c0483c'][(i * 3) % 4] }}"
+        opacity=".85"/>
+  {% endfor %}
+  <rect x="{{ f.x + 6 }}" y="{{ by - 8 }}" width="{{ (f.w - 12) * 0.62 }}" height="3.4" rx="1.7"
+        fill="{{ g }}" opacity=".9"/>
+  <rect x="{{ f.x + 5 }}" y="{{ f.y + 2 }}" width="{{ f.w - 10 }}" height="{{ th - 4 }}" rx="1.4"
+        fill="{{ b }}" opacity=".65"/>
 {% elif f.kind == 'screen' %}
   {{ solid(f, d, d, 3) }}
   <rect x="{{ f.x + 3.5 }}" y="{{ fy + 2.5 }}" width="{{ f.w - 7 }}" height="{{ z - 6 }}" rx="2"

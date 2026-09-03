@@ -162,6 +162,25 @@ class Room:
 
 ROOMS: tuple[Room, ...] = (
     Room(
+        room_id="control",
+        name="Control Room",
+        roles=(Role.SYSTEM,),
+        states=(),
+        wing=Wing.OFF_PIPELINE,
+        accent="beacon",
+        charter="The whole institution at once: what it is for, what it has run, and what "
+        "every other room has recorded. It performs no research and owns no state of the "
+        "research machine — it is the view the rest of this page is assembled from.",
+        invariant="Every figure here is the same figure the department it came from shows, "
+        "because both are read from one assembled record rather than computed twice. The "
+        "only actor stationed here is the control plane, which is the thing that wrote the "
+        "events this room reports.",
+        x=4,
+        y=41,
+        w=122,
+        h=40,
+    ),
+    Room(
         room_id="drafting",
         name="Design Room",
         roles=(Role.THEORIST,),
@@ -173,7 +192,7 @@ ROOMS: tuple[Room, ...] = (
         invariant="A hypothesis with no falsification condition is refused at intake, "
         "and one too close to an existing hypothesis is refused as unnovel.",
         x=4,
-        y=15,
+        y=6,
         w=26,
         h=24,
     ),
@@ -188,7 +207,7 @@ ROOMS: tuple[Room, ...] = (
         "What is not funded is shelved, with the decision recorded.",
         invariant="Shelving is a recorded decision naming what beat it, not a deletion.",
         x=33,
-        y=15,
+        y=6,
         w=26,
         h=24,
     ),
@@ -205,7 +224,7 @@ ROOMS: tuple[Room, ...] = (
         "trigger, not by an agent's good behaviour. Registration is irreversible: "
         "changing anything creates a child registration typed exploratory.",
         x=62,
-        y=15,
+        y=6,
         w=26,
         h=24,
     ),
@@ -221,7 +240,7 @@ ROOMS: tuple[Room, ...] = (
         "so the Workshop is staffed by library code rather than by an agent.",
         invariant="The bundle's content hash is recorded before it is executed.",
         x=91,
-        y=15,
+        y=6,
         w=26,
         h=24,
     ),
@@ -238,7 +257,7 @@ ROOMS: tuple[Room, ...] = (
         "an audit hook and logged. Infrastructure failures may be retried; scientific "
         "failures never are, and become research objects.",
         x=120,
-        y=15,
+        y=6,
         w=26,
         h=24,
     ),
@@ -254,7 +273,7 @@ ROOMS: tuple[Room, ...] = (
         invariant="No statistic passes through a language model. Prose slots reject "
         "numerals, so a figure cannot enter a report except by being computed.",
         x=120,
-        y=48,
+        y=92,
         w=26,
         h=24,
     ),
@@ -270,7 +289,7 @@ ROOMS: tuple[Room, ...] = (
         invariant="An objection without a discriminating test is not an objection. An "
         "open critical objection blocks promotion to an institutional claim.",
         x=91,
-        y=48,
+        y=92,
         w=26,
         h=24,
     ),
@@ -286,7 +305,7 @@ ROOMS: tuple[Room, ...] = (
         invariant="Blindness is proven by the query audit log rather than promised: the "
         "Replicator's reads are recorded, and it never read a row from the original run.",
         x=62,
-        y=48,
+        y=92,
         w=26,
         h=24,
     ),
@@ -307,7 +326,7 @@ ROOMS: tuple[Room, ...] = (
         "The switch is reported as dead at the top of this page, where it was found "
         "by building the page rather than by reviewing anything.",
         x=33,
-        y=48,
+        y=92,
         w=26,
         h=24,
     ),
@@ -328,7 +347,7 @@ ROOMS: tuple[Room, ...] = (
         invariant="Every terminal transition emits a follow-up opportunity, which is "
         "how a refutation becomes the next generation's question rather than a dead end.",
         x=4,
-        y=48,
+        y=92,
         w=26,
         h=24,
     ),
@@ -345,9 +364,9 @@ ROOMS: tuple[Room, ...] = (
         "the Custodian, so an agent-authored number about the test split cannot enter "
         "the database at all. There is no corridor into this room.",
         x=152,
-        y=15,
+        y=6,
         w=44,
-        h=22,
+        h=24,
     ),
     Room(
         room_id="treasury",
@@ -364,7 +383,7 @@ ROOMS: tuple[Room, ...] = (
         x=152,
         y=96,
         w=44,
-        h=22,
+        h=24,
     ),
     Room(
         room_id="archive",
@@ -378,9 +397,9 @@ ROOMS: tuple[Room, ...] = (
         invariant="An inferred claim with no parent evidence row is rejected, and a "
         "speculation cannot be promoted to evidence.",
         x=152,
-        y=69,
+        y=66,
         w=44,
-        h=22,
+        h=24,
     ),
     Room(
         room_id="oracle",
@@ -395,9 +414,9 @@ ROOMS: tuple[Room, ...] = (
         "role-scoped view can join it, and an isolation test proves it. Only the scorer "
         "holds a key — which is why you can see inside and the institution cannot.",
         x=152,
-        y=42,
+        y=36,
         w=44,
-        h=22,
+        h=24,
     ),
 )
 """Every room in the station.

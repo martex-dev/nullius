@@ -69,7 +69,10 @@ Not a chatbot, not an AutoGPT descendant, not a paper generator, not a RAG appli
 
 ## The map
 
-`nullius station build` draws the institution as the facility it is: one room per department,
+`nullius station build` draws the institution as the facility it is. It opens on the **Control
+Room** — the biggest room, in the middle, joined by corridor to every other one — which says what
+the project is, who is in it, what it has run and what does not exist yet, and hands you a button
+into any of the other fourteen. Beyond it: one room per department,
 laid out from `db/enums.py` rather than beside it, so every role is stationed somewhere and every
 state of the research machine is owned by exactly one room. It is drawn as a cutaway: each room is
 a chamber you look into from the side, with a ceiling, a back wall and a floor its furniture and
@@ -78,7 +81,8 @@ trunk down the sealed wing, and a hall of tanks and trusses underneath. None of 
 number, because none of it records anything. The recorded passes move between the rooms, and the
 actors walk between the stations of their own rooms and work at them — in the rooms the arm on
 display engages. In the rooms it does not, they stand at their posts. At rest there is no writing on it at all: hover a room to find out which it is,
-click it to open what that department is and what it actually did — each dossier opens on a brief
+click it to open what that department is and what it actually did, on a sheet set in that
+department's own face, hue and layout — each dossier opens on a brief
 written for a reader who has never heard of a preregistration, with the exact wording one click
 away, and every figure naming the artifact it was read out of — and press `labels` to put the
 callouts, the captions and the roster back on. Drag to pan,

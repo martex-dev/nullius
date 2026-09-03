@@ -31,9 +31,11 @@ from nullius.station.map import (
     ROOMS,
     TERMINAL_DOORS,
     Backing,
+    Wing,
     corridor,
     dead_switches,
     declared_switches,
+    room_named,
     unread_switches,
     unrepresented_roles,
     unrepresented_states,
@@ -47,6 +49,7 @@ from nullius.station.render import (
     ITEM_COLUMNS,
     MOUNTED,
     PRINCIPLES,
+    SKINS,
     STANDS,
     TONES,
     UNUSED_EXITS,
@@ -1323,20 +1326,22 @@ def test_the_plain_words_never_state_a_figure() -> None:
 def test_every_department_has_a_tab_that_is_its_own() -> None:
     """More than a house style applied fourteen times: each room gets the tab
     for the thing that room, and no other, is for."""
-    tabs = [dept.desk.tab for dept in DEPTS.values()]
+    tabs = [desk.tab for dept in DEPTS.values() for desk in dept.desks]
     assert len(set(tabs)) == len(tabs), "two departments claim the same tab"
     page = write_station(Path("site/_m33.html")).read_text(encoding="utf-8")
     Path("site/_m33.html").unlink(missing_ok=True)
     script = page[page.rindex("<script>") : page.rindex("</script>")]
     listed = set(re.findall(r"\['([a-z]+)', '", script[script.index("var TABS") :]))
     for room in ROOMS:
-        desk = DEPTS[room.room_id].desk
-        assert desk.tab in listed, f"{desk.tab} is not in the tab strip"
         start = page.index(f'id="panel-{room.room_id}"')
         nxt = page.find('id="panel-', start + 10)
         panel = page[start : nxt if nxt > 0 else len(page)]
-        assert f'data-tab="{desk.tab}"' in panel, f"{room.room_id} has no {desk.tab} section"
-        assert len(desk.sections) >= 2, desk.tab
+        desks = DEPTS[room.room_id].desks
+        assert len(desks) >= 2, f"{room.room_id} has only one tab of its own"
+        for desk in desks:
+            assert desk.tab in listed, f"{desk.tab} is not in the tab strip"
+            assert f'data-tab="{desk.tab}"' in panel, f"{room.room_id} has no {desk.tab} section"
+            assert len(desk.sections) >= 2, desk.tab
 
 
 def test_a_dossier_opens_on_the_brief() -> None:
@@ -1373,3 +1378,94 @@ def test_the_brief_fills_its_own_numbers_from_the_record() -> None:
     body = script[script.index("function fillBrief(") : script.index("function fillNotes(")]
     assert "r.figures.forEach" in body, "the brief is not reading the arm's figures"
     assert "r.status" in body and "r.backing" in body and "r.engaged" in body
+
+
+# ------------------------------------------------ M34: the room you arrive in
+
+
+def test_the_station_has_one_room_you_arrive_in() -> None:
+    """Fourteen departments and no front door meant opening the map and being
+    given a pipeline to guess your way along. The hub is first, it is the
+    largest thing on the plan, and it is on no route -- nothing passes through
+    it, because it is not a stage of the research."""
+    control = room_named("control")
+    assert ROOMS[0] is control, "the room you arrive in is not the first one"
+    assert control.wing is not Wing.PIPELINE
+    assert control not in corridor()
+
+    area = control.w * control.h
+    for room in ROOMS:
+        if room is control:
+            continue
+        assert room.w * room.h < area, f"{room.room_id} is as big as the hub"
+
+    # it owns no state of the research machine, so it cannot be mistaken for a
+    # stage, and adding it did not take a state off anybody
+    assert control.states == ()
+    assert unrepresented_states() == frozenset()
+    assert unrepresented_roles() == frozenset()
+
+
+def test_the_hub_is_joined_to_everything_it_reports_on() -> None:
+    """It reads as the centre because it is joined to the building, not because
+    it is drawn in the middle. Every room that can be walked to has a corridor
+    from this one; the two sealed rooms have none, and neither does anything
+    else."""
+    layout = plan(assemble())
+    spurs = layout["spurs"]
+    hub = layout["shells"]["control"]
+    reached: set[str] = set()
+    for room in ROOMS:
+        if room.room_id == "control":
+            continue
+        shell = layout["shells"][room.room_id]
+        middle = shell["x"] + shell["w"] / 2
+        for spur in spurs:
+            if spur["vertical"] and abs(spur["x"] + spur["w"] / 2 - middle) < 1.0:
+                reached.add(room.room_id)
+    walkable = {r.room_id for r in ROOMS if r.wing is not Wing.SEALED and r.room_id != "control"}
+    # the four above and the four below; the rest are served by the run east
+    assert len(reached) >= 8, sorted(reached)
+    assert reached <= walkable, "a spur reaches into a sealed room"
+    east = [spur for spur in spurs if not spur["vertical"]]
+    assert len(east) == 1
+    assert east[0]["x"] == pytest.approx(hub["x"] + hub["w"], abs=0.02)
+
+
+def test_no_two_departments_are_set_the_same_way(tmp_path: Path) -> None:
+    """One stylesheet applied fifteen times meant reading the title to know
+    where you were. A sheet is set in its department's face, in its hue, in one
+    of five frames."""
+    assert set(SKINS) == {room.room_id for room in ROOMS}
+    faces = {face for face, _ in SKINS.values()}
+    frames = {frame for _, frame in SKINS.values()}
+    assert len(faces) >= 5, faces
+    assert len(frames) >= 4, frames
+    for face in faces:
+        shared = [r for r, (f, _) in SKINS.items() if f == face]
+        assert len(shared) <= 4, f"{face} is doing too much work: {shared}"
+    page = _built()
+    style = page[page.index("<style>") : page.index("</style>")]
+    for frame in frames:
+        assert f".frame-{frame} " in style, frame
+    # and the hue reaches the sheet rather than stopping at the swatch
+    script = page[page.rindex("<script>") : page.rindex("</script>")]
+    assert "sheet.style.setProperty('--room', m.accent_hex)" in script
+    assert "sheet.style.setProperty('--face', m.face)" in script
+
+
+def test_the_hub_reports_on_the_whole_institution() -> None:
+    """Its brief is the only one whose subject is the project rather than a
+    department, so its figures are counted across the map and the record rather
+    than read off one room."""
+    page = _built()
+    script = page[page.rindex("<script>") : page.rindex("</script>")]
+    body = script[script.index("function fillHub(") : script.index("function fillBrief(")]
+    for source in ("ROOMS.length", "ARMS.length", "a.items.length", "a.metrics.forEach"):
+        assert source in body, source
+    assert "backing === 'unbuilt'" in body, "the hub does not count what is missing"
+    assert "open(m.room_id)" in body, "the hub does not point anywhere"
+    assert '<div class="jump" data-jump>' in page
+    # only the hub carries them
+    assert page.count('<div class="grid" data-hub>') == 1
+    assert page.count('<div class="jump" data-jump>') == 1

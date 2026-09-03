@@ -42,7 +42,14 @@ from jinja2 import Environment, PackageLoader, StrictUndefined, select_autoescap
 
 from nullius.benchmark.metrics import ArmMetrics
 from nullius.station.brief import DEPTS, PEOPLE
-from nullius.station.map import ROOMS, TERMINAL_DOORS, Room, corridor, room_named
+from nullius.station.map import (
+    ROOMS,
+    TERMINAL_DOORS,
+    Room,
+    Wing,
+    corridor,
+    room_named,
+)
 from nullius.station.model import Occupancy, Station, assemble, engaged_rooms, payload
 
 __all__ = [
@@ -131,6 +138,51 @@ CANNOT_SHOW: tuple[str, ...] = (
 #: reads as a broken renderer unless the drawing says it meant them.
 UNUSED_EXITS = "every exit unused — no hypothesis has been recorded reaching a terminal state"
 
+#: How a department's dossier is set. Fourteen rooms with one stylesheet meant
+#: that opening any of them looked like opening any other, and a reader who had
+#: to check the title to know where they were. A department is a different kind
+#: of place; its sheet should be a different kind of document.
+#:
+#: The face is a stack of things already on the machine, because the page has to
+#: keep working with the network unplugged. The frame decides how the sheet is
+#: laid out, and the hue is the room's own, so the header, the rules, the tab
+#: underline and the edge of every figure agree with the room you came from.
+FACES: dict[str, str] = {
+    "serif": "Georgia, 'Iowan Old Style', 'Palatino Linotype', Palatino, serif",
+    "slab": "Rockwell, 'Roboto Slab', 'Bookman Old Style', Georgia, serif",
+    "mono": "ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace",
+    "narrow": "'Arial Narrow', 'Roboto Condensed', 'Liberation Sans Narrow', "
+    "'Helvetica Neue', sans-serif",
+    "humanist": "'Trebuchet MS', 'Segoe UI', Candara, Optima, sans-serif",
+    "grotesk": "Inter, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif",
+}
+
+#: (face, frame) per department.
+SKINS: dict[str, tuple[str, str]] = {
+    "control": ("grotesk", "board"),
+    "drafting": ("serif", "sheet"),
+    "screening": ("humanist", "board"),
+    "registry": ("mono", "ledger"),
+    "workshop": ("narrow", "bay"),
+    "execution": ("mono", "console"),
+    "analysis": ("grotesk", "board"),
+    "challenge": ("narrow", "bay"),
+    "blind": ("humanist", "sheet"),
+    "review": ("serif", "sheet"),
+    "record": ("slab", "ledger"),
+    "vault": ("mono", "console"),
+    "treasury": ("slab", "ledger"),
+    "archive": ("serif", "sheet"),
+    "oracle": ("serif", "sheet"),
+}
+
+
+def skin_of(room_id: str) -> tuple[str, str]:
+    """The face and the frame this department's sheet is set in."""
+    face, frame = SKINS.get(room_id, ("grotesk", "board"))
+    return FACES[face], frame
+
+
 #: Room accent, as a hue the whole page agrees on: map, panel and chart alike.
 ACCENTS: dict[str, str] = {
     "violet": "#a78bfa",
@@ -147,6 +199,7 @@ ACCENTS: dict[str, str] = {
     "gold": "#facc15",
     "olive": "#a3b346",
     "crimson": "#f87171",
+    "beacon": "#ffd479",
 }
 
 #: What a thing is made of, as a body colour and the colour of its shadowed
@@ -181,6 +234,7 @@ TONES: dict[str, str] = {
     "terminal": "glass",
     "plinth": "brass",
     "vent": "steel",
+    "bigboard": "glass",
     "conduit": "steel",
     "sign": "dark",
     "locker": "enamel",
@@ -247,6 +301,7 @@ HEIGHTS: dict[str, float] = {
     "poster": 0.1,
     "sign": 0.16,
     "vent": 0.16,
+    "bigboard": 0.12,
     "conduit": 0.42,
     "pipes": 0.42,
     "workbench": 0.3,
@@ -301,6 +356,7 @@ GLOWS: dict[str, str] = {
     "scope": "green",
     "maskcase": "cyan",
     "orb": "magenta",
+    "bigboard": "beacon",
     "poster": "crimson",
     "dummy": "crimson",
     "sealpress": "gold",
@@ -325,7 +381,7 @@ WALL = 9.0
 #: Asymmetric because the two edges are asked for different things: the record's
 #: counter plates hang off the left, and the sealed column's cards have nowhere
 #: to go but the right.
-MARGIN_LEFT = 236.0
+MARGIN_LEFT = 420.0
 MARGIN_RIGHT = 400.0
 MARGIN_TOP = 116.0
 MARGIN_BOTTOM = 104.0
@@ -479,6 +535,7 @@ WIDE: dict[str, float] = {
     "plant": 0.8,
     "cables": 1.1,
     "hatch": 1.1,
+    "bigboard": 3.6,
     "board": 2.6,
     "plotwall": 2.6,
     "screen": 2.2,
@@ -497,6 +554,7 @@ WIDE: dict[str, float] = {
 #: different claim about the room.
 MOUNTED: frozenset[str] = frozenset(
     {
+        "bigboard",
         "board",
         "plotwall",
         "screen",
@@ -835,6 +893,13 @@ FURNITURE: dict[str, Kit] = {
         ("stacks", "crate"),
         ("cart", "cables", "stool"),
     ),
+    "control": Kit(
+        ("sign", "conduit", "vent", "conduit", "vent", "conduit", "sign"),
+        ("bigboard", "plotwall", "bigboard", "plotwall", "bigboard", "plotwall", "bigboard"),
+        ("console", "console", "table", "console", "table", "console", "console"),
+        ("console", "desk", "counter", "podium", "counter", "desk", "console"),
+        ("stool", "plant", "stool", "cables", "stool", "plant", "stool", "crate"),
+    ),
     "oracle": Kit(
         ("vent", "sign", "vent"),
         ("dish", "orb", "dish"),
@@ -1104,52 +1169,61 @@ def _decals(room: Room) -> list[dict[str, Any]]:
     return out
 
 
+def _bands(boxes: list[Box]) -> list[list[Box]]:
+    """Group rooms into the horizontal courses they are laid out in."""
+    out: list[list[Box]] = []
+    for box in sorted(boxes, key=lambda b: b.y):
+        if out and abs(out[-1][0].y - box.y) < 1.0:
+            out[-1].append(box)
+        else:
+            out.append([box])
+    return out
+
+
 def _works() -> list[dict[str, Any]]:
     """The building between the rooms.
 
-    Fourteen lit boxes floating in black is a diagram of an institution, not a
-    picture of one: it says the departments are all there is, and that between
-    them is nothing. There is a great deal between them. The plant that lights
-    and cools and powers the place has no data on this page and never will --
-    it is not a department and it records nothing -- so it is drawn as what it
-    is, structure, with no number on it anywhere and nothing to click.
+    Lit boxes floating in black is a diagram of an institution, not a picture of
+    one: it says the departments are all there is, and that between them is
+    nothing. There is a great deal between them. The plant that lights and cools
+    and powers the place has no data on this page and never will -- it is not a
+    department and it records nothing -- so it is drawn as what it is, structure,
+    with no number on it anywhere and nothing to click.
 
-    Every region here is derived from where the rooms actually are, so a change
-    to the plan moves the building with it rather than leaving a gantry hanging
-    over a room.
+    Every region is derived from where the rooms actually are, so a change to
+    the plan moves the building with it rather than leaving a gantry hanging
+    over a room. That mattered the moment the Control Room went in: the courses
+    on the left went from two to three, and this had been told where they were.
     """
     shells = [_shell(room) for room in ROOMS]
     left = [box for box in shells if box.x < 1700.0]
     right = sorted((box for box in shells if box.x >= 1700.0), key=lambda box: box.y)
-    upper = [box for box in left if box.y < 500.0]
-    lower = [box for box in left if box.y >= 500.0]
-
-    def span(boxes: list[Box]) -> tuple[float, float]:
-        return min(box.x for box in boxes), max(box.x + box.w for box in boxes)
 
     out: list[dict[str, Any]] = []
-    x0, x1 = span(left)
-    deck_top = max(box.y + box.h for box in upper)
-    deck_bottom = min(box.y for box in lower)
-    out.append(
-        {
-            "kind": "deck",
-            "x": round(x0, 2),
-            "y": round(deck_top, 2),
-            "w": round(x1 - x0, 2),
-            "h": round(deck_bottom - deck_top, 2),
-        }
-    )
+    courses = _bands(left)
+    x0 = min(box.x for box in left)
+    x1 = max(box.x + box.w for box in left)
+    for above, below in pairwise(courses):
+        top = max(box.y + box.h for box in above)
+        bottom = min(box.y for box in below)
+        out.append(
+            {
+                "kind": "deck",
+                "x": round(x0, 2),
+                "y": round(top, 2),
+                "w": round(x1 - x0, 2),
+                "h": round(bottom - top, 2),
+            }
+        )
 
-    hall_top = max(box.y + box.h for box in lower)
-    hall_bottom = max(box.y + box.h for box in right)
+    floor = max(box.y + box.h for box in shells)
     out.append(
         {
             "kind": "hall",
             "x": round(x0, 2),
-            "y": round(hall_top, 2),
-            "w": round(x1 - x0, 2),
-            "h": round(hall_bottom - hall_top, 2),
+            "y": round(floor, 2),
+            "w": round(max(box.x + box.w for box in shells) - x0, 2),
+            "h": 132.0,
         }
     )
 
@@ -1160,21 +1234,70 @@ def _works() -> list[dict[str, Any]]:
             "x": round(spine_x, 2),
             "y": round(min(box.y for box in shells), 2),
             "w": round(min(box.x for box in right) - spine_x, 2),
-            "h": round(hall_bottom - min(box.y for box in shells), 2),
+            "h": round(floor - min(box.y for box in shells), 2),
         }
     )
 
-    for above, below in pairwise(right):
+    for upper, lower in pairwise(right):
         out.append(
             {
                 "kind": "run",
-                "x": round(above.x, 2),
-                "y": round(above.y + above.h, 2),
-                "w": round(above.w, 2),
-                "h": round(below.y - (above.y + above.h), 2),
+                "x": round(upper.x, 2),
+                "y": round(upper.y + upper.h, 2),
+                "w": round(upper.w, 2),
+                "h": round(lower.y - (upper.y + upper.h), 2),
             }
         )
     return [work for work in out if work["w"] > 2 and work["h"] > 2]
+
+
+def _spurs() -> list[dict[str, Any]]:
+    """The Control Room's own corridors to everywhere else.
+
+    The pipeline has a corridor because a hypothesis walks it. Nothing walks
+    these: they are how the room in the middle is joined to the building it
+    reports on, and they are the reason it reads as the centre rather than as a
+    fifteenth department that happens to be large.
+    """
+    control = room_named("control")
+    hub = _shell(control)
+    out: list[dict[str, Any]] = []
+    for room in ROOMS:
+        if room.room_id == control.room_id or room.wing is Wing.SEALED:
+            continue
+        shell = _shell(room)
+        middle = shell.x + shell.w / 2
+        if not hub.x + 20.0 <= middle <= hub.x + hub.w - 20.0:
+            continue
+        above = shell.y + shell.h <= hub.y
+        top = (shell.y + shell.h) if above else (hub.y + hub.h)
+        bottom = hub.y if above else shell.y
+        out.append(
+            {
+                "x": round(middle - HALL / 2, 2),
+                "y": round(top, 2),
+                "w": HALL,
+                "h": round(bottom - top, 2),
+                "vertical": True,
+            }
+        )
+    # One run east, at the height of the Control Room's own floor: it meets the
+    # pipeline's turn on the way past and carries on to the spine, which is what
+    # joins the sealed wing to everything else.
+    east = max(_shell(room).x + _shell(room).w for room in ROOMS if _shell(room).x < 1700.0)
+    lane = ground_y(control) - SLAB * 0.35
+    out.append(
+        {
+            "x": round(hub.x + hub.w, 2),
+            "y": round(lane - HALL / 2, 2),
+            "w": round(east - (hub.x + hub.w), 2),
+            "h": HALL,
+            "vertical": False,
+        }
+    )
+    for index, spur in enumerate(out):
+        spur["index"] = index + 1
+    return [spur for spur in out if spur["w"] > 1 and spur["h"] > 1]
 
 
 def _stars() -> list[dict[str, Any]]:
@@ -1210,10 +1333,14 @@ def _bounds() -> dict[str, float]:
     ground, so the bare map is framed to the building instead.
     """
     shells = [_shell(room) for room in ROOMS]
-    x0 = min(shell.x for shell in shells)
-    y0 = min(shell.y for shell in shells)
-    x1 = max(shell.x + shell.w for shell in shells)
-    y1 = max(shell.y + shell.h for shell in shells)
+    boxes = [(box.x, box.y, box.w, box.h) for box in shells]
+    # The plant under the station is part of the building, so framing the
+    # building has to include it or the fit cuts it in half.
+    boxes += [(w["x"], w["y"], w["w"], w["h"]) for w in _works()]
+    x0 = min(x for x, _, _, _ in boxes)
+    y0 = min(y for _, y, _, _ in boxes)
+    x1 = max(x + w for x, _, w, _ in boxes)
+    y1 = max(y + h for _, y, _, h in boxes)
     return {"x": round(x0, 2), "y": round(y0, 2), "w": round(x1 - x0, 2), "h": round(y1 - y0, 2)}
 
 
@@ -1948,6 +2075,7 @@ def plan(station: Station) -> dict[str, Any]:
         "decals": {room.room_id: _decals(room) for room in ROOMS},
         "stars": _stars(),
         "works": _works(),
+        "spurs": _spurs(),
         "bounds": _bounds(),
         "sprites": {room.room_id: _sprites(room) for room in ROOMS},
         "lamps": [
@@ -2313,6 +2441,8 @@ def station_json(station: Station) -> str:
                     "roles": [r.value for r in o.room.roles],
                     "states": [s.value for s in o.room.states],
                     "accent_hex": ACCENTS.get(o.room.accent, ACCENTS["white"]),
+                    "face": skin_of(o.room.room_id)[0],
+                    "frame": skin_of(o.room.room_id)[1],
                     "charter": o.room.charter,
                 }
                 for index, o in enumerate(station.occupancy, start=1)
@@ -2337,6 +2467,7 @@ def _context(station: Station) -> dict[str, object]:
         "CEIL": CEIL,
         "SLAB": SLAB,
         "depts": DEPTS,
+        "skin_of": skin_of,
         "people": PEOPLE,
         "switchboard_rooms": switchboard_rooms(station),
         "terminal_states": [state.value for state in TERMINAL_DOORS],

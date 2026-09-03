@@ -166,6 +166,93 @@
   .key i { width:.58rem; height:.58rem; border-radius:50%; display:inline-block;
            box-shadow:0 0 8px currentColor; }
 
+  /* --------------------------------------------------------------- skins
+
+     Fourteen departments with one stylesheet meant that opening any of them
+     looked like opening any other, and a reader who had to read the title to
+     know where they were. Each sheet is now set in its department's own face,
+     in its own hue, in one of five frames. The point is to know which room you
+     are in before reading a word of it. */
+  .sheet { font-family:var(--face, var(--sans)); }
+  .sheet::before { content:''; position:absolute; left:0; right:0; top:0; height:4px;
+                   border-radius:14px 14px 0 0;
+                   background:linear-gradient(90deg, var(--room, var(--ink)),
+                              color-mix(in srgb, var(--room, var(--ink)) 20%, transparent)); }
+  .sheet-head h3 { font-family:var(--face, var(--sans)); }
+  .d-no { color:var(--room, var(--dim));
+          background:color-mix(in srgb, var(--room, var(--ink)) 13%, transparent); }
+  .tabbtn { font-family:var(--face, var(--sans)); }
+  .tabbtn.on { color:var(--room, var(--ink)); border-bottom-color:var(--room, var(--ink)); }
+  .armbtn.on { background:var(--room, var(--ink)); border-color:var(--room, var(--ink));
+               color:#0b1017; }
+  .panel h2 { color:var(--room, var(--ink)); font-family:var(--face, var(--sans)); }
+  .stat { border-left:3px solid color-mix(in srgb, var(--room, var(--ink)) 55%, transparent); }
+  .who b { color:var(--room, var(--ink)); }
+  .steps li::marker { color:var(--room, var(--faint)); }
+  details.exact summary:hover { border-color:var(--room, var(--dim)); }
+
+  .jump { display:grid; gap:.4rem; margin:0 0 1.1rem;
+          grid-template-columns:repeat(auto-fill, minmax(13.5rem, 1fr)); }
+  .jumpbtn { display:grid; grid-template-columns:auto 1fr; gap:.15rem .5rem; text-align:left;
+             background:var(--sunk); border:1px solid var(--rule); border-left:3px solid var(--room);
+             border-radius:9px; padding:.5rem .6rem; cursor:pointer; font-family:inherit; }
+  .jumpbtn:hover { border-color:var(--room); background:var(--panel); }
+  .jumpbtn .jn { grid-row:span 2; align-self:center; font:700 .8rem/1 var(--mono);
+                 color:var(--room); }
+  .jumpbtn .jm { font:650 .84rem/1.25 inherit; color:var(--ink); }
+  .jumpbtn .js { font:500 .64rem/1.2 var(--mono); letter-spacing:.07em; color:var(--faint); }
+  .jumpbtn.dark .jm { color:var(--dim); }
+  .jumpbtn.dark .js { color:var(--bad); }
+
+  .frame-sheet h2 { text-transform:none; }
+  .parts { margin:0 0 1rem; }
+  .part p:last-child { margin-bottom:0; }
+
+  /* a reading room: one column, generous, serif-friendly */
+  .frame-sheet .parts { max-width:42rem; }
+  .frame-sheet .plain { font-size:1.09rem; line-height:1.82; }
+  .frame-sheet h2 { font-size:1.12rem; font-weight:400; font-style:italic;
+                    margin:1.7rem 0 .5rem; }
+
+  /* a board: sections abreast, each headed by a rule in the room's colour */
+  .frame-board .parts { display:grid; gap:1.1rem 1.6rem;
+                        grid-template-columns:repeat(auto-fit, minmax(19rem, 1fr)); }
+  .frame-board h2 { font-size:.82rem; letter-spacing:.12em; text-transform:uppercase;
+                    margin:0 0 .45rem; padding-top:.55rem;
+                    border-top:3px solid var(--room, var(--ink)); }
+
+  /* a bay: each section boxed, like something bolted to a wall */
+  .frame-bay .parts { display:grid; gap:.75rem;
+                      grid-template-columns:repeat(auto-fit, minmax(15rem, 1fr)); }
+  .frame-bay .part { border:1px solid var(--rule); border-radius:10px; padding:.8rem .9rem;
+                     background:var(--sunk);
+                     border-top:3px solid color-mix(in srgb, var(--room) 70%, transparent); }
+  .frame-bay h2 { font-size:.86rem; margin:0 0 .4rem; letter-spacing:.02em;
+                  text-transform:uppercase; }
+  .frame-bay .plain.sm { font-size:.9rem; }
+
+  /* a ledger: a left column of headings and a right column of entries */
+  .frame-ledger .parts { border-top:1px solid var(--rule); }
+  .frame-ledger .part { display:grid; grid-template-columns:11rem 1fr; gap:1.4rem;
+                        padding:.85rem 0; border-bottom:1px solid var(--rule); }
+  .frame-ledger h2 { margin:0; font-size:.72rem; letter-spacing:.14em; text-transform:uppercase;
+                     align-self:start; }
+  .frame-ledger .plain.sm { font-size:.92rem; margin:0; }
+  .frame-ledger .steps li, .frame-ledger .who span { font-size:.92rem; }
+  @media (max-width:640px) { .frame-ledger .part { grid-template-columns:1fr; gap:.3rem; } }
+
+  /* a console: readouts on a dark bank */
+  .frame-console .parts { display:grid; gap:.6rem;
+                          grid-template-columns:repeat(auto-fit, minmax(17rem, 1fr)); }
+  .frame-console .part { background:var(--plate-2); border:1px solid var(--plate-line);
+                         border-radius:8px; padding:.75rem .85rem; }
+  .frame-console h2 { margin:0 0 .4rem; font-size:.74rem; letter-spacing:.16em;
+                      text-transform:uppercase; color:var(--room); }
+  .frame-console h2::before { content:'\25b8 '; }
+  .frame-console .part .plain.sm { color:var(--plate-dim); font-size:.88rem; }
+  .frame-console .who { background:var(--plate-2); border-color:var(--plate-line); }
+  .frame-console .who span, .frame-console .who i { color:var(--plate-dim); }
+
   /* ------------------------------------------------------------- the brief */
   .plain { font-size:1.06rem; line-height:1.66; color:var(--ink); margin:0 0 1rem;
            max-width:46rem; }
@@ -288,6 +375,7 @@
                     margin:0 0 .5rem; }
   .panel h3 { margin:0; font-size:1.3rem; letter-spacing:-.015em; }
   .panel h2 { margin:1.5rem 0 .5rem; }
+  .parts .part h2:first-child { margin-top:0; }
   .tag { font:600 .66rem/1.5 var(--sans); text-transform:uppercase; letter-spacing:.07em;
          padding:.04rem .42rem; border-radius:4px; border:1px solid currentColor; }
   .tag.live { color:var(--good); } .tag.empty { color:var(--warn); }
@@ -612,6 +700,10 @@
         <g id="halls">
           {% for hall in plan.halls %}
           {{ parts.hallway(hall, accent('slate')) }}
+          {% endfor %}
+          {# the Control Room's own corridors to everywhere else #}
+          {% for spur in plan.spurs %}
+          {{ parts.hallway(spur, accent('beacon')) }}
           {% endfor %}
         </g>
 
@@ -956,7 +1048,10 @@
 
     {% for occupied in rooms %}
     {% set room = occupied.room %}
-    <div class="panel" id="panel-{{ room.room_id }}" data-room="{{ room.room_id }}">
+    {% set skin = skin_of(room.room_id) %}
+    <div class="panel frame-{{ skin[1] }}" id="panel-{{ room.room_id }}"
+         data-room="{{ room.room_id }}"
+         style="--room:{{ accent(room.accent) }};--face:{{ skin[0] }}">
 
       {% set dept = depts[room.room_id] %}
       <section data-tab="brief">
@@ -986,6 +1081,19 @@
           {% endfor %}
         </div>
 
+        {% if room.room_id == 'control' %}
+        <h2>the institution at a glance</h2>
+        <p class="faint">Counted from the map and the record, on the arm selected above.
+        Every one of these is also true somewhere else on this page, because there is one
+        record and everything here reads it.</p>
+        <div class="grid" data-hub></div>
+
+        <h2>every department</h2>
+        <p class="faint">Fourteen other rooms. A dark one is a part of this project that does
+        not exist yet, and it says so when you open it.</p>
+        <div class="jump" data-jump></div>
+        {% endif %}
+
         <h2>what it is doing right now</h2>
         <p class="faint" data-now-line></p>
         <div class="grid" data-now></div>
@@ -1011,13 +1119,16 @@
         </details>
       </section>
 
-      <section data-tab="{{ dept.desk.tab }}" hidden>
-        <p class="faint">{{ dept.desk.lead }}</p>
-        {% for part in dept.desk.sections %}
-        <h2>{{ part.heading }}</h2>
-        <p class="plain sm">{{ part.body }}</p>
-        {% endfor %}
+      {% for desk in dept.desks %}
+      <section data-tab="{{ desk.tab }}" hidden>
+        <p class="faint">{{ desk.lead }}</p>
+        <div class="parts">
+          {% for part in desk.sections %}
+          <div class="part"><h2>{{ part.heading }}</h2><p class="plain sm">{{ part.body }}</p></div>
+          {% endfor %}
+        </div>
       </section>
+      {% endfor %}
 
       <section data-tab="overview" hidden>
         <p class="charter">{{ room.charter }}</p>
@@ -1416,14 +1527,13 @@
   // The brief comes first because it is the one tab that answers "what is this
   // department" rather than "what did it do". Each room's own desk sits second:
   // the thing that room, and no other, is for.
+  // Written out of the same data the sections are, so a desk cannot be added to
+  // a department and left out of its tab strip.
   var TABS = [
     ['brief', 'the brief'],
-    ['intake', 'what gets in'], ['shelving', 'what happens to the losers'],
-    ['lock', 'the lock'], ['bundle', 'the bundle'], ['sandbox', 'the sandbox'],
-    ['numbers', 'who writes the numbers'], ['objections', 'objections'],
-    ['blindness', 'blindness'], ['unbuilt', 'why it is dark'],
-    ['leaving', 'the four doors'], ['custody', 'custody'], ['money', 'the money'],
-    ['memory', 'what is remembered'], ['truth', 'ground truth'],
+    {%- for dept in depts.values() %}{% for desk in dept.desks %}
+    ['{{ desk.tab }}', '{{ desk.label }}'],
+    {%- endfor %}{% endfor %}
     ['protocols', 'protocols'], ['contrasts', 'contrasts'],
     ['overview', 'the room'], ['figures', 'figures'], ['scores', 'arm scores'],
     ['items', 'items'], ['provenance', 'provenance']
@@ -1437,6 +1547,10 @@
     });
     var panel = document.getElementById('panel-' + room);
 
+    var sheet = dossier.querySelector('.sheet');
+    sheet.style.setProperty('--room', m.accent_hex);
+    sheet.style.setProperty('--face', m.face);
+    sheet.dataset.frame = m.frame;
     document.getElementById('d-swatch').style.background = m.accent_hex;
     document.getElementById('d-no').textContent = m.index;
     document.getElementById('d-name').textContent = m.name;
@@ -1479,6 +1593,7 @@
     });
 
     fillBrief(panel, r, a);
+    fillHub(panel, a);
     fillFigures(panel, r);
     fillNotes(panel, r);
     fillDoors(panel, r);
@@ -1507,6 +1622,45 @@
     }
     r.figures.forEach(function (f) {
       box.appendChild(statBlock(f.label, f.value, f.source, f.note));
+    });
+  }
+  function fillHub(panel, a) {
+    var hub = panel.querySelector('[data-hub]');
+    if (!hub) { return; }
+    var unbuilt = 0, staffed = 0, actors = {};
+    ROOMS.forEach(function (m) {
+      var live = a.rooms[m.room_id] || {};
+      if (live.backing === 'unbuilt') { unbuilt += 1; }
+      if (m.roles.length) { staffed += 1; }
+      m.roles.forEach(function (role) { actors[role] = 1; });
+    });
+    hub.textContent = '';
+    hub.appendChild(statBlock('departments', String(ROOMS.length), 'db/enums.py',
+      staffed + ' with somebody in them'));
+    hub.appendChild(statBlock('kinds of actor', String(Object.keys(actors).length),
+      'db/enums.py', 'each stationed somewhere'));
+    hub.appendChild(statBlock('arms of the protocol', String(ARMS.length),
+      'benchmark/arms.py', 'the same pipeline with switches thrown'));
+    hub.appendChild(statBlock('recorded passes', String(a.items.length),
+      'this arm\u2019s results', 'one per question in the bank'));
+    hub.appendChild(statBlock('rooms not yet built', String(unbuilt), 'the map',
+      unbuilt ? 'drawn locked, and they say why' : 'nothing is missing'));
+    a.metrics.forEach(function (f) {
+      hub.appendChild(statBlock(f.label, f.value, f.source, f.note));
+    });
+
+    var jump = panel.querySelector('[data-jump]');
+    jump.textContent = '';
+    ROOMS.forEach(function (m) {
+      if (m.room_id === 'control') { return; }
+      var live = a.rooms[m.room_id] || {};
+      var b = el('button', 'jumpbtn' + (live.backing === 'unbuilt' ? ' dark' : ''));
+      b.style.setProperty('--room', m.accent_hex);
+      b.appendChild(el('span', 'jn', m.index));
+      b.appendChild(el('span', 'jm', m.name));
+      b.appendChild(el('span', 'js', live.status || ''));
+      b.addEventListener('click', function () { open(m.room_id); });
+      jump.appendChild(b);
     });
   }
   function fillBrief(panel, r, a) {

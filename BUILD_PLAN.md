@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M33 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M34 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -1383,6 +1383,74 @@ lines apart, the second one silently winning.
   at least two sections. Tested.
 - A dossier opens on the brief, and the exact rule is one click away in every one of them. Tested.
 - The brief's numbers come from the arm's own record rather than from the prose. Tested.
+- Still one self-contained file; still refuses to build on input that does not verify.
+
+---
+
+### M34 · The room you arrive in, and fifteen sheets that are not the same sheet ✅
+Presentation, plus one room on the plan. `model.py` and `ledger.py` untouched; `map.py` gained a
+room and the coordinates of the others moved around it.
+
+**The station had no front door.** Opening it gave you fourteen departments and a pipeline to
+guess your way along, and the first thing anybody wants — *what is this, who is in it, what has it
+done* — was not anywhere. There is now a **Control Room**: the first room, the largest thing on the
+plan by seven times, sitting across the middle with corridors up to the four departments above it,
+down to the four below, east to the pipeline's turn, and on to the spine that serves the sealed
+wing. Its brief is the only one whose subject is the project rather than a department. It counts
+the institution at a glance — departments, kinds of actor, arms run, recorded passes, rooms that do
+not exist yet — carries the arm's whole scored result, and ends in a grid of fourteen buttons that
+take you into any of the others.
+
+**No new role was invented for it.** The rule this project runs on is that departments, roles and
+states come out of `db/enums.py` and are derived rather than declared, and a room needs a reason to
+have somebody in it. The Control Room is staffed by the control plane, because the control plane is
+the thing that wrote every event the room reports. It owns no state of the research machine, it is
+on no route, and nothing passes through it — it is a view, and the map says so by leaving it off
+the corridor.
+
+**And every dossier was the same dossier.** One stylesheet applied fourteen times meant reading the
+title to know where you were. A department's sheet is now set in its own **face**, its own **hue**
+and one of five **frames**: a reading room lays its sections out in a single generous column, a
+board sets them abreast under coloured rules, a bay boxes each one like something bolted to a wall,
+a ledger runs a left column of headings against a right column of entries, and a console puts them
+on a dark bank of readouts. The Registry is monospaced because it deals in hashes; Records is
+slab-serif because it is a ledger; the Design Room is a serif reading room; the Workshop and the
+Challenge Chamber are condensed and boxed. Every face is a stack of things already on the machine,
+because the page still has to work with the network unplugged.
+
+**Each department also gained a second tab of its own**, and the hub four. Thirty-two tabs across
+fifteen rooms, written out of the same data the sections are so that adding one cannot leave it out
+of the strip.
+
+#### What building it revealed was wrong
+
+**1. A room that big has nowhere to hang its label.** The callout placer searches four sides, three
+distances and nine slides, filters to what is inside the world, and takes the least-bad slot if
+nothing is free. The Control Room is a hundred and twenty units wide across the middle of the plan:
+above it is a row of departments, below it is another, and the margin to its left was too narrow to
+hold a card. So it took the least-bad slot, which was on top of another room — and the test written
+in M25 for exactly that failure caught it immediately. The margin is wider now. Worth recording
+because the placer did not fail; it did what it was told, and what it was told had stopped being
+possible.
+
+**2. Giving the hub a good kit took the Analysis Room's identity.** Every department is tested to
+own at least one kind of object nobody else has. The Control Room wanted screens and plot walls and
+consoles — and the moment it had a screen, Analysis had nothing of its own, because a screen was
+the only thing that had been Analysis's alone. The hub got a signature instead: a wall-spanning
+status board, which is a better thing for it to have anyway. A test that only checks uniqueness
+tells you something has been taken; it does not tell you what to do about it, and the right answer
+was not to give the hub less.
+
+**Acceptance**
+- Every test from M22 through M33 still passes.
+- The hub is first, is the largest room, owns no state, and is on no route. Tested.
+- It has a corridor to every room that can be walked to and none into the two that cannot. Tested.
+- At least five faces and four frames are in use, and no face carries more than four departments.
+  Tested against the stylesheet.
+- Every department has at least two tabs of its own, all of them in the strip and in the panel.
+  Tested.
+- The hub's figures are counted across the map and the record, and it points at the other fourteen.
+  Tested.
 - Still one self-contained file; still refuses to build on input that does not verify.
 
 ---
