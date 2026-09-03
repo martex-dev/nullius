@@ -48,6 +48,7 @@ from nullius.station.render import (
     STANDS,
     TONES,
     UNUSED_EXITS,
+    WORKABLE,
     Box,
     _arrivals,
     _moving,
@@ -791,37 +792,41 @@ def test_a_card_says_what_the_room_is_doing() -> None:
             assert status == "WORKING"
 
 
-def test_every_agent_walks_a_patrol_inside_its_own_room() -> None:
-    """Agents walk. They do not walk out: the token is what moves through the
-    station, and a role in the corridor would say something about the
-    architecture that is not true."""
+def test_every_agent_works_inside_its_own_room() -> None:
+    """Agents work. They do not work somewhere else: the token is what moves
+    through the station, and a role in the corridor would say something about
+    the architecture that is not true."""
     layout = plan(assemble())
     walkers = 0
     for room in ROOMS:
-        floor = layout["floors"][room.room_id]
+        chamber = layout["chambers"][room.room_id]
         for sprite in layout["sprites"][room.room_id]:
-            points = _points(sprite["d"])
-            assert len(points) >= 3, sprite
-            assert points[0] == points[-1], "a patrol has to come back"
-            for x, y in points:
-                assert floor["x"] <= x <= floor["x"] + floor["w"], sprite["role"]
-                assert floor["y"] <= y <= floor["y"] + floor["h"], sprite["role"]
+            stations = sprite["stations"]
+            assert len(stations) >= 2, sprite
+            assert stations == sorted(stations), sprite
+            assert stations[-1] - stations[0] >= 46.0, "this one is shuffling on the spot"
+            for station in stations:
+                assert chamber["x"] <= station <= chamber["x"] + chamber["w"], sprite["role"]
+            assert sprite["s0"] == 0.0
+            assert sprite["s1"] == pytest.approx(stations[1] - stations[0], abs=0.02)
             assert float(sprite["dur"]) > 0
             walkers += 1
     assert walkers == sum(len(room.roles) for room in ROOMS)
 
 
 def test_two_agents_in_a_room_do_not_share_the_same_floor() -> None:
-    """Both of Screening's actors walked the same lane and drew as one shape."""
+    """Both of Screening's actors used to walk the same lane and draw as one
+    shape. They are given separate stretches of floor, and the stations they
+    work at come out of their own stretch."""
     layout = plan(assemble())
     for room in ROOMS:
-        spans = [
-            (min(x for x, _ in _points(s["d"])), max(x for x, _ in _points(s["d"])))
-            for s in layout["sprites"][room.room_id]
+        runs = [
+            (sprite["stations"][0], sprite["stations"][-1])
+            for sprite in layout["sprites"][room.room_id]
         ]
-        for i, (a0, a1) in enumerate(spans):
-            for b0, b1 in spans[i + 1 :]:
-                assert a1 < b0 or b1 < a0, f"{room.room_id}: two patrols overlap"
+        for i, (a0, a1) in enumerate(runs):
+            for b0, b1 in runs[i + 1 :]:
+                assert a1 < b0 or b1 < a0, f"{room.room_id}: two actors cross"
 
 
 def test_the_dossier_holds_a_panel_for_every_room(tmp_path: Path) -> None:
@@ -1184,8 +1189,7 @@ def test_the_people_stand_on_the_same_floor_as_the_furniture() -> None:
     for room in ROOMS:
         ground = layout["grounds"][room.room_id]
         for sprite in layout["sprites"][room.room_id]:
-            for _, y in _points(sprite["d"]):
-                assert ground - 4.0 <= y <= ground + 0.02, sprite["role"]
+            assert sprite["y"] == pytest.approx(ground, abs=0.02), sprite["role"]
 
 
 def test_the_space_between_the_rooms_is_the_building(tmp_path: Path) -> None:
@@ -1211,3 +1215,58 @@ def test_the_space_between_the_rooms_is_the_building(tmp_path: Path) -> None:
     assert 'pointer-events="none"' in page[start : page.index(">", start)]
     assert "<text" not in block, "the plant is stating something"
     assert "data-room" not in block, "the plant can be clicked"
+
+
+# ------------------------------------------------ M32: an actor with somewhere to be
+
+
+def test_an_actor_works_at_something_that_is_actually_there() -> None:
+    """An actor pacing between two arbitrary points is a gif. The stations are
+    the room's own fixtures, so the route is the room's own layout -- and if a
+    stretch of floor has nothing to work at, the actor walks it rather than
+    miming at a spot where there is nothing."""
+    layout = plan(assemble())
+    posted, total = 0, 0
+    for room in ROOMS:
+        middles = [
+            round(fixture["x"] + fixture["w"] / 2, 2)
+            for fixture in layout["fixtures"][room.room_id]
+            if str(fixture["kind"]) in WORKABLE
+        ]
+        for sprite in layout["sprites"][room.room_id]:
+            total += 1
+            at = [station in middles for station in sprite["stations"]]
+            assert all(at) or not any(at), f"{sprite['role']} is half at a station"
+            posted += 1 if all(at) else 0
+    assert total >= 12
+    assert posted * 3 >= total * 2, f"only {posted} of {total} actors have a post"
+
+
+def test_an_actor_in_a_room_this_arm_does_not_engage_stands_still(tmp_path: Path) -> None:
+    """The animation has to mean something or it is decoration. What it means
+    is that this arm engages this room -- so switching arms changes who is
+    working, and an actor in a room the arm leaves out stands at its post."""
+    page = _built(tmp_path)
+    style = page[page.index("<style>") : page.index("</style>")]
+    assert ".roomfront.resting .agent .pace" in style
+    assert "animation:none" in style[style.index(".roomfront.resting") :]
+    script = page[page.rindex("<script>") : page.rindex("</script>")]
+    assert "classList.toggle('resting', !on)" in script
+    # and the figure is placed at its first station, so standing still is
+    # standing at a post rather than stopped halfway across the floor
+    layout = plan(assemble())
+    for room in ROOMS:
+        for sprite in layout["sprites"][room.room_id]:
+            assert sprite["x"] == sprite["stations"][0]
+            assert sprite["s0"] == 0.0
+
+
+def test_every_actor_says_who_it_is(tmp_path: Path) -> None:
+    """Fourteen rooms of figures with no names is a diagram of a workforce."""
+    page = _built(tmp_path)
+    layout = plan(assemble())
+    for room in ROOMS:
+        for sprite in layout["sprites"][room.room_id]:
+            assert sprite["label"] == sprite["role"].upper()
+            assert f">{sprite['label']}</text>" in page, sprite["role"]
+    assert page.count('<g class="nameplate"') == sum(len(room.roles) for room in ROOMS)

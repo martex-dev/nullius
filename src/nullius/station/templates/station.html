@@ -313,17 +313,54 @@
   /* ----------------------------------------------------------- animation */
   @keyframes step { 0%,100% { transform:translateY(0) rotate(0deg); }
                     50% { transform:translateY(-2.4px) rotate(1.2deg); } }
+  /* An actor walks between the stations of its own room and stops at each one.
+     The stations are real fixtures, so the route is the room's own layout; the
+     dwells are what make it work rather than pace. Three stations when the
+     slice of floor has three things in it, two when it has two. */
+  @keyframes pace3 { 0%,10%   { transform:translateX(var(--s0)); }
+                     26%,44%  { transform:translateX(var(--s1)); }
+                     60%,78%  { transform:translateX(var(--s2)); }
+                     94%,100% { transform:translateX(var(--s0)); } }
+  @keyframes pace2 { 0%,14%   { transform:translateX(var(--s0)); }
+                     36%,64%  { transform:translateX(var(--s1)); }
+                     86%,100% { transform:translateX(var(--s0)); } }
+  /* Facing. The stations are sorted, so the outward legs go right and the
+     return goes left; the twin keyframes a hundredth apart make the turn a
+     turn rather than a squash through zero width. */
+  @keyframes face3 { 0%,60%      { transform:scaleX(1); }
+                     60.01%,93%  { transform:scaleX(-1); }
+                     93.01%,100% { transform:scaleX(1); } }
+  @keyframes face2 { 0%,64%      { transform:scaleX(1); }
+                     64.01%,100% { transform:scaleX(-1); } }
+  /* Leaning into whatever is in front of them. */
+  @keyframes work { 0%,100% { transform:rotate(0deg); } 50% { transform:rotate(5.5deg); } }
   @keyframes blink { 0%,72%,100% { opacity:.3; } 80%,92% { opacity:1; } }
   @keyframes breathe { 0%,100% { opacity:.42; } 50% { opacity:1; } }
   @keyframes hum { 0%,100% { opacity:.7; } 50% { opacity:1; } }
   .agent .walk { animation:step var(--step,1.2s) ease-in-out infinite var(--step-delay,0s); }
+  .agent .pace { animation:pace3 var(--dur,24s) ease-in-out infinite var(--phase,0s); }
+  .agent.two .pace { animation-name:pace2; }
+  .agent .turn { transform-box:fill-box; transform-origin:50% 50%;
+                 animation:face3 var(--dur,24s) linear infinite var(--phase,0s); }
+  .agent.two .turn { animation-name:face2; }
+  .agent .pose { transform-box:fill-box; transform-origin:50% 100%;
+                 animation:work var(--work,1.8s) ease-in-out infinite var(--step-delay,0s); }
+  .nameplate rect { fill:color-mix(in srgb, var(--plate-2) 82%, transparent); }
+  .nameplate text { font-family:var(--mono); font-size:11px; font-weight:700; letter-spacing:.08em;
+              fill:var(--plate-dim); }
+  /* An arm that does not engage a room has nobody working in it. The figure
+     stays -- it is stationed there either way -- but it stands at its post. */
+  .roomfront.resting .agent .pace, .roomfront.resting .agent .turn,
+  .roomfront.resting .agent .pose, .roomfront.resting .agent .walk { animation:none; }
   .blink { animation:blink 4.2s steps(1,end) infinite; }
   .glowpane { animation:hum 5.6s ease-in-out infinite; }
   .lamp { animation:breathe 3.6s ease-in-out infinite; }
-  .stopped .agent .walk, .stopped .blink, .stopped .glowpane, .stopped .lamp,
+  .stopped .agent .walk, .stopped .agent .pace, .stopped .agent .turn,
+  .stopped .agent .pose, .stopped .blink, .stopped .glowpane, .stopped .lamp,
   .stopped .doorlamp { animation:none; }
   @media (prefers-reduced-motion: reduce) {
-    .agent .walk, .blink, .glowpane, .lamp, .doorlamp { animation:none !important; }
+    .agent .walk, .agent .pace, .agent .turn, .agent .pose,
+    .blink, .glowpane, .lamp, .doorlamp { animation:none !important; }
     #camera { transition:none; }
   }
 </style>
@@ -1220,6 +1257,9 @@
     Array.prototype.forEach.call(svg.querySelectorAll('.roomfront'), function (g) {
       var on = a.engaged.indexOf(g.dataset.room) >= 0;
       g.setAttribute('opacity', on ? '1' : '.78');
+      // An arm that does not engage a room has nobody working in it. The actor
+      // stays -- it is stationed there either way -- and stands at its post.
+      g.classList.toggle('resting', !on);
     });
     Array.prototype.forEach.call(svg.querySelectorAll('[data-lamp]'), function (c) {
       var r = a.rooms[c.dataset.lamp];

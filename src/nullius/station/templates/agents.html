@@ -645,13 +645,36 @@
 
 {% macro agent(s, hue, dim) %}
 {% set h = s.h %}
-<g class="agent{{ ' dimmed' if dim else '' }}"
-   style="--step:{{ s.period }}s;--step-delay:-{{ s.delay }}s">
-  <animateMotion dur="{{ s.dur }}s" begin="{{ s.begin }}s" repeatCount="indefinite"
-                 calcMode="linear" path="{{ s.d }}"/>
-  <ellipse cx="0" cy="1.5" rx="{{ h * 0.27 }}" ry="{{ h * 0.08 }}" fill="#000" opacity=".5"/>
-  <ellipse cx="0" cy="1.5" rx="{{ h * 0.17 }}" ry="{{ h * 0.05 }}" fill="#000" opacity=".35"/>
-  <g class="walk" filter="url(#ink)">{{ build(s.role, h, hue) }}</g>
+{# The figure is placed at its first station and moves from there, so an actor
+   in a room the arm on display does not engage stands at a post rather than
+   halfway across the floor with the animation switched off. #}
+<g class="agent{{ ' two' if s.turns < 3 else '' }}{{ ' dimmed' if dim else '' }}"
+   transform="translate({{ s.x }} {{ s.y }})"
+   style="--s0:{{ s.s0 }}px;--s1:{{ s.s1 }}px;--s2:{{ s.s2 }}px;--dur:{{ s.dur }}s;
+          --phase:{{ s.begin }}s;--step:{{ s.period }}s;--step-delay:-{{ s.delay }}s;
+          --work:{{ s.work }}s">
+  <g class="pace">
+    <ellipse cx="0" cy="1.5" rx="{{ h * 0.27 }}" ry="{{ h * 0.08 }}" fill="#000" opacity=".5"/>
+    <ellipse cx="0" cy="1.5" rx="{{ h * 0.17 }}" ry="{{ h * 0.05 }}" fill="#000" opacity=".35"/>
+    <g class="walk">
+      <g class="turn">
+        <g class="pose" filter="url(#ink)">
+          {# A box the figure sits in the middle of. The mirror is taken about
+             the centre of what is drawn, and what is drawn is not symmetric --
+             a wrench sticks out one side and a T-square the other -- so
+             without this the actor jumps sideways every time it turns round. #}
+          <rect x="{{ -h * 0.56 }}" y="{{ -h }}" width="{{ h * 1.12 }}" height="{{ h }}"
+                fill="none" stroke="none"/>
+          {{ build(s.role, h, hue) }}
+        </g>
+      </g>
+    </g>
+    <g class="nameplate" transform="translate(0 {{ -h - 15 }})">
+      <rect x="{{ -s.tag_w / 2 }}" y="-11" width="{{ s.tag_w }}" height="16" rx="8"
+            stroke="{{ hue }}" stroke-width="1.2" stroke-opacity=".45"/>
+      <text x="0" y="1" text-anchor="middle">{{ s.label }}</text>
+    </g>
+  </g>
   <title>{{ s.role }}</title>
 </g>
 {% endmacro %}

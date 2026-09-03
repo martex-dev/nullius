@@ -1415,6 +1415,29 @@
         stroke="{{ ['var(--m-steel)', 'var(--m-brass)', 'var(--m-paint)'][i] }}"
         stroke-width="6" opacity=".7"/>
   {% endfor %}
+  {# A row of plant standing on the deck, edge to edge. Three tanks and two
+     exchangers left the right-hand third of the hall thinner than the left,
+     which reads as the building running out rather than as a building. #}
+  {% for i in range(9) %}
+  {% set gw = w.w * [0.07, 0.05, 0.09, 0.06, 0.05, 0.08, 0.06, 0.07, 0.05][i] %}
+  {% set gh = w.h * [0.17, 0.11, 0.22, 0.14, 0.09, 0.19, 0.12, 0.16, 0.1][i] %}
+  {% set gx = w.x + 22 + w.w * [0.0, 0.09, 0.17, 0.29, 0.37, 0.45, 0.57, 0.68, 0.79][i] %}
+  {% set gy = w.y + w.h - 20 - gh %}
+  <ellipse cx="{{ gx + gw / 2 }}" cy="{{ gy + gh + 2 }}" rx="{{ gw * 0.56 }}" ry="6" fill="#000"
+           opacity=".4"/>
+  <rect x="{{ gx }}" y="{{ gy }}" width="{{ gw }}" height="{{ gh }}" rx="3"
+        fill="{{ ['var(--m-steel)', 'var(--wallcap)', 'var(--m-steel-2)'][i % 3] }}"
+        stroke="#050912" stroke-width="1.6" stroke-opacity=".6"/>
+  <rect x="{{ gx }}" y="{{ gy }}" width="{{ gw }}" height="{{ gh * 0.16 }}" rx="3" fill="#fff"
+        opacity=".09"/>
+  {% for k in range(3) %}
+  <rect x="{{ gx + gw * 0.14 }}" y="{{ gy + gh * (0.28 + 0.2 * k) }}" width="{{ gw * 0.72 }}"
+        height="{{ gh * 0.11 }}" rx="1.6" fill="#050912" opacity=".4"/>
+  {% endfor %}
+  <circle cx="{{ gx + gw * 0.82 }}" cy="{{ gy + gh * 0.16 }}" r="{{ gw * 0.055 }}"
+          fill="{{ ['var(--m-hazard)', hue, 'var(--m-paint)'][i % 3] }}" opacity=".6"
+          class="blink" style="animation-delay:{{ i * 0.4 }}s"/>
+  {% endfor %}
   <rect x="{{ w.x }}" y="{{ w.y + w.h - 20 }}" width="{{ w.w }}" height="20" fill="var(--slab)"/>
   <rect x="{{ w.x }}" y="{{ w.y + w.h - 20 }}" width="{{ w.w }}" height="20"
         fill="url(#plating)" opacity=".5"/>

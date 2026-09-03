@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M31 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M32 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -1268,6 +1268,61 @@ it failed — it was the only thing in the suite that knew which way the camera 
 - The people stand on the same floor as the furniture. Tested — there are no lanes any more.
 - The plant fills the space between the rooms, never overlaps one, states no number and cannot be
   clicked. Tested.
+- Still one self-contained file; still refuses to build on input that does not verify.
+
+---
+
+### M32 · An actor with somewhere to be ✅
+Presentation only. `model.py`, `map.py` and `ledger.py` untouched.
+
+**The people were a gif.** Each one traced a few pixels of path back and forth, forever, at the
+same speed, whatever was happening. That is decoration, and decoration on a page whose whole claim
+is that nothing on it is decorative. An actor now walks between the **stations of its own room** —
+the room's own fixtures, chosen from its own stretch of floor — stops at each one, leans into the
+work, and turns to face the way it is going. Where a stretch of floor has nothing to work at, the
+actor paces it rather than miming at a spot where there is nothing: two stations a hand's width
+apart is a figure shuffling on the spot, which reads as a broken animation rather than as somebody
+busy, so below a minimum spread the route falls back to walking.
+
+**And the animation now means something.** An arm that does not engage a room has nobody working
+in it, so switching arms changes who is at work — the actors in the rooms that arm leaves out
+stand at their posts. That is the same fact the route, the opacity and the dossier already report,
+said a fourth way, and it is the difference between a map that moves and a map that is showing
+you a system.
+
+**Everybody says who they are.** A nameplate rides above each figure with the role's own name on
+it, outside the group that mirrors, so it stays the right way round when its owner turns.
+
+**The two thin places are filled.** Review and The Oracle had kits written for a layout with four
+rows of depth and supplied too few things to stand on a floor; both gained furniture. The plant
+hall had three tanks and two exchangers clustered to the left, so its right-hand third read as the
+building running out — a row of nine switchgear and skid units now runs the length of its deck.
+
+#### What building it revealed was wrong
+
+**1. A negative delay and a frozen clock look exactly like a broken animation.** Sampling the
+actor's transform in the browser returned the same number sixteen times over eleven seconds. The
+keyframes were right, `getAnimations()` said `running`, and the value never moved — because the
+pane was not compositing, so the document timeline was not advancing at all. Driving
+`animation.currentTime` by hand proved the motion in one step. Worth recording: when an animation
+looks stuck, check the clock before the keyframes.
+
+**2. `tag` was already taken.** The nameplate went in as `class="tag"`, which is also the class on
+the dossier's backing chip — so the count of nameplates on the page was one more than the number
+of people in the building. The test that caught it was counting a class name rather than a thing,
+which is exactly why it caught it.
+
+**Acceptance**
+- Every test from M22 through M31 still passes; three that read the old motion path were rewritten
+  against what an actor does now.
+- Every actor's stations are inside its own room, in order, and far enough apart that nobody
+  shuffles on the spot. Tested.
+- Two actors in a room never cross. Tested.
+- At least two thirds of actors are stationed at a real fixture rather than pacing, and no actor is
+  half at a station. Tested.
+- An actor in a room this arm does not engage stands at its first station, with the animation off.
+  Tested against both the stylesheet and the script.
+- Every actor carries its own name. Tested.
 - Still one self-contained file; still refuses to build on input that does not verify.
 
 ---

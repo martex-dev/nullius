@@ -519,7 +519,7 @@ HALL_WALL = 8.0
 #: length of it takes. Agents patrol their own room and never leave it: the
 #: token is what moves through the station, and a role walking the corridor
 #: would say something about the architecture that is not true.
-PATROL_INSET = 34.0
+PATROL_INSET = 22.0
 PATROL_SECONDS = 19.0
 
 
@@ -801,10 +801,10 @@ FURNITURE: dict[str, Kit] = {
     ),
     "review": Kit(
         ("vent", "sign", "conduit"),
-        ("podium", "plotwall", "shelf"),
-        ("catalogue", "printer"),
-        ("readingdesk", "readingdesk"),
-        ("stool", "plant", "poster"),
+        ("plotwall", "shelf", "pinboard"),
+        ("catalogue", "podium", "printer"),
+        ("readingdesk", "desk", "readingdesk"),
+        ("stool", "plant", "poster", "crate"),
     ),
     "record": Kit(
         ("conduit", "sign", "conduit"),
@@ -837,9 +837,9 @@ FURNITURE: dict[str, Kit] = {
     "oracle": Kit(
         ("vent", "sign", "vent"),
         ("dish", "orb", "dish"),
-        ("scope", "keysafe"),
-        ("plinth", "plinth"),
-        ("hatch", "barrel", "cables"),
+        ("scope", "keysafe", "rack"),
+        ("plinth", "terminal", "plinth"),
+        ("hatch", "barrel", "cables", "crate"),
     ),
 }
 
@@ -1216,6 +1216,78 @@ def _bounds() -> dict[str, float]:
     return {"x": round(x0, 2), "y": round(y0, 2), "w": round(x1 - x0, 2), "h": round(y1 - y0, 2)}
 
 
+WORKABLE: frozenset[str] = frozenset(
+    {
+        "console",
+        "desk",
+        "readingdesk",
+        "workbench",
+        "bench",
+        "table",
+        "counter",
+        "drawingtable",
+        "printer",
+        "press",
+        "scanner",
+        "sealpress",
+        "podium",
+        "terminal",
+        "scope",
+        "binbank",
+        "coolant",
+        "partsbin",
+        "filewall",
+        "catalogue",
+        "rack",
+        "cabinet",
+        "locker",
+        "spool",
+        "shelf",
+        "stacks",
+        "reactor",
+        "vaultdoor",
+        "keysafe",
+        "maskcase",
+        "plinth",
+        "orb",
+        "dish",
+        "dummy",
+        "scales",
+        "bullion",
+    }
+)
+"""Things somebody could plausibly be doing something at.
+
+An actor that paces back and forth between two arbitrary points is a gif. An
+actor that walks to a bench, works at it, walks to a console and works at that
+is the same amount of animation saying something: that the room is laid out and
+that the person in it has somewhere to be. The stations are the room's own
+fixtures, so nobody works at a barrel or in mid-air.
+"""
+
+
+def _stations(room: Room, left: float, right: float) -> list[float]:
+    """Where in its own stretch of floor an actor has something to work at."""
+    middles = sorted(
+        fixture["x"] + fixture["w"] / 2
+        for fixture in _fixtures(room)
+        if str(fixture["kind"]) in WORKABLE and left <= fixture["x"] + fixture["w"] / 2 <= right
+    )
+    span = right - left
+    # Two stations a hand's width apart is a figure shuffling on the spot, which
+    # reads as worse than pacing: it looks like the animation is broken rather
+    # than like somebody is busy. Below that spread, walk the slice instead.
+    if len(middles) >= 2 and middles[-1] - middles[0] > max(46.0, span * 0.3):
+        first, last = middles[0], middles[-1]
+        between = [
+            middle for middle in middles[1:-1] if middle - first > 40.0 and last - middle > 40.0
+        ]
+        if between:
+            return [first, between[len(between) // 2], last]
+        return [first, last]
+    return [left + span * 0.16, right - span * 0.16]
+
+
 def _sprites(room: Room) -> list[dict[str, Any]]:
     """One figure per role that works in this room, at a workstation.
 
@@ -1241,25 +1313,32 @@ def _sprites(room: Room) -> list[dict[str, Any]]:
         # workstations, which is the only part of the room nothing stands on.
         left, right = floor.x + PATROL_INSET + index * share, 0.0
         right = left + share - (12.0 if len(room.roles) > 1 else 0.0)
-        # Everybody is on the same floor now, because there is only one.
-        lane = feet
-        drift = 1.5 + nxt(0.0, 1.5)
-        turn = left + (right - left) * (0.3 + nxt(0.0, 0.4))
+        stations = _stations(room, left, right)
+        # The first station is where the figure stands when nothing is running,
+        # so the offsets are measured from it: an actor in a room this arm does
+        # not engage is at a post rather than stopped halfway across the floor.
+        base = stations[0]
+        offsets = [station - base for station in stations]
+        if len(offsets) < 3:
+            offsets.append(offsets[0])
         out.append(
             {
                 "role": role.value,
-                "x": round((left + right) / 2, 2),
-                "y": round(lane, 2),
+                "label": role.value.upper(),
+                "tag_w": round(_measure(role.value.upper(), 11.0) + 18.0, 2),
+                "turns": len(stations),
+                "x": round(base, 2),
+                "y": round(feet, 2),
                 "h": AGENT_H,
-                "d": (
-                    f"M{left:.1f} {lane:.1f} L{turn:.1f} {lane - drift:.1f} "
-                    f"L{right:.1f} {lane:.1f} L{turn:.1f} {lane - drift:.1f} "
-                    f"L{left:.1f} {lane:.1f}"
-                ),
+                "stations": [round(station, 2) for station in stations],
+                "s0": round(offsets[0], 2),
+                "s1": round(offsets[1], 2),
+                "s2": round(offsets[2], 2),
                 "dur": round(PATROL_SECONDS + nxt(0.0, 9.0), 2),
                 "begin": round(-nxt(0.0, 18.0), 2),
                 "delay": round(nxt(0.0, 2.6), 2),
                 "period": round(1.1 + nxt(0.0, 0.5), 2),
+                "work": round(1.5 + nxt(0.0, 0.8), 2),
             }
         )
     return out
