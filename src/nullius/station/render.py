@@ -223,74 +223,65 @@ TONES: dict[str, str] = {
     "poster": "paint",
 }
 
-#: How tall a thing stands, as a fraction of the band it was given.
-#:
-#: Until M30 nothing in the station had a height. Every fixture was an
-#: axis-aligned rectangle lying flat on the floor, which is why fourteen rooms
-#: of equipment read as coloured squares inside a bigger square: there was no
-#: information in the drawing about what was a cabinet and what was a painted
-#: mark. A thing with a height is drawn as a solid -- a top face you look down
-#: on and a front face you look at -- and the two together are what make it an
-#: object standing in a room rather than a shape on a plan.
-#:
-#: The fraction is of the fixture's own box, so the solid still fits exactly
-#: inside the space the row gave it: top face on top, front face below it, base
-#: line where the floor is.
+#: How much of a thing's box is the cap on top of it rather than the face of
+#: it. Seen from the side almost all of an object is its face; the cap is the
+#: sliver of its top surface the eye still catches from a little above. A thing
+#: lying flat on the deck -- a hatch, a coil of cable -- is nearly all cap.
 HEIGHTS: dict[str, float] = {
-    "rack": 0.6,
-    "cabinet": 0.58,
-    "locker": 0.62,
-    "filewall": 0.72,
-    "shelf": 0.6,
-    "stacks": 0.58,
-    "catalogue": 0.62,
-    "maskcase": 0.68,
-    "keysafe": 0.66,
-    "vaultdoor": 0.72,
-    "plotwall": 0.74,
-    "board": 0.74,
-    "pinboard": 0.74,
-    "screen": 0.72,
-    "targetboard": 0.74,
-    "poster": 0.8,
-    "sign": 0.74,
-    "vent": 0.72,
-    "conduit": 0.55,
-    "pipes": 0.5,
-    "workbench": 0.42,
-    "bench": 0.42,
-    "desk": 0.4,
-    "console": 0.46,
+    "rack": 0.12,
+    "cabinet": 0.14,
+    "locker": 0.13,
+    "filewall": 0.1,
+    "shelf": 0.13,
+    "stacks": 0.14,
+    "catalogue": 0.13,
+    "maskcase": 0.12,
+    "keysafe": 0.16,
+    "vaultdoor": 0.1,
+    "plotwall": 0.14,
+    "board": 0.14,
+    "pinboard": 0.14,
+    "screen": 0.14,
+    "targetboard": 0.14,
+    "poster": 0.1,
+    "sign": 0.16,
+    "vent": 0.16,
+    "conduit": 0.42,
+    "pipes": 0.42,
+    "workbench": 0.3,
+    "bench": 0.3,
+    "desk": 0.3,
+    "console": 0.28,
     "table": 0.34,
-    "counter": 0.5,
-    "readingdesk": 0.4,
-    "drawingtable": 0.45,
-    "printer": 0.48,
-    "press": 0.5,
-    "scanner": 0.6,
-    "sealpress": 0.5,
-    "partsbin": 0.66,
-    "binbank": 0.5,
-    "spool": 0.5,
-    "coolant": 0.5,
-    "scope": 0.5,
-    "reactor": 0.62,
-    "dish": 0.55,
-    "orb": 0.5,
-    "podium": 0.5,
-    "plinth": 0.5,
-    "terminal": 0.55,
-    "bullion": 0.38,
-    "scales": 0.55,
-    "dummy": 0.55,
-    "crate": 0.5,
-    "barrel": 0.55,
-    "cart": 0.4,
-    "chair": 0.45,
-    "stool": 0.42,
-    "plant": 0.55,
-    "hatch": 0.05,
-    "cables": 0.14,
+    "counter": 0.26,
+    "readingdesk": 0.3,
+    "drawingtable": 0.26,
+    "printer": 0.26,
+    "press": 0.2,
+    "scanner": 0.16,
+    "sealpress": 0.2,
+    "partsbin": 0.13,
+    "binbank": 0.3,
+    "spool": 0.18,
+    "coolant": 0.22,
+    "scope": 0.24,
+    "reactor": 0.12,
+    "dish": 0.2,
+    "orb": 0.2,
+    "podium": 0.22,
+    "plinth": 0.16,
+    "terminal": 0.18,
+    "bullion": 0.32,
+    "scales": 0.2,
+    "dummy": 0.2,
+    "crate": 0.3,
+    "barrel": 0.3,
+    "cart": 0.3,
+    "chair": 0.34,
+    "stool": 0.36,
+    "plant": 0.24,
+    "hatch": 0.94,
+    "cables": 0.8,
 }
 
 #: Things that light up in a colour of their own rather than the room's. A
@@ -372,16 +363,152 @@ CHIP_H = 27.0
 #: Where the interior starts, now that nothing is written on it.
 CONTENT_TOP = 16.0
 
-#: The rest of the interior, as fractions of what is left below that. The
-#: off-corridor rooms are shorter than the pipeline rooms and the same layout
-#: has to read in both, so the bands are proportional from here down.
-WALL_AT, WALL_H = -0.055, 0.075
-BACK_AT, BACK_H = 0.05, 0.185
-MID_AT, MID_H = 0.27, 0.16
-LANE_AT = 0.505
-FRONT_AT, FRONT_H = 0.635, 0.175
-FEET_AT = 0.965
+#: A room is a chamber seen from the side, so it has a ceiling, a back wall and
+#: a floor you stand on rather than a plane you look down at. Until M31 the map
+#: looked down on the floor of every room and the fixtures were laid out in four
+#: bands of depth; the whole of that is gone. There is one ground line, and
+#: everything in the room either stands on it or hangs above it.
+CEIL = 20.0
+"""The ceiling band, where the light fittings and the ducting are."""
+
+SLAB = 22.0
+"""The floor: a slab with a lit top edge, which is the line things stand on."""
+
+HUNG_AT, HUNG_H = 0.0, 0.15
+"""Where the ducts and the signage hang, as a fraction of the chamber."""
+
+MOUNT_AT, MOUNT_H = 0.2, 0.34
+"""Where a board or a screen is fixed to the back wall."""
+
 AGENT_H = 82.0
+
+#: How tall a thing that stands on the floor is, as a fraction of the chamber.
+#: In elevation this is the whole of what tells a filing wall from a stool, so
+#: it is the one table in this module that is doing real work rather than art.
+STANDS: dict[str, float] = {
+    "rack": 0.68,
+    "filewall": 0.74,
+    "cabinet": 0.56,
+    "locker": 0.62,
+    "shelf": 0.66,
+    "stacks": 0.6,
+    "catalogue": 0.56,
+    "maskcase": 0.6,
+    "vaultdoor": 0.74,
+    "partsbin": 0.58,
+    "coolant": 0.5,
+    "reactor": 0.82,
+    "scanner": 0.62,
+    "press": 0.52,
+    "spool": 0.42,
+    "sealpress": 0.46,
+    "console": 0.36,
+    "counter": 0.36,
+    "desk": 0.32,
+    "readingdesk": 0.32,
+    "workbench": 0.34,
+    "bench": 0.34,
+    "table": 0.26,
+    "drawingtable": 0.4,
+    "printer": 0.32,
+    "podium": 0.38,
+    "plinth": 0.52,
+    "terminal": 0.52,
+    "orb": 0.54,
+    "dish": 0.54,
+    "dummy": 0.52,
+    "scales": 0.48,
+    "scope": 0.36,
+    "binbank": 0.3,
+    "bullion": 0.22,
+    "crate": 0.26,
+    "barrel": 0.32,
+    "cart": 0.26,
+    "chair": 0.3,
+    "stool": 0.24,
+    "plant": 0.34,
+    "cables": 0.09,
+    "hatch": 0.05,
+}
+
+#: How much of a row a thing is entitled to. Dividing a row evenly gave a
+#: stool the same frontage as a wall of filing drawers, which reads as a bar
+#: chart of identical columns rather than as a room somebody laid out.
+WIDE: dict[str, float] = {
+    "filewall": 3.0,
+    "rack": 2.6,
+    "cabinet": 2.2,
+    "locker": 2.2,
+    "shelf": 2.6,
+    "stacks": 2.4,
+    "catalogue": 2.4,
+    "maskcase": 2.2,
+    "vaultdoor": 2.6,
+    "partsbin": 2.4,
+    "coolant": 2.2,
+    "reactor": 2.4,
+    "scanner": 2.2,
+    "press": 2.4,
+    "spool": 2.0,
+    "sealpress": 1.5,
+    "console": 2.6,
+    "counter": 2.6,
+    "desk": 2.6,
+    "readingdesk": 2.4,
+    "workbench": 2.8,
+    "bench": 2.6,
+    "table": 2.4,
+    "drawingtable": 2.2,
+    "printer": 1.8,
+    "podium": 1.3,
+    "plinth": 1.1,
+    "terminal": 1.3,
+    "orb": 1.3,
+    "dish": 1.5,
+    "dummy": 1.1,
+    "scales": 1.3,
+    "scope": 2.0,
+    "binbank": 2.2,
+    "bullion": 1.5,
+    "crate": 1.1,
+    "barrel": 0.8,
+    "cart": 1.3,
+    "chair": 0.8,
+    "stool": 0.7,
+    "plant": 0.8,
+    "cables": 1.1,
+    "hatch": 1.1,
+    "board": 2.6,
+    "plotwall": 2.6,
+    "screen": 2.2,
+    "sign": 1.6,
+    "poster": 1.1,
+    "pinboard": 2.4,
+    "targetboard": 2.4,
+    "vent": 1.6,
+    "conduit": 2.2,
+    "pipes": 2.2,
+    "keysafe": 1.6,
+}
+
+#: Things that hang on the wall instead of standing on the floor. A board that
+#: stood on the floor would be a board leaning against the wall, which is a
+#: different claim about the room.
+MOUNTED: frozenset[str] = frozenset(
+    {
+        "board",
+        "plotwall",
+        "screen",
+        "sign",
+        "poster",
+        "pinboard",
+        "targetboard",
+        "vent",
+        "conduit",
+        "pipes",
+        "keysafe",
+    }
+)
 
 #: The hallway between two rooms: as wide as the doorways it joins, so the walk
 #: reads as one run of floor rather than as a line drawn between two boxes.
@@ -566,9 +693,30 @@ def _band(floor: Box, at: float) -> float:
     return floor.y + CONTENT_TOP + _usable(floor) * at
 
 
+def _chamber(room: Room) -> Box:
+    """The air inside a room: the interior less its ceiling and its floor slab.
+
+    Everything a room contains is placed against this box -- hung from its top,
+    fixed to its back, or standing on its bottom.
+    """
+    inner = _inner(room)
+    return Box(inner.x, inner.y + CEIL, inner.w, inner.h - CEIL - SLAB)
+
+
+def ground_y(room: Room) -> float:
+    """The line the people and the furniture stand on."""
+    chamber = _chamber(room)
+    return chamber.y + chamber.h
+
+
 def lane_y(room: Room) -> float:
-    """Where the corridor crosses this room, in world units."""
-    return _band(_inner(room), LANE_AT)
+    """Where the corridor crosses this room, in world units.
+
+    The corridor is at floor level now, because in elevation a door is a hole
+    in a wall at the height of the floor either side of it and a run of corridor
+    is the floor between two of them.
+    """
+    return ground_y(room) - SLAB * 0.35
 
 
 # ------------------------------------------------------------------- furniture
@@ -715,10 +863,14 @@ def _finish(fixture: dict[str, Any], accent: str) -> dict[str, Any]:
     fixture["body"] = body
     fixture["shade"] = shade
     fixture["glow"] = ACCENTS[GLOWS.get(kind, accent)]
-    # How much of the box is the front of the solid rather than the top of it.
-    # Kept inside the box the row allotted, so a thing that stands up does not
-    # stand into the row behind it.
-    fixture["z"] = round(float(fixture["h"]) * HEIGHTS.get(kind, 0.42), 2)
+    # How much of the box is the face rather than the cap on top of it. Seen
+    # from the side almost all of a thing is its face; the cap is the sliver of
+    # its top surface you still catch because the eye is a little above it.
+    fixture["z"] = round(float(fixture["h"]) * (1.0 - HEIGHTS.get(kind, 0.14)), 2)
+    # A thing on the wall casts its shadow onto the wall behind it. A thing on
+    # the floor casts one under itself. Drawing the second for the first is how
+    # a screen ends up looking like it is standing on a plinth.
+    fixture["mounted"] = kind in MOUNTED
     return fixture
 
 
@@ -757,51 +909,158 @@ def _row(
 
 
 def _fixtures(room: Room) -> list[dict[str, Any]]:
-    """Everything drawn on the floor of one room.
+    """Everything in one room, placed against the chamber rather than the floor.
 
-    Five at the least, because a room with three hairlines in it does not read
-    as a place and the whole point of the drawing is that these are places.
+    Three things can happen to a fixture. It hangs from the ceiling, it is fixed
+    to the back wall, or it stands on the ground line -- and if it stands, its
+    height is what says what it is. A rack is two thirds of the room; a stool is
+    a quarter of it. Nothing is laid out in depth any more, because there is no
+    depth to lay out in: this is a cutaway, and the only axis left is up.
     """
     nxt = _rng(room.room_id)
     kit = FURNITURE.get(room.room_id, DEFAULT_KIT)
-    floor = _inner(room)
-    usable = _usable(floor)
+    chamber = _chamber(room)
+    ground = chamber.y + chamber.h
     hue = room.accent
-    wall = _row(kit.wall, floor, _band(floor, WALL_AT), usable * WALL_H, nxt, hue)
-    back = _row(kit.back, floor, _band(floor, BACK_AT), usable * BACK_H, nxt, hue)
-    mid = _row(kit.mid, floor, _band(floor, MID_AT), usable * MID_H, nxt, hue)
-    front = _row(kit.front, floor, _band(floor, FRONT_AT), usable * FRONT_H, nxt, hue)
-    props = _props(kit.props, floor, nxt, hue)
-    for fixture in wall + back + mid:
+
+    # A board that stood on the floor would be a board leaning against the
+    # wall, so anything that belongs on a wall is taken out of whichever row
+    # named it and hung, wherever the kit happened to put it.
+    hung = _hung_row(tuple(k for k in kit.wall if k in MOUNTED), chamber, nxt, hue)
+    rest = tuple(k for k in kit.wall if k not in MOUNTED)
+    mounted = _mounted_row(
+        tuple(k for k in kit.back + kit.mid + kit.front + kit.props if k in MOUNTED),
+        chamber,
+        nxt,
+        hue,
+    )
+    tall = _standing_row(
+        rest + tuple(k for k in kit.back + kit.mid if k not in MOUNTED),
+        chamber,
+        ground,
+        nxt,
+        hue,
+        0.0,
+    )
+    near = _standing_row(
+        tuple(k for k in kit.front + kit.props if k not in MOUNTED),
+        chamber,
+        ground,
+        nxt,
+        hue,
+        0.5,
+    )
+
+    for fixture in hung + mounted + tall:
         fixture["depth"] = "back"
-    for fixture in front + props:
+    for fixture in near:
         fixture["depth"] = "front"
-    return wall + back + mid + props + front
+    return hung + mounted + tall + near
 
 
-def _props(
+def _hung_row(
     kinds: tuple[str, ...],
-    floor: Box,
+    chamber: Box,
     nxt: Callable[[float, float], float],
-    accent: str = "slate",
+    accent: str,
 ) -> list[dict[str, Any]]:
-    """Loose things, tucked into the corners either side of the walk.
+    """Ducting and signage, hung from the ceiling."""
+    return _spread(kinds, chamber, chamber.y + chamber.h * HUNG_AT, chamber.h * HUNG_H, nxt, accent)
 
-    Placed in the margins the patrol does not use, so the floor has something on
-    it without anybody having to step over it.
+
+def _mounted_row(
+    kinds: tuple[str, ...],
+    chamber: Box,
+    nxt: Callable[[float, float], float],
+    accent: str,
+) -> list[dict[str, Any]]:
+    """Boards and screens, fixed to the back wall."""
+    return _spread(
+        kinds, chamber, chamber.y + chamber.h * MOUNT_AT, chamber.h * MOUNT_H, nxt, accent
+    )
+
+
+def _cells(kinds: tuple[str, ...], left: float, span: float) -> list[tuple[float, float]]:
+    """Divide a row between its things in proportion to how wide each one is.
+
+    An even division gives a stool the same frontage as a wall of filing
+    drawers, and a row of identical columns reads as a chart rather than as a
+    room somebody laid out.
     """
+    weights = [WIDE.get(kind, 1.6) for kind in kinds]
+    total = sum(weights) or 1.0
+    out: list[tuple[float, float]] = []
+    at = left
+    for weight in weights:
+        cell = span * weight / total
+        out.append((at, cell))
+        at += cell
+    return out
+
+
+def _spread(
+    kinds: tuple[str, ...],
+    chamber: Box,
+    top: float,
+    height: float,
+    nxt: Callable[[float, float], float],
+    accent: str,
+) -> list[dict[str, Any]]:
+    """Space a row of fixtures along the wall, each as wide as it deserves."""
+    if not kinds:
+        return []
+    pad = 16.0
     out: list[dict[str, Any]] = []
-    for index, kind in enumerate(kinds):
-        size = 26.0 + nxt(0.0, 12.0)
-        left = index % 2 == 0
+    cells = _cells(kinds, chamber.x + pad, chamber.w - 2 * pad)
+    for kind, (at, cell) in zip(kinds, cells, strict=True):
+        width = min(cell * (0.8 + nxt(0.0, 0.1)), 220.0)
         out.append(
             _finish(
                 {
                     "kind": kind,
-                    "x": (floor.x + 6.0) if left else (floor.x + floor.w - 6.0 - size),
-                    "y": _band(floor, 0.3 + 0.23 * (index // 2)) + nxt(0.0, 10.0),
-                    "w": size,
-                    "h": size * 0.7,
+                    "x": round(at + (cell - width) / 2, 2),
+                    "y": round(top, 2),
+                    "w": round(width, 2),
+                    "h": round(height, 2),
+                },
+                accent,
+            )
+        )
+    return out
+
+
+def _standing_row(
+    kinds: tuple[str, ...],
+    chamber: Box,
+    ground: float,
+    nxt: Callable[[float, float], float],
+    accent: str,
+    offset: float,
+) -> list[dict[str, Any]]:
+    """Things that stand on the floor, in a line, each as tall as it is.
+
+    The two layers are offset by half a cell so the near one breaks the line of
+    the far one. A row of objects at the same width and the same spacing reads
+    as a bar chart; overlapping them is what makes it a room.
+    """
+    if not kinds:
+        return []
+    pad = 10.0
+    out: list[dict[str, Any]] = []
+    cells = _cells(kinds, chamber.x + pad, chamber.w - 2 * pad)
+    for kind, (at, cell) in zip(kinds, cells, strict=True):
+        height = chamber.h * STANDS.get(kind, 0.3)
+        width = min(cell * (0.86 + nxt(0.0, 0.1)), 230.0)
+        left = at + (cell - width) / 2 + offset * cell * 0.18
+        left = min(max(left, chamber.x + 4.0), chamber.x + chamber.w - width - 4.0)
+        out.append(
+            _finish(
+                {
+                    "kind": kind,
+                    "x": round(left, 2),
+                    "y": round(ground - height, 2),
+                    "w": round(width, 2),
+                    "h": round(height, 2),
                 },
                 accent,
             )
@@ -810,20 +1069,17 @@ def _props(
 
 
 def _zone(room: Room) -> dict[str, float]:
-    """The painted rectangle on the floor that the workstations stand in.
+    """The strip of floor kept clear in front of the workstations.
 
-    Every floor in the station was the same sheet of plating edge to edge, which
-    is why the rooms read as boxes with things in them rather than as places
-    laid out for work. A painted zone says the room has a plan.
+    In elevation this is the slab itself: a lit top edge, a dark body and a
+    grating, which is what tells the eye where the ground is.
     """
-    floor = _inner(room)
-    usable = _usable(floor)
-    top = _band(floor, MID_AT) - 10.0
+    chamber = _chamber(room)
     return {
-        "x": round(floor.x + 14.0, 2),
-        "y": round(top, 2),
-        "w": round(floor.w - 28.0, 2),
-        "h": round(_band(floor, FRONT_AT) + usable * FRONT_H + 16.0 - top, 2),
+        "x": round(chamber.x, 2),
+        "y": round(chamber.y + chamber.h, 2),
+        "w": round(chamber.w, 2),
+        "h": round(SLAB, 2),
     }
 
 
@@ -831,19 +1087,93 @@ def _decals(room: Room) -> list[dict[str, Any]]:
     """Scuffs, drains and stencilled marks: the wear a floor has because it is
     walked on. Deterministic from the room's own id, like everything else."""
     nxt = _rng(room.room_id + "-wear")
-    floor = _inner(room)
+    chamber = _chamber(room)
+    ground = chamber.y + chamber.h
     out: list[dict[str, Any]] = []
-    for index in range(9):
+    for index in range(7):
         out.append(
             {
                 "kind": ("scuff", "scuff", "bolt", "drain")[index % 4],
-                "x": round(floor.x + 16.0 + nxt(0.0, floor.w - 32.0), 2),
-                "y": round(floor.y + 16.0 + nxt(0.0, floor.h - 32.0), 2),
-                "r": round(3.0 + nxt(0.0, 9.0), 2),
-                "a": round(nxt(0.0, 180.0), 1),
+                "x": round(chamber.x + 16.0 + nxt(0.0, chamber.w - 32.0), 2),
+                "y": round(ground + 5.0 + nxt(0.0, SLAB - 12.0), 2),
+                "r": round(3.0 + nxt(0.0, 7.0), 2),
+                "a": 0.0,
             }
         )
     return out
+
+
+def _works() -> list[dict[str, Any]]:
+    """The building between the rooms.
+
+    Fourteen lit boxes floating in black is a diagram of an institution, not a
+    picture of one: it says the departments are all there is, and that between
+    them is nothing. There is a great deal between them. The plant that lights
+    and cools and powers the place has no data on this page and never will --
+    it is not a department and it records nothing -- so it is drawn as what it
+    is, structure, with no number on it anywhere and nothing to click.
+
+    Every region here is derived from where the rooms actually are, so a change
+    to the plan moves the building with it rather than leaving a gantry hanging
+    over a room.
+    """
+    shells = [_shell(room) for room in ROOMS]
+    left = [box for box in shells if box.x < 1700.0]
+    right = sorted((box for box in shells if box.x >= 1700.0), key=lambda box: box.y)
+    upper = [box for box in left if box.y < 500.0]
+    lower = [box for box in left if box.y >= 500.0]
+
+    def span(boxes: list[Box]) -> tuple[float, float]:
+        return min(box.x for box in boxes), max(box.x + box.w for box in boxes)
+
+    out: list[dict[str, Any]] = []
+    x0, x1 = span(left)
+    deck_top = max(box.y + box.h for box in upper)
+    deck_bottom = min(box.y for box in lower)
+    out.append(
+        {
+            "kind": "deck",
+            "x": round(x0, 2),
+            "y": round(deck_top, 2),
+            "w": round(x1 - x0, 2),
+            "h": round(deck_bottom - deck_top, 2),
+        }
+    )
+
+    hall_top = max(box.y + box.h for box in lower)
+    hall_bottom = max(box.y + box.h for box in right)
+    out.append(
+        {
+            "kind": "hall",
+            "x": round(x0, 2),
+            "y": round(hall_top, 2),
+            "w": round(x1 - x0, 2),
+            "h": round(hall_bottom - hall_top, 2),
+        }
+    )
+
+    spine_x = max(box.x + box.w for box in left)
+    out.append(
+        {
+            "kind": "spine",
+            "x": round(spine_x, 2),
+            "y": round(min(box.y for box in shells), 2),
+            "w": round(min(box.x for box in right) - spine_x, 2),
+            "h": round(hall_bottom - min(box.y for box in shells), 2),
+        }
+    )
+
+    for above, below in pairwise(right):
+        out.append(
+            {
+                "kind": "run",
+                "x": round(above.x, 2),
+                "y": round(above.y + above.h, 2),
+                "w": round(above.w, 2),
+                "h": round(below.y - (above.y + above.h), 2),
+            }
+        )
+    return [work for work in out if work["w"] > 2 and work["h"] > 2]
 
 
 def _stars() -> list[dict[str, Any]]:
@@ -897,8 +1227,8 @@ def _sprites(room: Room) -> list[dict[str, Any]]:
     if not room.roles:
         return out
     nxt = _rng(room.room_id + "-staff")
-    floor = _inner(room)
-    feet = _band(floor, FEET_AT)
+    floor = _chamber(room)
+    feet = floor.y + floor.h
     left = floor.x + PATROL_INSET
     right = floor.x + floor.w - PATROL_INSET
     span = right - left
@@ -911,8 +1241,9 @@ def _sprites(room: Room) -> list[dict[str, Any]]:
         # workstations, which is the only part of the room nothing stands on.
         left, right = floor.x + PATROL_INSET + index * share, 0.0
         right = left + share - (12.0 if len(room.roles) > 1 else 0.0)
-        lane = feet - index * 15.0
-        drift = 4.0 + nxt(0.0, 4.0)
+        # Everybody is on the same floor now, because there is only one.
+        lane = feet
+        drift = 1.5 + nxt(0.0, 1.5)
         turn = left + (right - left) * (0.3 + nxt(0.0, 0.4))
         out.append(
             {
@@ -1322,8 +1653,8 @@ def _cards(
         labels.append(
             _label(
                 f"{index:02d}",
-                x=floor.x + floor.w - 12.0,
-                y=floor.y + floor.h - 10.0,
+                x=floor.x + floor.w - 14.0,
+                y=floor.y + CEIL + 84.0,
                 size=54.0,
                 fill="stencil",
                 owner=room.room_id,
@@ -1532,8 +1863,11 @@ def plan(station: Station) -> dict[str, Any]:
         "boxes": [label.box for label in labels],
         "fixtures": {room.room_id: _fixtures(room) for room in ROOMS},
         "zones": {room.room_id: _zone(room) for room in ROOMS},
+        "chambers": {room.room_id: _chamber(room).as_dict() for room in ROOMS},
+        "grounds": {room.room_id: round(ground_y(room), 2) for room in ROOMS},
         "decals": {room.room_id: _decals(room) for room in ROOMS},
         "stars": _stars(),
+        "works": _works(),
         "bounds": _bounds(),
         "sprites": {room.room_id: _sprites(room) for room in ROOMS},
         "lamps": [
@@ -1920,6 +2254,8 @@ def _context(station: Station) -> dict[str, object]:
         "world": layout["world"],
         "corridor_d": _polyline(layout["waypoints"]),
         "route_d": _route_path(station, layout),
+        "CEIL": CEIL,
+        "SLAB": SLAB,
         "switchboard_rooms": switchboard_rooms(station),
         "terminal_states": [state.value for state in TERMINAL_DOORS],
         "moving": _moving(station, arrivals),

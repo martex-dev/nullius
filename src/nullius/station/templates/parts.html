@@ -721,9 +721,10 @@
         stroke-opacity=".6"/>
   <rect x="{{ f.x + 3 }}" y="{{ py + ph * 0.14 }}" width="{{ f.w - 6 }}" height="{{ ph * 0.26 }}"
         rx="{{ ph * 0.13 }}" fill="{{ g }}" opacity=".4"/>
-  <circle cx="{{ f.x + f.w * (0.24 + 0.3 * i) }}" cy="{{ py + ph / 2 }}" r="{{ ph * 0.62 }}"
+  {% set wheel = [ph * 0.4, f.w * 0.09] | min %}
+  <circle cx="{{ f.x + f.w * (0.24 + 0.3 * i) }}" cy="{{ py + ph / 2 }}" r="{{ wheel }}"
           fill="none" stroke="var(--m-paint)" stroke-width="2.6"/>
-  <circle cx="{{ f.x + f.w * (0.24 + 0.3 * i) }}" cy="{{ py + ph / 2 }}" r="{{ ph * 0.2 }}"
+  <circle cx="{{ f.x + f.w * (0.24 + 0.3 * i) }}" cy="{{ py + ph / 2 }}" r="{{ wheel * 0.32 }}"
           fill="var(--m-paint)"/>
   {% endfor %}
   {% for i in range(3) %}
@@ -1220,18 +1221,253 @@
 {% endif %}
 {% endmacro %}
 
-{# Overhead light bars, so a room is lit from somewhere rather than glowing. #}
-{% macro ceiling(floor, hue) %}
-<g opacity=".5">
+{# Lamps hanging from the ceiling, and the light they throw down the wall. In
+   elevation a room is lit from a fitting you can see, which is most of what
+   tells the eye it is looking into a room rather than at a panel. #}
+{% macro ceiling(ch, hue) %}
+<g>
   {% for i in range(3) %}
-  <ellipse cx="{{ floor.x + floor.w * (0.23 + 0.3 * i) }}" cy="{{ floor.y + floor.h * 0.5 }}"
-           rx="{{ floor.w * 0.24 }}" ry="{{ floor.h * 0.5 }}" fill="url(#lightpool)"/>
-  <rect x="{{ floor.x + floor.w * (0.12 + 0.3 * i) }}" y="{{ floor.y + floor.h * 0.24 }}"
-        width="{{ floor.w * 0.22 }}" height="5" rx="2.5" fill="{{ hue }}" class="glowpane"
-        style="animation-delay:{{ i * 1.3 }}s"/>
-  <rect x="{{ floor.x + floor.w * (0.12 + 0.3 * i) }}" y="{{ floor.y + floor.h * 0.79 }}"
-        width="{{ floor.w * 0.22 }}" height="5" rx="2.5" fill="{{ hue }}" class="glowpane"
-        style="animation-delay:{{ i * 1.3 + 0.6 }}s"/>
+  {% set cx = ch.x + ch.w * (0.22 + 0.28 * i) %}
+  <path d="M{{ cx - ch.w * 0.11 }} {{ ch.y + 12 }} L{{ cx + ch.w * 0.11 }} {{ ch.y + 12 }}
+           L{{ cx + ch.w * 0.2 }} {{ ch.y + ch.h }} L{{ cx - ch.w * 0.2 }} {{ ch.y + ch.h }} z"
+        fill="url(#lampcone)" opacity=".7"/>
+  <line x1="{{ cx }}" y1="{{ ch.y - 12 }}" x2="{{ cx }}" y2="{{ ch.y + 2 }}"
+        stroke="var(--walli)" stroke-width="2.4"/>
+  <path d="M{{ cx - 15 }} {{ ch.y + 10 }} l4 -9 h22 l4 9 z" fill="var(--m-steel)"
+        stroke="#050912" stroke-width="1.4" stroke-opacity=".6"/>
+  <rect x="{{ cx - 11 }}" y="{{ ch.y + 8 }}" width="22" height="4" rx="2" fill="{{ hue }}"
+        class="glowpane" style="animation-delay:{{ i * 1.3 }}s"/>
+  <ellipse cx="{{ cx }}" cy="{{ ch.y + 12 }}" rx="26" ry="9" fill="{{ hue }}" opacity=".16"/>
   {% endfor %}
+</g>
+{% endmacro %}
+
+
+{# The wall itself is equipment: a service run across it, with brackets, a
+   junction box and a plate. Without this a chamber is blank between its
+   ceiling fittings and the tops of the things standing on its floor. #}
+{% macro wallrun(ch, hue) %}
+{% set y = ch.y + ch.h * 0.3 %}
+<g>
+  <rect x="{{ ch.x + 6 }}" y="{{ y - 2 }}" width="{{ ch.w - 12 }}" height="9" rx="4.5"
+        fill="#050912" opacity=".45"/>
+  <rect x="{{ ch.x + 6 }}" y="{{ y - 4 }}" width="{{ ch.w - 12 }}" height="8" rx="4"
+        fill="var(--m-steel)" stroke="#050912" stroke-width="1.3" stroke-opacity=".6"/>
+  <rect x="{{ ch.x + 6 }}" y="{{ y - 3 }}" width="{{ ch.w - 12 }}" height="2.4" rx="1.2"
+        fill="#fff" opacity=".16"/>
+  <rect x="{{ ch.x + 6 }}" y="{{ y + 8 }}" width="{{ ch.w - 12 }}" height="4.6" rx="2.3"
+        fill="var(--m-brass)" opacity=".55"/>
+  {% for i in range(5) %}
+  <rect x="{{ ch.x + 24 + i * (ch.w - 60) / 4 }}" y="{{ y - 7 }}" width="6" height="22" rx="2"
+        fill="var(--wallcap)" stroke="#050912" stroke-width="1" stroke-opacity=".5"/>
+  {% endfor %}
+  <rect x="{{ ch.x + ch.w * 0.62 }}" y="{{ y - 13 }}" width="30" height="20" rx="3"
+        fill="var(--m-steel)" stroke="#050912" stroke-width="1.4" stroke-opacity=".62"/>
+  <rect x="{{ ch.x + ch.w * 0.62 }}" y="{{ y - 13 }}" width="30" height="6" rx="3" fill="#fff"
+        opacity=".1"/>
+  <circle cx="{{ ch.x + ch.w * 0.62 + 22 }}" cy="{{ y - 4 }}" r="2.4" fill="{{ hue }}"
+          class="blink"/>
+  <rect x="{{ ch.x + 14 }}" y="{{ y - 15 }}" width="26" height="13" rx="2" fill="var(--fix-2)"
+        stroke="{{ hue }}" stroke-width="1.4" stroke-opacity=".6"/>
+  {% for i in range(3) %}
+  <rect x="{{ ch.x + 18 + i * 7 }}" y="{{ y - 10 }}" width="4" height="3" rx="1" fill="{{ hue }}"
+        opacity=".8"/>
+  {% endfor %}
+</g>
+{% endmacro %}
+
+
+{# ---------------------------------------------------------------- the plant
+
+   What is between the rooms. Fourteen lit boxes floating in black is a diagram
+   of an institution rather than a picture of one: it says the departments are
+   all there is and that between them is nothing, and there is a great deal
+   between them. None of this records anything, so none of it carries a number
+   and none of it can be clicked — it is the building, drawn as the building.
+#}
+
+{% macro works(w, hue) %}
+<g class="works" pointer-events="none">
+{% if w.kind == 'deck' %}
+  {# the service deck between the two rows of the pipeline #}
+  <rect x="{{ w.x }}" y="{{ w.y }}" width="{{ w.w }}" height="{{ w.h }}" fill="var(--wallm)"
+        opacity=".7"/>
+  <rect x="{{ w.x }}" y="{{ w.y }}" width="{{ w.w }}" height="{{ w.h }}" fill="url(#sheenV)"
+        opacity=".5"/>
+  <rect x="{{ w.x }}" y="{{ w.y + 4 }}" width="{{ w.w }}" height="11" fill="var(--wallo)"/>
+  <rect x="{{ w.x }}" y="{{ w.y + w.h - 15 }}" width="{{ w.w }}" height="11"
+        fill="var(--wallo)"/>
+  <rect x="{{ w.x }}" y="{{ w.y + 4 }}" width="{{ w.w }}" height="3" fill="#fff" opacity=".07"/>
+  {% for i in range((w.w / 68) | round(0, 'ceil') | int) %}
+  <path d="M{{ w.x + i * 68 }} {{ w.y + 15 }} L{{ w.x + i * 68 + 34 }} {{ w.y + w.h - 15 }}
+           L{{ w.x + i * 68 + 68 }} {{ w.y + 15 }}" fill="none" stroke="var(--wallo)"
+        stroke-width="7" stroke-linejoin="round"/>
+  <path d="M{{ w.x + i * 68 }} {{ w.y + 15 }} L{{ w.x + i * 68 + 34 }} {{ w.y + w.h - 15 }}"
+        stroke="#fff" stroke-width="1.4" stroke-opacity=".05"/>
+  {% endfor %}
+  <line x1="{{ w.x }}" y1="{{ w.y + w.h * 0.44 }}" x2="{{ w.x + w.w }}"
+        y2="{{ w.y + w.h * 0.44 }}" stroke="#050912" stroke-width="13" stroke-opacity=".5"/>
+  <line x1="{{ w.x }}" y1="{{ w.y + w.h * 0.44 }}" x2="{{ w.x + w.w }}"
+        y2="{{ w.y + w.h * 0.44 }}" stroke="var(--m-steel)" stroke-width="9"/>
+  <line x1="{{ w.x }}" y1="{{ w.y + w.h * 0.44 - 2.4 }}" x2="{{ w.x + w.w }}"
+        y2="{{ w.y + w.h * 0.44 - 2.4 }}" stroke="#fff" stroke-width="2" stroke-opacity=".13"/>
+  <line x1="{{ w.x }}" y1="{{ w.y + w.h * 0.6 }}" x2="{{ w.x + w.w }}"
+        y2="{{ w.y + w.h * 0.6 }}" stroke="var(--m-brass)" stroke-width="4" opacity=".5"/>
+  {% for i in range((w.w / 210) | round(0, 'ceil') | int) %}
+  {% set vx = w.x + 96 + i * 210 %}
+  <ellipse cx="{{ vx }}" cy="{{ w.y + w.h - 18 }}" rx="26" ry="6" fill="#000" opacity=".4"/>
+  <rect x="{{ vx - 24 }}" y="{{ w.y + w.h * 0.5 }}" width="48" height="{{ w.h * 0.42 }}" rx="10"
+        fill="var(--m-steel)" stroke="#050912" stroke-width="1.6" stroke-opacity=".6"/>
+  <rect x="{{ vx - 20 }}" y="{{ w.y + w.h * 0.52 }}" width="11" height="{{ w.h * 0.36 }}" rx="5"
+        fill="#fff" opacity=".1"/>
+  <rect x="{{ vx - 24 }}" y="{{ w.y + w.h * 0.66 }}" width="48" height="5"
+        fill="var(--m-brass)" opacity=".7"/>
+  <circle cx="{{ vx }}" cy="{{ w.y + w.h * 0.58 }}" r="4" fill="{{ hue }}" opacity=".5"
+          class="blink" style="animation-delay:{{ i * 0.7 }}s"/>
+  <circle cx="{{ vx - 44 }}" cy="{{ w.y + w.h * 0.44 }}" r="9" fill="none"
+          stroke="var(--m-paint)" stroke-width="3" opacity=".7"/>
+  {% endfor %}
+  {% for i in range((w.w / 46) | round(0, 'ceil') | int) %}
+  <line x1="{{ w.x + i * 46 }}" y1="{{ w.y + 4 }}" x2="{{ w.x + i * 46 }}" y2="{{ w.y + 15 }}"
+        stroke="#050912" stroke-width="1.6" stroke-opacity=".4"/>
+  {% endfor %}
+  <rect x="{{ w.x }}" y="{{ w.y }}" width="{{ w.w }}" height="4" fill="url(#hazard)"
+        opacity=".35"/>
+  <rect x="{{ w.x }}" y="{{ w.y + w.h - 4 }}" width="{{ w.w }}" height="4" fill="url(#hazard)"
+        opacity=".35"/>
+
+{% elif w.kind == 'hall' %}
+  {# the plant hall: what lights and cools the place #}
+  <rect x="{{ w.x }}" y="{{ w.y }}" width="{{ w.w }}" height="{{ w.h }}" fill="var(--wallback)"
+        opacity=".62"/>
+  <rect x="{{ w.x }}" y="{{ w.y }}" width="{{ w.w }}" height="{{ w.h }}" fill="url(#backwall)"
+        opacity=".7"/>
+  <rect x="{{ w.x }}" y="{{ w.y + 16 }}" width="{{ w.w }}" height="13" fill="var(--wallo)"/>
+  <rect x="{{ w.x }}" y="{{ w.y + 16 }}" width="{{ w.w }}" height="3.4" fill="#fff"
+        opacity=".08"/>
+  <rect x="{{ w.x + w.w * 0.4 }}" y="{{ w.y + 11 }}" width="74" height="24" rx="4"
+        fill="var(--m-steel)" stroke="#050912" stroke-width="1.6" stroke-opacity=".6"/>
+  <line x1="{{ w.x + w.w * 0.4 + 37 }}" y1="{{ w.y + 35 }}" x2="{{ w.x + w.w * 0.4 + 37 }}"
+        y2="{{ w.y + 96 }}" stroke="var(--m-steel-2)" stroke-width="3"/>
+  <rect x="{{ w.x + w.w * 0.4 + 17 }}" y="{{ w.y + 96 }}" width="40" height="26" rx="3"
+        fill="var(--m-hazard)" opacity=".55" stroke="#050912" stroke-width="1.6"
+        stroke-opacity=".6"/>
+  {% for i in range(((w.w / 232) | round(0, 'ceil') | int) + 1) %}
+  {% set cx = w.x + i * 232 %}
+  <rect x="{{ cx - 9 }}" y="{{ w.y + 26 }}" width="18" height="{{ w.h - 46 }}"
+        fill="var(--wallo)"/>
+  <rect x="{{ cx - 9 }}" y="{{ w.y + 26 }}" width="4.4" height="{{ w.h - 46 }}" fill="#fff"
+        opacity=".07"/>
+  {% for k in range(4) %}
+  <rect x="{{ cx - 14 }}" y="{{ w.y + 60 + k * (w.h - 110) / 3 }}" width="28" height="7" rx="2"
+        fill="var(--wallcap)"/>
+  {% endfor %}
+  {% if i > 0 %}
+  <path d="M{{ cx - 232 }} {{ w.y + 120 }} L{{ cx }} {{ w.y + w.h * 0.62 }}
+           M{{ cx }} {{ w.y + 120 }} L{{ cx - 232 }} {{ w.y + w.h * 0.62 }}"
+        stroke="var(--wallo)" stroke-width="6" opacity=".85"/>
+  {% endif %}
+  {% endfor %}
+  {% for i in range(3) %}
+  {% set tx = w.x + w.w * (0.14 + 0.3 * i) %}
+  {% set tw = 96 %}
+  {% set ty = w.y + w.h * 0.3 %}
+  {% set tall = w.h * 0.56 %}
+  <ellipse cx="{{ tx }}" cy="{{ ty + tall + 5 }}" rx="{{ tw * 0.6 }}" ry="10" fill="#000"
+           opacity=".45"/>
+  <rect x="{{ tx - tw / 2 }}" y="{{ ty }}" width="{{ tw }}" height="{{ tall }}"
+        rx="{{ tw * 0.34 }}" fill="var(--m-steel)" stroke="#050912" stroke-width="2"
+        stroke-opacity=".6"/>
+  <rect x="{{ tx - tw / 2 + 8 }}" y="{{ ty + 10 }}" width="{{ tw * 0.2 }}"
+        height="{{ tall - 20 }}" rx="{{ tw * 0.1 }}" fill="#fff" opacity=".1"/>
+  {% for k in range(3) %}
+  <rect x="{{ tx - tw / 2 }}" y="{{ ty + tall * (0.22 + 0.26 * k) }}" width="{{ tw }}"
+        height="8" fill="var(--m-brass)" opacity=".5"/>
+  {% endfor %}
+  <rect x="{{ tx + tw / 2 - 4 }}" y="{{ ty + 14 }}" width="18" height="{{ tall - 28 }}"
+        fill="none" stroke="var(--wallcap)" stroke-width="2.6"/>
+  {% for k in range(7) %}
+  <line x1="{{ tx + tw / 2 - 4 }}" y1="{{ ty + 20 + k * (tall - 40) / 6 }}"
+        x2="{{ tx + tw / 2 + 14 }}" y2="{{ ty + 20 + k * (tall - 40) / 6 }}"
+        stroke="var(--wallcap)" stroke-width="2.2"/>
+  {% endfor %}
+  <circle cx="{{ tx }}" cy="{{ ty + 22 }}" r="7" fill="{{ hue }}" opacity=".4" class="blink"
+          style="animation-delay:{{ i * 1.1 }}s"/>
+  {% endfor %}
+  {% for i in range(2) %}
+  {% set ex = w.x + w.w * (0.62 + 0.19 * i) %}
+  {% set ey = w.y + w.h * (0.42 + 0.24 * i) %}
+  <rect x="{{ ex }}" y="{{ ey }}" width="{{ w.w * 0.16 }}" height="54" rx="27"
+        fill="var(--m-steel-2)" stroke="#050912" stroke-width="2" stroke-opacity=".6"/>
+  <rect x="{{ ex + 6 }}" y="{{ ey + 6 }}" width="{{ w.w * 0.16 - 12 }}" height="12" rx="6"
+        fill="#fff" opacity=".08"/>
+  <rect x="{{ ex - 8 }}" y="{{ ey + 10 }}" width="14" height="34" rx="3" fill="var(--m-brass)"
+        opacity=".6"/>
+  <rect x="{{ ex + w.w * 0.16 - 6 }}" y="{{ ey + 10 }}" width="14" height="34" rx="3"
+        fill="var(--m-brass)" opacity=".6"/>
+  {% endfor %}
+  {% for i in range(3) %}
+  <line x1="{{ w.x }}" y1="{{ w.y + w.h * (0.24 + 0.26 * i) }}" x2="{{ w.x + w.w }}"
+        y2="{{ w.y + w.h * (0.24 + 0.26 * i) }}" stroke="#050912" stroke-width="10"
+        stroke-opacity=".4"/>
+  <line x1="{{ w.x }}" y1="{{ w.y + w.h * (0.24 + 0.26 * i) }}" x2="{{ w.x + w.w }}"
+        y2="{{ w.y + w.h * (0.24 + 0.26 * i) }}"
+        stroke="{{ ['var(--m-steel)', 'var(--m-brass)', 'var(--m-paint)'][i] }}"
+        stroke-width="6" opacity=".7"/>
+  {% endfor %}
+  <rect x="{{ w.x }}" y="{{ w.y + w.h - 20 }}" width="{{ w.w }}" height="20" fill="var(--slab)"/>
+  <rect x="{{ w.x }}" y="{{ w.y + w.h - 20 }}" width="{{ w.w }}" height="20"
+        fill="url(#plating)" opacity=".5"/>
+  <rect x="{{ w.x }}" y="{{ w.y + w.h - 20 }}" width="{{ w.w }}" height="2.6" fill="#fff"
+        opacity=".12"/>
+
+{% elif w.kind == 'spine' %}
+  {# the trunk between the pipeline and the sealed wing #}
+  <rect x="{{ w.x }}" y="{{ w.y }}" width="{{ w.w }}" height="{{ w.h }}" fill="var(--wallm)"
+        opacity=".68"/>
+  <rect x="{{ w.x }}" y="{{ w.y }}" width="{{ w.w }}" height="{{ w.h }}" fill="url(#sheenV)"
+        opacity=".4"/>
+  <rect x="{{ w.x + w.w * 0.26 }}" y="{{ w.y }}" width="{{ w.w * 0.48 }}" height="{{ w.h }}"
+        fill="var(--m-steel-2)" stroke="#050912" stroke-width="2" stroke-opacity=".5"/>
+  <rect x="{{ w.x + w.w * 0.3 }}" y="{{ w.y }}" width="{{ w.w * 0.11 }}" height="{{ w.h }}"
+        fill="#fff" opacity=".07"/>
+  {% for i in range((w.h / 132) | round(0, 'ceil') | int) %}
+  <rect x="{{ w.x + w.w * 0.18 }}" y="{{ w.y + 40 + i * 132 }}" width="{{ w.w * 0.64 }}"
+        height="13" rx="3" fill="var(--wallcap)" stroke="#050912" stroke-width="1.4"
+        stroke-opacity=".5"/>
+  <circle cx="{{ w.x + w.w * 0.5 }}" cy="{{ w.y + 46 + i * 132 }}" r="3.4" fill="{{ hue }}"
+          opacity=".45" class="blink" style="animation-delay:{{ i * 0.6 }}s"/>
+  {% endfor %}
+  {% for i in range((w.h / 30) | round(0, 'ceil') | int) %}
+  <line x1="{{ w.x + w.w * 0.05 }}" y1="{{ w.y + i * 30 }}" x2="{{ w.x + w.w * 0.2 }}"
+        y2="{{ w.y + i * 30 }}" stroke="var(--wallcap)" stroke-width="2.6"/>
+  {% endfor %}
+  <line x1="{{ w.x + w.w * 0.05 }}" y1="{{ w.y }}" x2="{{ w.x + w.w * 0.05 }}"
+        y2="{{ w.y + w.h }}" stroke="var(--wallcap)" stroke-width="3"/>
+  <line x1="{{ w.x + w.w * 0.2 }}" y1="{{ w.y }}" x2="{{ w.x + w.w * 0.2 }}"
+        y2="{{ w.y + w.h }}" stroke="var(--wallcap)" stroke-width="3"/>
+  <line x1="{{ w.x + w.w * 0.88 }}" y1="{{ w.y }}" x2="{{ w.x + w.w * 0.88 }}"
+        y2="{{ w.y + w.h }}" stroke="var(--m-brass)" stroke-width="4" opacity=".45"/>
+
+{% else %}
+  {# a short service run between two sealed rooms #}
+  <rect x="{{ w.x }}" y="{{ w.y }}" width="{{ w.w }}" height="{{ w.h }}" fill="var(--wallm)"
+        opacity=".6"/>
+  {% for i in range(3) %}
+  <line x1="{{ w.x + 20 }}" y1="{{ w.y + w.h * (0.26 + 0.24 * i) }}" x2="{{ w.x + w.w - 20 }}"
+        y2="{{ w.y + w.h * (0.26 + 0.24 * i) }}" stroke="#050912" stroke-width="9"
+        stroke-opacity=".45"/>
+  <line x1="{{ w.x + 20 }}" y1="{{ w.y + w.h * (0.26 + 0.24 * i) }}" x2="{{ w.x + w.w - 20 }}"
+        y2="{{ w.y + w.h * (0.26 + 0.24 * i) }}"
+        stroke="{{ ['var(--m-steel)', 'var(--m-brass)', 'var(--m-paint)'][i] }}"
+        stroke-width="6" opacity=".75"/>
+  {% endfor %}
+  {% for i in range((w.w / 150) | round(0, 'ceil') | int) %}
+  <rect x="{{ w.x + 60 + i * 150 }}" y="{{ w.y + 6 }}" width="12" height="{{ w.h - 12 }}" rx="3"
+        fill="var(--wallcap)" stroke="#050912" stroke-width="1.3" stroke-opacity=".5"/>
+  {% endfor %}
+  <circle cx="{{ w.x + w.w * 0.72 }}" cy="{{ w.y + w.h * 0.5 }}" r="12" fill="none"
+          stroke="var(--m-paint)" stroke-width="3.4" opacity=".7"/>
+{% endif %}
 </g>
 {% endmacro %}

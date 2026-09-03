@@ -43,7 +43,9 @@ from nullius.station.render import (
     FURNITURE,
     HEIGHTS,
     ITEM_COLUMNS,
+    MOUNTED,
     PRINCIPLES,
+    STANDS,
     TONES,
     UNUSED_EXITS,
     Box,
@@ -1084,21 +1086,19 @@ def test_every_room_is_named_as_a_place(tmp_path: Path) -> None:
 
 
 def test_everything_in_a_room_is_a_solid_standing_on_the_floor() -> None:
-    """Until M30 every fixture was an axis-aligned rectangle lying flat, which
-    is why fourteen rooms of equipment read as coloured squares inside a bigger
-    square: nothing in the drawing said what was a cabinet and what was a mark
-    painted on the deck. Each one now has a height -- the part of its box that
-    is the face you look at rather than the top you look down on."""
+    """M30 gave every fixture a height. M31 turned the camera on its side, so
+    the height is now the whole of what tells a wall of filing drawers from a
+    stool -- and what used to be the top face is a sliver of cap."""
     layout = plan(assemble())
     for room in ROOMS:
         for fixture in layout["fixtures"][room.room_id]:
             kind = str(fixture["kind"])
-            assert kind in HEIGHTS, f"{kind} has no height"
+            assert kind in HEIGHTS, f"{kind} has no cap"
             assert 0.0 < fixture["z"] < fixture["h"], fixture
-            expected = round(float(fixture["h"]) * HEIGHTS[kind], 2)
+            expected = round(float(fixture["h"]) * (1.0 - HEIGHTS[kind]), 2)
             assert fixture["z"] == expected, fixture
-    # anything flat on the deck is flat on purpose, and nothing else is
-    flat = {kind for kind, share in HEIGHTS.items() if share < 0.2}
+    # anything lying flat on the deck is nearly all cap, and nothing else is
+    flat = {kind for kind, cap in HEIGHTS.items() if cap > 0.6}
     assert flat == {"hatch", "cables"}
 
 
@@ -1130,3 +1130,84 @@ def test_the_light_falls_the_same_way_on_everything(tmp_path: Path) -> None:
     # the specular pass that used to stand in for shading is gone: the faces do
     # it now, and doing both turned every material milky
     assert "feSpecularLighting" not in page
+
+
+# ---------------------------------------------- M31: the room from the side
+
+
+def test_everything_stands_on_the_ground_line_or_hangs_above_it() -> None:
+    """A cutaway has one axis left, which is up. A thing either stands on the
+    floor of its chamber or is fixed above it, and there is no third case --
+    the four bands of depth the top-down map laid its furniture out in are
+    gone along with the point of view that needed them."""
+    layout = plan(assemble())
+    for room in ROOMS:
+        ground = layout["grounds"][room.room_id]
+        chamber = layout["chambers"][room.room_id]
+        standing = 0
+        for fixture in layout["fixtures"][room.room_id]:
+            kind = str(fixture["kind"])
+            base = fixture["y"] + fixture["h"]
+            if kind in MOUNTED:
+                assert base < ground - 1.0, f"{kind} in {room.room_id} is on the floor"
+            else:
+                assert abs(base - ground) < 0.02, f"{kind} in {room.room_id} floats"
+                standing += 1
+            assert fixture["x"] >= chamber["x"] - 0.02
+            assert fixture["x"] + fixture["w"] <= chamber["x"] + chamber["w"] + 0.02
+            assert fixture["y"] >= chamber["y"] - 0.02
+        assert standing >= 4, f"{room.room_id} has almost nothing on its floor"
+
+
+def test_how_tall_a_thing_is_is_what_says_what_it_is() -> None:
+    """Seen from the side there is no other cue. A wall of filing drawers and a
+    stool drawn the same height are the same object."""
+    layout = plan(assemble())
+    for room in ROOMS:
+        chamber = layout["chambers"][room.room_id]
+        heights = {
+            str(f["kind"]): f["h"]
+            for f in layout["fixtures"][room.room_id]
+            if str(f["kind"]) not in MOUNTED
+        }
+        assert len(set(heights.values())) >= 3, f"{room.room_id} is one height throughout"
+        for kind, height in heights.items():
+            assert height == pytest.approx(chamber["h"] * STANDS[kind], abs=0.02)
+    assert STANDS["filewall"] > STANDS["stool"] * 2
+
+
+def test_the_people_stand_on_the_same_floor_as_the_furniture() -> None:
+    """Two agents used to be given different lanes so they would not draw as
+    one shape. There are no lanes now: there is one floor, and anybody in the
+    room is standing on it."""
+    layout = plan(assemble())
+    for room in ROOMS:
+        ground = layout["grounds"][room.room_id]
+        for sprite in layout["sprites"][room.room_id]:
+            for _, y in _points(sprite["d"]):
+                assert ground - 4.0 <= y <= ground + 0.02, sprite["role"]
+
+
+def test_the_space_between_the_rooms_is_the_building(tmp_path: Path) -> None:
+    """Fourteen lit boxes floating in black says the departments are all there
+    is. The plant that lights and cools the place records nothing, so it is
+    drawn as structure: no number on it, and nothing on it to click."""
+    layout = plan(assemble())
+    works = layout["works"]
+    assert {str(w["kind"]) for w in works} >= {"deck", "hall", "spine", "run"}
+    shells = list(layout["shells"].values())
+    for work in works:
+        for shell in shells:
+            overlap_x = min(work["x"] + work["w"], shell["x"] + shell["w"]) - max(
+                work["x"], shell["x"]
+            )
+            overlap_y = min(work["y"] + work["h"], shell["y"] + shell["h"]) - max(
+                work["y"], shell["y"]
+            )
+            assert overlap_x <= 0.02 or overlap_y <= 0.02, (work["kind"], shell)
+    page = _built(tmp_path)
+    start = page.index('<g id="works"')
+    block = page[start : page.index('<g id="halls"')]
+    assert 'pointer-events="none"' in page[start : page.index(">", start)]
+    assert "<text" not in block, "the plant is stating something"
+    assert "data-room" not in block, "the plant can be clicked"

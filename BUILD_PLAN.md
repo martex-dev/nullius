@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M30 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M31 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -1215,6 +1215,59 @@ also the only way to outline a shape that changes as it walks.
   stand into the row behind it.
 - The lighting language goes through the shared helpers, and the specular pass it replaced is
   gone from the page. Tested.
+- Still one self-contained file; still refuses to build on input that does not verify.
+
+---
+
+### M31 · The cutaway, and the building between the rooms ✅
+Presentation only. `model.py`, `map.py` and `ledger.py` untouched.
+
+**The camera is on its side.** Every room was a floor you looked down at, with its furniture laid
+out in four bands of depth. A room is now a chamber you look into: a ceiling with fittings hung
+from it, a back wall with a service run across it, and a floor slab that everything stands on.
+There is one axis left and it is up, so how tall a thing is has become the whole of what says what
+it is — a wall of filing drawers is three quarters of the chamber, a stool is a quarter of it —
+and the rows are divided in proportion to how wide each thing deserves to be rather than evenly,
+because a row of identical columns reads as a chart rather than as a room somebody laid out.
+Everything either stands on the ground line or is fixed above it. There is no third case.
+
+**And the black between the rooms is the building now.** Fourteen lit boxes floating in nothing
+says the departments are all there is and that between them is nothing, which is false about any
+institution and specifically false about this one. Between the two rows of the pipeline there is a
+service deck: a truss, a pipe run, pressure vessels and valve wheels. Down the side of the sealed
+wing there is a trunk with flanges and a ladder. Between the sealed rooms there are short service
+runs. Under it all is the plant hall — columns and cross-bracing, three tanks with their access
+ladders, heat exchangers, a gantry rail with a trolley on it, and the cable trays that feed the
+place. Every region is derived from where the rooms actually are, so moving a room moves the
+building with it rather than leaving a gantry hanging over a floor.
+
+None of the plant records anything, and none of it is a department. So it carries no number
+anywhere, nothing on it can be clicked, and there is a test that says so.
+
+#### What building it revealed was wrong
+
+**1. A kit says what is in a room, not where.** The furniture tables named a wall row, a back row,
+a middle row and a front row, which was a description of the old point of view baked into the
+data. Turning the camera made three of those four meaningless — and `plotwall` sat in Design's
+*middle* row, so with the wall rule applied only to the back row it ended up standing on the
+floor, which is a board leaning against a wall and a different claim about the room. Anything that
+belongs on a wall is now taken out of whichever row named it, wherever the kit happened to put it.
+
+**2. The test that pinned the cap was pinning the point of view.** M30's `z` was the height of a
+thing's front face and its complement was the top you looked down on. In elevation the same number
+means the opposite thing: almost all of an object is its face, and the cap is the sliver you still
+catch from a little above. The test asserting the ratio had to be rewritten, and it was right that
+it failed — it was the only thing in the suite that knew which way the camera pointed.
+
+**Acceptance**
+- Every test from M22 through M30 still passes, one of them rewritten for the new camera.
+- Everything in a room stands on its ground line or hangs above it, and stays inside its chamber.
+  Tested.
+- A room is drawn at three or more different heights, and every height is the one the table says.
+  Tested.
+- The people stand on the same floor as the furniture. Tested — there are no lanes any more.
+- The plant fills the space between the rooms, never overlaps one, states no number and cannot be
+  clicked. Tested.
 - Still one self-contained file; still refuses to build on input that does not verify.
 
 ---

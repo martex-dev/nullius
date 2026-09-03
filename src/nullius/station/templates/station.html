@@ -12,6 +12,7 @@
     --plate-dim:#9aa9c2; --plate-faint:#63728e;
     --floor:#16202f; --floor-2:#0d1523; --wallo:#222f45; --wallm:#182338;
     --walli:#3d5273; --wallcap:#2d3d58;
+    --wallback:#121b2b; --ceilband:#0c1421; --slab:#1b2536; --slab-2:#101a29;
     --fix:#1b2739; --fix-2:#0e1725;
     /* What things are made of. The map is lit the same way whichever theme the
        page is in, so these are defined once and never swapped: a brass valve
@@ -435,6 +436,22 @@
           <stop offset=".38" stop-color="#fff" stop-opacity=".035"/>
           <stop offset="1" stop-color="#000" stop-opacity=".34"/>
         </linearGradient>
+        {# The back wall of a chamber, lit from the fittings above it. #}
+        <linearGradient id="backwall" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#fff" stop-opacity=".07"/>
+          <stop offset=".45" stop-color="#fff" stop-opacity=".015"/>
+          <stop offset="1" stop-color="#000" stop-opacity=".28"/>
+        </linearGradient>
+        {# Where the wall meets the floor, which is the join that tells the eye
+           it is looking at a room from the side rather than down into one. #}
+        <linearGradient id="floorjoin" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#000" stop-opacity="0"/>
+          <stop offset="1" stop-color="#000" stop-opacity=".55"/>
+        </linearGradient>
+        <linearGradient id="lampcone" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#fff" stop-opacity=".16"/>
+          <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+        </linearGradient>
         <linearGradient id="wallshade" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="#000" stop-opacity=".62"/>
           <stop offset="1" stop-color="#000" stop-opacity="0"/>
@@ -521,6 +538,13 @@
           {% endfor %}
         </g>
 
+        {# ---- the building between the rooms ---- #}
+        <g id="works" pointer-events="none">
+          {% for work in plan.works %}
+          {{ parts.works(work, accent('slate')) }}
+          {% endfor %}
+        </g>
+
         <g id="halls">
           {% for hall in plan.halls %}
           {{ parts.hallway(hall, accent('slate')) }}
@@ -563,42 +587,70 @@
           <circle cx="{{ shell.x + 12 + i * (shell.w - 24) }}" cy="{{ shell.y + shell.h - 12 }}"
                   r="2.4" fill="var(--walli)" opacity=".7"/>
           {% endfor %}
+          {# ---- the chamber: a ceiling, a back wall, and a floor to stand on ---- #}
+          {% set ch = plan.chambers[room.room_id] %}
+          {% set slab = plan.zones[room.room_id] %}
           <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
-                rx="4" fill="var(--floor)"/>
+                rx="4" fill="var(--wallback)"/>
+          {% for i in range(5) %}
+          <line x1="{{ floor.x + (i + 1) * floor.w / 6 }}" y1="{{ floor.y + 3 }}"
+                x2="{{ floor.x + (i + 1) * floor.w / 6 }}" y2="{{ slab.y }}"
+                stroke="#000" stroke-width="2" stroke-opacity=".26"/>
+          <line x1="{{ floor.x + (i + 1) * floor.w / 6 + 1.4 }}" y1="{{ floor.y + 3 }}"
+                x2="{{ floor.x + (i + 1) * floor.w / 6 + 1.4 }}" y2="{{ slab.y }}"
+                stroke="#fff" stroke-width="1" stroke-opacity=".05"/>
+          {% endfor %}
+          {% for i in range(2) %}
+          <line x1="{{ floor.x }}" y1="{{ ch.y + ch.h * (0.3 + 0.34 * i) }}"
+                x2="{{ floor.x + floor.w }}" y2="{{ ch.y + ch.h * (0.3 + 0.34 * i) }}"
+                stroke="#000" stroke-width="1.6" stroke-opacity=".22"/>
+          {% endfor %}
+          {% for i in range(6) %}
+          <circle cx="{{ floor.x + 10 + i * (floor.w - 20) / 5 }}" cy="{{ floor.y + CEIL + 8 }}"
+                  r="1.7" fill="var(--walli)" opacity=".55"/>
+          {% endfor %}
           <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
-                rx="4" fill="url(#plating)" opacity=".7"/>
+                rx="4" fill="url(#backwall)"/>
           <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
-                rx="4" fill="{{ hue }}" opacity="{{ '.045' if occupied.engaged else '.018' }}"/>
-          {% set zone = plan.zones[room.room_id] %}
-          <rect x="{{ zone.x }}" y="{{ zone.y }}" width="{{ zone.w }}" height="{{ zone.h }}"
-                rx="7" fill="{{ hue }}" opacity=".055"/>
-          <rect x="{{ zone.x }}" y="{{ zone.y }}" width="{{ zone.w }}" height="{{ zone.h }}"
-                rx="7" fill="none" stroke="{{ hue }}" stroke-width="2" stroke-opacity=".22"
-                stroke-dasharray="18 12"/>
+                rx="4" fill="{{ hue }}" opacity="{{ '.05' if occupied.engaged else '.02' }}"/>
+          {% if room.wing == 'sealed' %}
+          <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
+                rx="4" fill="url(#sealedhatch)" opacity=".45"/>
+          {% endif %}
+
+          {# the ceiling, and what hangs from it #}
+          <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ CEIL }}"
+                fill="var(--ceilband)"/>
+          <line x1="{{ floor.x }}" y1="{{ floor.y + CEIL }}" x2="{{ floor.x + floor.w }}"
+                y2="{{ floor.y + CEIL }}" stroke="#000" stroke-width="2.4" stroke-opacity=".5"/>
+          {{ parts.ceiling(ch, hue) }}
+          {{ parts.wallrun(ch, hue) }}
+
+          {# the floor slab: a lit top edge is what says where the ground is #}
+          <rect x="{{ floor.x }}" y="{{ slab.y - 22 }}" width="{{ floor.w }}" height="22"
+                fill="url(#floorjoin)"/>
+          <rect x="{{ slab.x }}" y="{{ slab.y }}" width="{{ slab.w }}" height="{{ slab.h + 4 }}"
+                fill="var(--slab)"/>
+          <rect x="{{ slab.x }}" y="{{ slab.y }}" width="{{ slab.w }}" height="{{ slab.h + 4 }}"
+                fill="url(#plating)" opacity=".5"/>
+          <rect x="{{ slab.x }}" y="{{ slab.y + slab.h * 0.55 }}" width="{{ slab.w }}"
+                height="{{ slab.h * 0.45 + 4 }}" fill="#000" opacity=".3"/>
+          <rect x="{{ slab.x }}" y="{{ slab.y }}" width="{{ slab.w }}" height="3" fill="#fff"
+                opacity=".16"/>
+          <rect x="{{ slab.x }}" y="{{ slab.y }}" width="{{ slab.w }}" height="1.6"
+                fill="{{ hue }}" opacity=".45"/>
+          {% for i in range((slab.w / 26) | round(0, 'ceil') | int) %}
+          <line x1="{{ slab.x + i * 26 }}" y1="{{ slab.y + 4 }}" x2="{{ slab.x + i * 26 }}"
+                y2="{{ slab.y + slab.h }}" stroke="#000" stroke-width="1.4" stroke-opacity=".3"/>
+          {% endfor %}
           {% for mark in plan.decals[room.room_id] %}
           {{ parts.decal(mark, hue) }}
           {% endfor %}
-          {% if room.wing == 'sealed' %}
-          <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
-                rx="4" fill="url(#sealedhatch)" opacity=".5"/>
-          {% endif %}
-          {% if room.room_id in plan.lanes %}
-          <rect x="{{ floor.x }}" y="{{ plan.lanes[room.room_id] - 31 }}" width="{{ floor.w }}"
-                height="62" fill="var(--floor-2)" opacity=".55"/>
-          <line x1="{{ floor.x }}" y1="{{ plan.lanes[room.room_id] }}"
-                x2="{{ floor.x + floor.w }}" y2="{{ plan.lanes[room.room_id] }}"
-                stroke="{{ hue }}" stroke-width="1.6" stroke-opacity=".22"
-                stroke-dasharray="11 13"/>
-          {% endif %}
-          {{ parts.ceiling(floor, hue) }}
-          {# what the walls do to the light in the corners #}
-          <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
-                rx="4" fill="url(#vignette)"/>
-          <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="26"
-                fill="url(#wallshade)"/>
-          <rect x="{{ floor.x }}" y="{{ floor.y }}" width="18" height="{{ floor.h }}"
+
+          {# what the side walls do to the light #}
+          <rect x="{{ floor.x }}" y="{{ floor.y }}" width="20" height="{{ floor.h }}"
                 fill="url(#wallshadeL)"/>
-          <rect x="{{ floor.x + floor.w - 18 }}" y="{{ floor.y }}" width="18"
+          <rect x="{{ floor.x + floor.w - 20 }}" y="{{ floor.y }}" width="20"
                 height="{{ floor.h }}" fill="url(#wallshadeR)"/>
 
           {% for gap in plan.doorways[room.room_id] %}
