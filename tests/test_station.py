@@ -1016,7 +1016,7 @@ def test_the_map_carries_no_writing_until_it_is_asked_for(tmp_path: Path) -> Non
         assert rule in style, rule
     for rule in (
         ".annotated #cards, .annotated #exits { opacity:1; }",
-        ".annotated #labels text, #labels text[data-kind=\"stencil\"] { opacity:1; }",
+        '.annotated #labels text, #labels text[data-kind="stencil"] { opacity:1; }',
         ".annotated .roster, .annotated .hud-tl, .annotated .hud-bl { opacity:1; }",
     ):
         assert rule in style, rule
