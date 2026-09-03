@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M32 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M33 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -1323,6 +1323,66 @@ which is exactly why it caught it.
 - An actor in a room this arm does not engage stands at its first station, with the animation off.
   Tested against both the stylesheet and the script.
 - Every actor carries its own name. Tested.
+- Still one self-contained file; still refuses to build on input that does not verify.
+
+---
+
+### M33 · The department, in plain words ✅
+Presentation, plus one new module of prose. `model.py`, `map.py` and `ledger.py` untouched.
+
+**Every dossier opened on a charter.** The charters are exact and they are written for somebody
+who already knows what a preregistration is:
+
+> Detectors and the Skeptic raise typed objections, each carrying the experiment that would tell
+> it apart from the claim it disputes.
+
+That is no use at all to a reader who has just clicked on a room. Every department now opens on a
+**brief**: what the room is for in one sentence, what happens in it as a numbered list, who works
+there with a job title an outsider would recognise, what it is doing on the arm on display, what
+it has recorded, and what has not happened yet. The exact wording is one click away under *show
+the exact rule*, because plain language is a summary and a summary loses things.
+
+**And every department got the tab for the thing it, and no other, does.** What gets in (Design),
+what happens to the losers (Screening), the lock (Registry), the bundle (Workshop), the sandbox
+(Experiment Floor), who writes the numbers (Analysis), objections (Challenge), blindness (Blind
+Testing), why it is dark (Review), the four doors (Records), custody (the Vault), the money
+(Resource), what is remembered (Archive), ground truth (the Oracle). Fourteen departments, fourteen
+tabs, none of them a house style applied fourteen times.
+
+**The prose is the page's one exception, and it is fenced.** `station/brief.py` is hand-written
+and says so at the top. The rule that keeps the exception safe is that **it may not contain a
+number** — not one, anywhere, checked by a function in the module and by the test that already
+guards every other piece of hand-written prose on the page. Every quantity on a brief is filled in
+by the page from the record. The file can be wrong about what the institution is *for*, which is
+a thing a person wrote down and can be argued with; it cannot be wrong about what the institution
+*did*.
+
+#### What building it revealed was wrong
+
+**1. The station's own tests had become the slowest thing in the suite, by an order of
+magnitude.** Adding six tests took `tests/test_station.py` from seventy seconds to sixteen
+minutes, which is not a thing six tests can do. `--durations` put thirty-one seconds against
+*setup* on twenty-one different tests: each one asked for a `tmp_path` and wrote a 1.6MB page into
+it, and the cost was in the fixture rather than in anything being tested. The page is
+deterministic — there is a test at the top of the file that asserts exactly that — so it is now
+built once and cached. **Eighty-three tests in thirty-four seconds**, which is faster than the
+suite was before this milestone with six fewer tests in it. Worth recording because the symptom
+pointed at the wrong place entirely: the new tests looked like the cause and were merely the straw.
+
+**2. `open()` set the tab twice.** The dossier kept landing on the old first tab however the brief
+was wired, because a line further down `open()` reset `tab = 'overview'` unconditionally — a line
+written when there was only ever one first tab. Two statements setting the same variable four
+lines apart, the second one silently winning.
+
+**Acceptance**
+- Every test from M22 through M32 still passes.
+- Every room has a brief and every role has a plain-language description. Tested.
+- No piece of that prose states a figure. Tested twice — by the module's own check and by the
+  suite's existing one-place guard, which the brief now joins.
+- Every department has a tab no other department has, present in the strip and in the panel, with
+  at least two sections. Tested.
+- A dossier opens on the brief, and the exact rule is one click away in every one of them. Tested.
+- The brief's numbers come from the arm's own record rather than from the prose. Tested.
 - Still one self-contained file; still refuses to build on input that does not verify.
 
 ---

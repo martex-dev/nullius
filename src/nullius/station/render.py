@@ -41,6 +41,7 @@ from typing import Any
 from jinja2 import Environment, PackageLoader, StrictUndefined, select_autoescape
 
 from nullius.benchmark.metrics import ArmMetrics
+from nullius.station.brief import DEPTS, PEOPLE
 from nullius.station.map import ROOMS, TERMINAL_DOORS, Room, corridor, room_named
 from nullius.station.model import Occupancy, Station, assemble, engaged_rooms, payload
 
@@ -2335,6 +2336,8 @@ def _context(station: Station) -> dict[str, object]:
         "route_d": _route_path(station, layout),
         "CEIL": CEIL,
         "SLAB": SLAB,
+        "depts": DEPTS,
+        "people": PEOPLE,
         "switchboard_rooms": switchboard_rooms(station),
         "terminal_states": [state.value for state in TERMINAL_DOORS],
         "moving": _moving(station, arrivals),

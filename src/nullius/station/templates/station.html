@@ -166,6 +166,33 @@
   .key i { width:.58rem; height:.58rem; border-radius:50%; display:inline-block;
            box-shadow:0 0 8px currentColor; }
 
+  /* ------------------------------------------------------------- the brief */
+  .plain { font-size:1.06rem; line-height:1.66; color:var(--ink); margin:0 0 1rem;
+           max-width:46rem; }
+  .plain.sm { font-size:.97rem; color:var(--dim); }
+  .steps { margin:0 0 1.2rem; padding-left:1.35rem; max-width:46rem; }
+  .steps li { margin:0 0 .45rem; line-height:1.6; }
+  .steps li::marker { color:var(--faint); font-variant-numeric:tabular-nums; }
+  .crew { display:grid; gap:.6rem; grid-template-columns:repeat(auto-fill,minmax(17rem,1fr));
+          margin:0 0 1.2rem; }
+  .who { border:1px solid var(--rule); border-radius:10px; padding:.7rem .85rem;
+         background:var(--sunk); }
+  .who b { display:block; font-family:var(--mono); font-size:.74rem; letter-spacing:.1em;
+           text-transform:uppercase; color:var(--ink); }
+  .who i { display:block; font-style:normal; font-weight:600; font-size:.9rem;
+           color:var(--dim); margin:.1rem 0 .35rem; }
+  .who span { display:block; font-size:.88rem; line-height:1.55; color:var(--dim); }
+  .who.none b { color:var(--faint); }
+  details.exact { margin-top:1.4rem; border-top:1px solid var(--rule); padding-top:.9rem; }
+  details.exact summary { cursor:pointer; font:600 .82rem/1.5 var(--sans); color:var(--dim);
+                          list-style:none; display:inline-flex; align-items:center; gap:.4rem;
+                          border:1px solid var(--rule); border-radius:8px; padding:.32rem .7rem; }
+  details.exact summary::-webkit-details-marker { display:none; }
+  details.exact summary::before { content:'\203a'; font-size:1.05em; }
+  details.exact[open] summary::before { content:'\2039'; }
+  details.exact summary:hover { border-color:var(--dim); color:var(--ink); }
+  details.exact > *:not(summary) { margin-top:.8rem; }
+
   /* ---------------------------------------------------------------- roster */
   .roster { position:absolute; z-index:3; top:.85rem; right:.85rem; width:12.2rem;
             max-height:calc(100% - 5rem); overflow-y:auto; padding:.5rem;
@@ -931,7 +958,68 @@
     {% set room = occupied.room %}
     <div class="panel" id="panel-{{ room.room_id }}" data-room="{{ room.room_id }}">
 
-      <section data-tab="overview">
+      {% set dept = depts[room.room_id] %}
+      <section data-tab="brief">
+        <p class="plain">{{ dept.plain }}</p>
+
+        <h2>what happens here</h2>
+        <ol class="steps">
+          {% for step in dept.steps %}<li>{{ step }}</li>{% endfor %}
+        </ol>
+
+        <h2>who works here</h2>
+        <div class="crew">
+          {% for role in room.roles %}
+          <div class="who">
+            <b>{{ role.value }}</b>
+            <i>{{ people[role.value][0] }}</i>
+            <span>{{ people[role.value][1] }}</span>
+          </div>
+          {% else %}
+          <div class="who none">
+            <b>nobody</b>
+            <i>no actor is stationed here</i>
+            <span>This room is read and written by the departments around it rather than
+            worked in. The map draws it with nobody in it, because drawing somebody would be
+            the smallest possible lie and the one a reader believes fastest.</span>
+          </div>
+          {% endfor %}
+        </div>
+
+        <h2>what it is doing right now</h2>
+        <p class="faint" data-now-line></p>
+        <div class="grid" data-now></div>
+
+        <h2>what it has done</h2>
+        <p class="faint">Read out of committed artifacts under the arm selected above.
+        Nothing on this page was typed in by hand except the wording.</p>
+        <div class="grid" data-done></div>
+
+        <h2>what has not happened yet</h2>
+        <div class="note">{{ dept.next_up }}</div>
+        <div data-notes-3></div>
+        {% if room.locked %}
+        <div class="note hard"><b>Not yet built.</b> {{ room.unbuilt_because }}</div>
+        {% endif %}
+
+        <details class="exact">
+          <summary>show the exact rule instead</summary>
+          <p class="charter">{{ room.charter }}</p>
+          {% if room.invariant %}<div class="invariant">{{ room.invariant }}</div>{% endif %}
+          <p class="faint">Plain language is a summary, and a summary loses things. This is
+          the wording the rest of the project is written against.</p>
+        </details>
+      </section>
+
+      <section data-tab="{{ dept.desk.tab }}" hidden>
+        <p class="faint">{{ dept.desk.lead }}</p>
+        {% for part in dept.desk.sections %}
+        <h2>{{ part.heading }}</h2>
+        <p class="plain sm">{{ part.body }}</p>
+        {% endfor %}
+      </section>
+
+      <section data-tab="overview" hidden>
         <p class="charter">{{ room.charter }}</p>
         {% if room.invariant %}<div class="invariant">{{ room.invariant }}</div>{% endif %}
         {% if room.locked %}
@@ -1092,7 +1180,7 @@
   var view = { x: 0, y: 0, k: 1 };
   var MIN = 0.55, MAX = 8;
   var arm = Math.max(0, ARMS.findIndex(function (a) { return a.arm_id === '{{ station.arm.arm_id }}'; }));
-  var room = null, tab = 'overview', filter = 'all', search = '', sortBy = 0, sortDown = false;
+  var room = null, tab = 'brief', filter = 'all', search = '', sortBy = 0, sortDown = false;
 
   function el(tag, cls, text) {
     var n = document.createElement(tag);
@@ -1227,7 +1315,9 @@
     hidePeek();
     if (!document.getElementById('panel-' + id)) { return; }
     room = id;
-    tab = 'overview'; filter = 'all'; search = ''; sortBy = 0; sortDown = false;
+    // A dossier opens on the brief. Anywhere else and the reader's last click
+    // decides what the next department appears to be about.
+    tab = 'brief'; filter = 'all'; search = ''; sortBy = 0; sortDown = false;
     dossier.classList.add('on');
     dossier.setAttribute('aria-hidden', 'false');
     dossier.querySelector('.sheet').scrollTop = 0;
@@ -1323,10 +1413,20 @@
   }
 
   /* ---------------------------------------------------------- the dossier */
+  // The brief comes first because it is the one tab that answers "what is this
+  // department" rather than "what did it do". Each room's own desk sits second:
+  // the thing that room, and no other, is for.
   var TABS = [
-    ['overview', 'overview'], ['figures', 'figures'], ['scores', 'arm scores'],
-    ['items', 'items'], ['provenance', 'provenance'],
-    ['protocols', 'protocols'], ['contrasts', 'contrasts']
+    ['brief', 'the brief'],
+    ['intake', 'what gets in'], ['shelving', 'what happens to the losers'],
+    ['lock', 'the lock'], ['bundle', 'the bundle'], ['sandbox', 'the sandbox'],
+    ['numbers', 'who writes the numbers'], ['objections', 'objections'],
+    ['blindness', 'blindness'], ['unbuilt', 'why it is dark'],
+    ['leaving', 'the four doors'], ['custody', 'custody'], ['money', 'the money'],
+    ['memory', 'what is remembered'], ['truth', 'ground truth'],
+    ['protocols', 'protocols'], ['contrasts', 'contrasts'],
+    ['overview', 'the room'], ['figures', 'figures'], ['scores', 'arm scores'],
+    ['items', 'items'], ['provenance', 'provenance']
   ];
 
   function renderDossier() {
@@ -1378,6 +1478,7 @@
       s.hidden = s.dataset.tab !== tab;
     });
 
+    fillBrief(panel, r, a);
     fillFigures(panel, r);
     fillNotes(panel, r);
     fillDoors(panel, r);
@@ -1408,8 +1509,30 @@
       box.appendChild(statBlock(f.label, f.value, f.source, f.note));
     });
   }
+  function fillBrief(panel, r, a) {
+    var line = panel.querySelector('[data-now-line]');
+    if (!line) { return; }
+    line.textContent = 'On ' + a.arm_id + ' \u00b7 ' + a.label + ', this department is '
+      + (r.engaged ? 'in use.' : 'not used at all: this arm routes around it.');
+    var now = panel.querySelector('[data-now]');
+    now.textContent = '';
+    now.appendChild(statBlock('what it is doing', r.status, null, null));
+    now.appendChild(statBlock('is it built', r.backing,
+      null, r.backing === 'live' ? 'built, and it ran' :
+      (r.backing === 'unbuilt' ? 'declared, and nothing calls it' : 'built, and it had no work')));
+    now.appendChild(statBlock('used by this arm', r.engaged ? 'yes' : 'no', null, null));
+    var done = panel.querySelector('[data-done]');
+    done.textContent = '';
+    if (!r.figures.length) {
+      done.appendChild(el('div', 'note', 'Nothing was recorded for this department on this '
+        + 'arm. That is a fact about the run, not a gap in the page.'));
+    }
+    r.figures.forEach(function (f) {
+      done.appendChild(statBlock(f.label, f.value, f.source, f.note));
+    });
+  }
   function fillNotes(panel, r) {
-    ['[data-notes]', '[data-notes-2]'].forEach(function (sel) {
+    ['[data-notes]', '[data-notes-2]', '[data-notes-3]'].forEach(function (sel) {
       var box = panel.querySelector(sel);
       if (!box) { return; }
       box.textContent = '';

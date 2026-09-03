@@ -14,6 +14,7 @@ import json
 import re
 import sqlite3
 from dataclasses import replace
+from functools import lru_cache
 from pathlib import Path
 
 import pytest
@@ -22,6 +23,7 @@ from nullius.benchmark.arms import LADDER_V6, Arm, ArmKind
 from nullius.benchmark.protocol import PROTOCOL_VERSIONS
 from nullius.benchmark.runner import mechanisms_for
 from nullius.db.enums import TERMINAL_STATES, HypothesisState, Role, Verdict
+from nullius.station.brief import DEPTS, PEOPLE, numerals
 from nullius.station.ledger import open_ledger
 from nullius.station.map import (
     HANDLED_OUTSIDE_THE_KERNEL,
@@ -221,6 +223,17 @@ def _hand_written() -> list[tuple[str, str]]:
         out.append((f"{room.room_id}.unbuilt_because", room.unbuilt_because))
     for field, why in HANDLED_OUTSIDE_THE_KERNEL.items():
         out.append((f"handled_outside[{field}]", why))
+    for role, (title, plain) in PEOPLE.items():
+        out.append((f"people[{role}].title", title))
+        out.append((f"people[{role}]", plain))
+    for room_id, dept in DEPTS.items():
+        out.append((f"depts[{room_id}].plain", dept.plain))
+        out.append((f"depts[{room_id}].next_up", dept.next_up))
+        for index, step in enumerate(dept.steps):
+            out.append((f"depts[{room_id}].steps[{index}]", step))
+        out.append((f"depts[{room_id}].desk.lead", dept.desk.lead))
+        for section in dept.desk.sections:
+            out.append((f"depts[{room_id}].desk[{section.heading}]", section.body))
     return out
 
 
@@ -250,7 +263,7 @@ def test_the_template_refuses_an_undefined_name() -> None:
 
 
 def test_nothing_is_left_unsubstituted(tmp_path: Path) -> None:
-    raw = write_station(tmp_path / "station.html").read_text(encoding="utf-8")
+    raw = _built()
     assert "{{" not in raw and "{%" not in raw
 
 
@@ -387,10 +400,10 @@ def test_no_terminal_state_has_ever_been_recorded() -> None:
 # --------------------------------------------------------- self-contained output
 
 
-def test_the_page_is_one_file_that_works_offline(tmp_path: Path) -> None:
+def test_the_page_is_one_file_that_works_offline() -> None:
     """No CDN, no stylesheet, no remote image. It has to render from a clean
     clone with nothing but a browser."""
-    raw = write_station(tmp_path / "station.html").read_text(encoding="utf-8")
+    raw = _built()
     assert "<link" not in raw.lower()
     assert "@import" not in raw
     for pattern in (r'src\s*=\s*"https?:', r'href\s*=\s*"https?:', r"url\(\s*https?:"):
@@ -509,10 +522,10 @@ def test_every_token_is_a_recorded_outcome() -> None:
         assert (token.item_id, token.replicate, token.verdict) in recorded
 
 
-def test_the_embedded_record_is_readable_json(tmp_path: Path) -> None:
+def test_the_embedded_record_is_readable_json() -> None:
     """The page carries its own record inline, so a reader can check a figure
     against the data the drawing was built from without leaving the file."""
-    raw = write_station(tmp_path / "station.html").read_text(encoding="utf-8")
+    raw = _built()
     match = re.search(
         r'<script id="station-record" type="application/json">(.*?)</script>', raw, flags=re.S
     )
@@ -598,11 +611,11 @@ def test_a_room_is_a_place_with_things_in_it() -> None:
             assert fixture["y"] + fixture["h"] <= floor["y"] + floor["h"] + 0.01
 
 
-def test_every_stationed_role_is_a_figure_big_enough_to_read(tmp_path: Path) -> None:
+def test_every_stationed_role_is_a_figure_big_enough_to_read() -> None:
     """A three-pixel dot is not an actor at a post. Each role also has to be
     identifiable without reading its label, which the drawing does with a
     distinct silhouette per role."""
-    page = write_station(tmp_path / "station.html").read_text(encoding="utf-8")
+    page = _built()
     layout = plan(assemble())
     seen: set[str] = set()
     for room in ROOMS:
@@ -671,13 +684,13 @@ def test_the_exits_are_doors_in_the_outer_wall() -> None:
         assert not overlaps, f"{door['state']}'s counter plate sits inside the room"
 
 
-def test_an_unused_exit_says_it_meant_the_zero(tmp_path: Path) -> None:
+def test_an_unused_exit_says_it_meant_the_zero() -> None:
     """A row of zeroes reads as a broken renderer unless the drawing says it
     meant them. Every exit on this map is unused, and the map says so."""
     station = assemble()
     doors = plan(station)["doors"]
     assert doors
-    page = write_station(tmp_path / "station.html").read_text(encoding="utf-8")
+    page = _built()
     if not any(door["used"] for door in doors):
         assert UNUSED_EXITS.split("—")[0].strip() in page
 
@@ -829,10 +842,10 @@ def test_two_agents_in_a_room_do_not_share_the_same_floor() -> None:
                 assert a1 < b0 or b1 < a0, f"{room.room_id}: two actors cross"
 
 
-def test_the_dossier_holds_a_panel_for_every_room(tmp_path: Path) -> None:
+def test_the_dossier_holds_a_panel_for_every_room() -> None:
     """Clicking a room opens its dashboard over the map. The panel has to be
     there for every room, including the ones that are locked or empty."""
-    page = write_station(tmp_path / "station.html").read_text(encoding="utf-8")
+    page = _built()
     for room in ROOMS:
         assert f'id="panel-{room.room_id}"' in page, room.room_id
         assert f'data-room="{room.room_id}"' in page, room.room_id
@@ -843,8 +856,15 @@ def test_the_dossier_holds_a_panel_for_every_room(tmp_path: Path) -> None:
 # --------------------------------------------- M26: the page has to work offline
 
 
-def _built(tmp_path: Path) -> str:
-    return write_station(tmp_path / "station.html").read_text(encoding="utf-8")
+@lru_cache(maxsize=1)
+def _built() -> str:
+    """The rendered page, built once for the whole file.
+
+    Thirty-two tests were each rendering it and writing 1.6MB into their own
+    temporary directory, which had grown to be the slowest thing in the suite by
+    an order of magnitude. Caching is safe for exactly the reason the page is
+    worth having: it is deterministic, and there is a test above that says so."""
+    return render_station()
 
 
 def test_nothing_is_drawn_over_the_rooms_that_could_swallow_a_click() -> None:
@@ -865,11 +885,11 @@ def test_nothing_is_drawn_over_the_rooms_that_could_swallow_a_click() -> None:
         assert 'pointer-events="none"' in opening, f"{layer} can intercept a click"
 
 
-def test_the_script_only_reaches_for_things_the_markup_has(tmp_path: Path) -> None:
+def test_the_script_only_reaches_for_things_the_markup_has() -> None:
     """A generated page whose script and markup disagree fails at the one moment
     nobody is watching: in a browser, silently. Every id the script looks up has
     to exist in the document it is shipped in."""
-    page = _built(tmp_path)
+    page = _built()
     script = re.search(r"<script>\n\(function \(\).*?</script>", page, flags=re.S)
     assert script
     wanted = sorted(set(re.findall(r"getElementById\('([^']+)'\)", script.group(0))))
@@ -878,12 +898,12 @@ def test_the_script_only_reaches_for_things_the_markup_has(tmp_path: Path) -> No
         assert f'id="{name}"' in page, f"the script wants #{name} and the page has no such thing"
 
 
-def test_the_page_carries_every_arm_of_the_protocol_on_display(tmp_path: Path) -> None:
+def test_the_page_carries_every_arm_of_the_protocol_on_display() -> None:
     """The dossier's arm switch changes which recorded arm every panel describes,
     so the page has to carry all of them — and each has to be the same arm the
     ladder ran, not a summary of one."""
     station = assemble()
-    page = _built(tmp_path)
+    page = _built()
     body = re.search(
         r'<script id="station-arms" type="application/json">(.*?)</script>', page, flags=re.S
     )
@@ -934,7 +954,7 @@ def test_the_item_rows_are_the_recorded_outcomes() -> None:
             assert (row[3] == "right") == outcome.correct
 
 
-def test_every_role_is_drawn_as_its_own_build(tmp_path: Path) -> None:
+def test_every_role_is_drawn_as_its_own_build() -> None:
     """A figure has to be identifiable without reading its label, which means no
     two roles may share a silhouette. Checked by drawing each on its own and
     requiring the markup to differ."""
@@ -950,7 +970,7 @@ def test_every_role_is_drawn_as_its_own_build(tmp_path: Path) -> None:
     assert len({str(markup) for markup in drawn.values()}) == len(Role), (
         "two roles are drawn the same way"
     )
-    page = _built(tmp_path)
+    page = _built()
     for role in Role:
         assert f"<title>{role.value}</title>" in page, role.value
 
@@ -1010,11 +1030,11 @@ def test_each_run_of_corridor_knows_which_run_it_is() -> None:
 # ------------------------------------------- M29: a map with nothing written on it
 
 
-def test_the_map_carries_no_writing_until_it_is_asked_for(tmp_path: Path) -> None:
+def test_the_map_carries_no_writing_until_it_is_asked_for() -> None:
     """At rest the drawing is the drawing: rooms, fittings, people. The callouts,
     the captions, the counter plates and the roster are a second drawing on top
     of the first, and they go on when they are asked for."""
-    page = _built(tmp_path)
+    page = _built()
     style = page[page.index("<style>") : page.index("</style>")]
     for rule in (
         "#cards, #exits { opacity:0;",
@@ -1032,11 +1052,11 @@ def test_the_map_carries_no_writing_until_it_is_asked_for(tmp_path: Path) -> Non
     assert 'data-kind="stencil"' in page
 
 
-def test_hovering_a_room_is_what_names_it(tmp_path: Path) -> None:
+def test_hovering_a_room_is_what_names_it() -> None:
     """With the callouts off, the only thing that says which room this is is the
     peek — so every hook the script fills has to be in the markup, and it has to
     be fed from the same record the dossier reads."""
-    page = _built(tmp_path)
+    page = _built()
     assert 'id="peek"' in page
     for hook in (
         "peek-no",
@@ -1052,7 +1072,7 @@ def test_hovering_a_room_is_what_names_it(tmp_path: Path) -> None:
     assert "ARMS[arm].rooms[id]" in script, "the peek is not reading the arm on display"
 
 
-def test_the_bare_map_is_framed_to_the_building(tmp_path: Path) -> None:
+def test_the_bare_map_is_framed_to_the_building() -> None:
     """The world is sized for the callouts and the counter plates in its margins.
     Fitting to it with those hidden frames a great deal of empty ground."""
     layout = plan(assemble())
@@ -1065,11 +1085,11 @@ def test_the_bare_map_is_framed_to_the_building(tmp_path: Path) -> None:
         assert shell["x"] + shell["w"] <= bounds["x"] + bounds["w"] + 0.01
         assert shell["y"] >= bounds["y"] - 0.01
         assert shell["y"] + shell["h"] <= bounds["y"] + bounds["h"] + 0.01
-    script = _built(tmp_path)
+    script = _built()
     assert "BOUNDS = { x:" in script
 
 
-def test_every_room_is_named_as_a_place(tmp_path: Path) -> None:
+def test_every_room_is_named_as_a_place() -> None:
     """The map is a building. A department called Analysis is an activity; a
     room called the Analysis Room is somewhere you can stand."""
     keep = {"vault", "oracle"}
@@ -1082,7 +1102,7 @@ def test_every_room_is_named_as_a_place(tmp_path: Path) -> None:
             "Floor",
             "Chamber",
         }, f"{room.room_id} is not named for a place: {room.name}"
-    page = _built(tmp_path)
+    page = _built()
     for room in ROOMS:
         assert room.name in page, room.name
 
@@ -1120,7 +1140,7 @@ def test_a_solid_is_drawn_inside_the_box_it_was_given() -> None:
             assert fixture["y"] + top_face + fixture["z"] <= floor["y"] + floor["h"] + 0.01
 
 
-def test_the_light_falls_the_same_way_on_everything(tmp_path: Path) -> None:
+def test_the_light_falls_the_same_way_on_everything() -> None:
     """One lighting language, applied once: a top face lit from above, a front
     face in its own shadow, and a shadow on the floor. If a fixture stops going
     through it the room goes back to being a plan of a room."""
@@ -1129,7 +1149,7 @@ def test_the_light_falls_the_same_way_on_everything(tmp_path: Path) -> None:
         assert helper in source, helper
     assert source.count("url(#topV)") >= 2
     assert source.count("url(#faceV)") >= 2
-    page = _built(tmp_path)
+    page = _built()
     for gradient in ('id="topV"', 'id="faceV"', 'id="ink"'):
         assert gradient in page, gradient
     # the specular pass that used to stand in for shading is gone: the faces do
@@ -1192,7 +1212,7 @@ def test_the_people_stand_on_the_same_floor_as_the_furniture() -> None:
             assert sprite["y"] == pytest.approx(ground, abs=0.02), sprite["role"]
 
 
-def test_the_space_between_the_rooms_is_the_building(tmp_path: Path) -> None:
+def test_the_space_between_the_rooms_is_the_building() -> None:
     """Fourteen lit boxes floating in black says the departments are all there
     is. The plant that lights and cools the place records nothing, so it is
     drawn as structure: no number on it, and nothing on it to click."""
@@ -1209,7 +1229,7 @@ def test_the_space_between_the_rooms_is_the_building(tmp_path: Path) -> None:
                 work["y"], shell["y"]
             )
             assert overlap_x <= 0.02 or overlap_y <= 0.02, (work["kind"], shell)
-    page = _built(tmp_path)
+    page = _built()
     start = page.index('<g id="works"')
     block = page[start : page.index('<g id="halls"')]
     assert 'pointer-events="none"' in page[start : page.index(">", start)]
@@ -1242,11 +1262,11 @@ def test_an_actor_works_at_something_that_is_actually_there() -> None:
     assert posted * 3 >= total * 2, f"only {posted} of {total} actors have a post"
 
 
-def test_an_actor_in_a_room_this_arm_does_not_engage_stands_still(tmp_path: Path) -> None:
+def test_an_actor_in_a_room_this_arm_does_not_engage_stands_still() -> None:
     """The animation has to mean something or it is decoration. What it means
     is that this arm engages this room -- so switching arms changes who is
     working, and an actor in a room the arm leaves out stands at its post."""
-    page = _built(tmp_path)
+    page = _built()
     style = page[page.index("<style>") : page.index("</style>")]
     assert ".roomfront.resting .agent .pace" in style
     assert "animation:none" in style[style.index(".roomfront.resting") :]
@@ -1261,12 +1281,95 @@ def test_an_actor_in_a_room_this_arm_does_not_engage_stands_still(tmp_path: Path
             assert sprite["s0"] == 0.0
 
 
-def test_every_actor_says_who_it_is(tmp_path: Path) -> None:
+def test_every_actor_says_who_it_is() -> None:
     """Fourteen rooms of figures with no names is a diagram of a workforce."""
-    page = _built(tmp_path)
+    page = _built()
     layout = plan(assemble())
     for room in ROOMS:
         for sprite in layout["sprites"][room.room_id]:
             assert sprite["label"] == sprite["role"].upper()
             assert f">{sprite['label']}</text>" in page, sprite["role"]
     assert page.count('<g class="nameplate"') == sum(len(room.roles) for room in ROOMS)
+
+
+# --------------------------------------------- M33: the department, in plain words
+
+
+def test_every_department_is_explained_in_plain_words() -> None:
+    """A charter is exact and is no use to somebody who has just clicked on a
+    room. Every department carries a brief written for a reader who does not
+    know what a preregistration is."""
+    assert set(DEPTS) == {room.room_id for room in ROOMS}
+    assert set(PEOPLE) == {role.value for role in Role}
+    for room in ROOMS:
+        dept = DEPTS[room.room_id]
+        assert len(dept.steps) >= 2, room.room_id
+        assert dept.plain.endswith(".") and dept.next_up.endswith(".")
+        for step in dept.steps:
+            assert step.endswith("."), (room.room_id, step)
+    for role, (title, plain) in PEOPLE.items():
+        assert title == title.lower(), role
+        assert len(plain) > 80, role
+
+
+def test_the_plain_words_never_state_a_figure() -> None:
+    """This module is the page's one piece of hand-written prose about what the
+    institution *is*, and the rule that keeps that exception safe is that it may
+    not say anything about what the institution *did*. Every quantity on a brief
+    is filled in from the record by the page."""
+    assert numerals() == []
+
+
+def test_every_department_has_a_tab_that_is_its_own() -> None:
+    """More than a house style applied fourteen times: each room gets the tab
+    for the thing that room, and no other, is for."""
+    tabs = [dept.desk.tab for dept in DEPTS.values()]
+    assert len(set(tabs)) == len(tabs), "two departments claim the same tab"
+    page = write_station(Path("site/_m33.html")).read_text(encoding="utf-8")
+    Path("site/_m33.html").unlink(missing_ok=True)
+    script = page[page.rindex("<script>") : page.rindex("</script>")]
+    listed = set(re.findall(r"\['([a-z]+)', '", script[script.index("var TABS") :]))
+    for room in ROOMS:
+        desk = DEPTS[room.room_id].desk
+        assert desk.tab in listed, f"{desk.tab} is not in the tab strip"
+        start = page.index(f'id="panel-{room.room_id}"')
+        nxt = page.find('id="panel-', start + 10)
+        panel = page[start : nxt if nxt > 0 else len(page)]
+        assert f'data-tab="{desk.tab}"' in panel, f"{room.room_id} has no {desk.tab} section"
+        assert len(desk.sections) >= 2, desk.tab
+
+
+def test_a_dossier_opens_on_the_brief() -> None:
+    """Landing anywhere else means the reader's last click decides what the next
+    department appears to be about."""
+    page = _built()
+    script = page[page.rindex("<script>") : page.rindex("</script>")]
+    assert "var room = null, tab = 'brief'" in script
+    opener = script[script.index("function open(id)") :]
+    opener = opener[: opener.index("renderDossier();")]
+    assert "tab = 'brief';" in opener
+    assert "tab = 'overview'" not in opener
+    assert script.index("['brief', 'the brief']") < script.index("['overview'")
+
+
+def test_the_exact_rule_is_always_one_click_from_the_plain_one() -> None:
+    """Plain language is a summary and a summary loses things, so the wording the
+    rest of the project is written against is never more than one click away."""
+    page = _built()
+    assert page.count('<details class="exact">') == len(ROOMS)
+    for room in ROOMS:
+        assert html.escape(room.charter, quote=False) in page or room.charter in page
+
+
+def test_the_brief_fills_its_own_numbers_from_the_record() -> None:
+    """The prose says what a department is for; the page says what it did. The
+    join between them is the only place a figure can enter a brief."""
+    page = _built()
+    script = page[page.rindex("<script>") : page.rindex("</script>")]
+    assert "function fillBrief(" in script
+    for hook in ("[data-now-line]", "[data-now]", "[data-done]"):
+        assert hook in script, hook
+        assert hook.strip("[]").replace("data-", "data-") in page
+    body = script[script.index("function fillBrief(") : script.index("function fillNotes(")]
+    assert "r.figures.forEach" in body, "the brief is not reading the arm's figures"
+    assert "r.status" in body and "r.backing" in body and "r.engaged" in body

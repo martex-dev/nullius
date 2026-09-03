@@ -78,8 +78,10 @@ trunk down the sealed wing, and a hall of tanks and trusses underneath. None of 
 number, because none of it records anything. The recorded passes move between the rooms, and the
 actors walk between the stations of their own rooms and work at them — in the rooms the arm on
 display engages. In the rooms it does not, they stand at their posts. At rest there is no writing on it at all: hover a room to find out which it is,
-click it to open what that department actually did — every figure naming the artifact it was read
-out of — and press `labels` to put the callouts, the captions and the roster back on. Drag to pan,
+click it to open what that department is and what it actually did — each dossier opens on a brief
+written for a reader who has never heard of a preregistration, with the exact wording one click
+away, and every figure naming the artifact it was read out of — and press `labels` to put the
+callouts, the captions and the roster back on. Drag to pan,
 scroll to zoom.
 
 The two rooms with no corridor into them are the two you genuinely cannot walk into — the Vault,
