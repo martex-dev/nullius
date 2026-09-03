@@ -734,6 +734,83 @@ def _props(
     return out
 
 
+def _zone(room: Room) -> dict[str, float]:
+    """The painted rectangle on the floor that the workstations stand in.
+
+    Every floor in the station was the same sheet of plating edge to edge, which
+    is why the rooms read as boxes with things in them rather than as places
+    laid out for work. A painted zone says the room has a plan.
+    """
+    floor = _inner(room)
+    usable = _usable(floor)
+    top = _band(floor, MID_AT) - 10.0
+    return {
+        "x": round(floor.x + 14.0, 2),
+        "y": round(top, 2),
+        "w": round(floor.w - 28.0, 2),
+        "h": round(_band(floor, FRONT_AT) + usable * FRONT_H + 16.0 - top, 2),
+    }
+
+
+def _decals(room: Room) -> list[dict[str, Any]]:
+    """Scuffs, drains and stencilled marks: the wear a floor has because it is
+    walked on. Deterministic from the room's own id, like everything else."""
+    nxt = _rng(room.room_id + "-wear")
+    floor = _inner(room)
+    out: list[dict[str, Any]] = []
+    for index in range(9):
+        out.append(
+            {
+                "kind": ("scuff", "scuff", "bolt", "drain")[index % 4],
+                "x": round(floor.x + 16.0 + nxt(0.0, floor.w - 32.0), 2),
+                "y": round(floor.y + 16.0 + nxt(0.0, floor.h - 32.0), 2),
+                "r": round(3.0 + nxt(0.0, 9.0), 2),
+                "a": round(nxt(0.0, 180.0), 1),
+            }
+        )
+    return out
+
+
+def _stars() -> list[dict[str, Any]]:
+    """The dark the station stands in. Without them the ground behind the plan
+    is a flat fill, and a flat fill reads as paper rather than as somewhere the
+    building is."""
+    nxt = _rng("the-void")
+    x0, y0, w, h = WORLD
+    keep_out = Box(-40.0, -40.0, 200.0 * SCALE + 80.0, 124.0 * SCALE + 80.0)
+    out: list[dict[str, Any]] = []
+    while len(out) < 150:
+        x, y = x0 + nxt(0.0, w), y0 + nxt(0.0, h)
+        inside_x = keep_out.x <= x <= keep_out.x + keep_out.w
+        inside_y = keep_out.y <= y <= keep_out.y + keep_out.h
+        if inside_x and inside_y:
+            continue
+        out.append(
+            {
+                "x": round(x, 1),
+                "y": round(y, 1),
+                "r": round(0.7 + nxt(0.0, 1.8), 2),
+                "o": round(0.12 + nxt(0.0, 0.4), 3),
+            }
+        )
+    return out
+
+
+def _bounds() -> dict[str, float]:
+    """The station's own footprint, as against the world it is drawn in.
+
+    The world is sized for the callout cards and the counter plates in its
+    margins. With those off, fitting to the world frames a great deal of empty
+    ground, so the bare map is framed to the building instead.
+    """
+    shells = [_shell(room) for room in ROOMS]
+    x0 = min(shell.x for shell in shells)
+    y0 = min(shell.y for shell in shells)
+    x1 = max(shell.x + shell.w for shell in shells)
+    y1 = max(shell.y + shell.h for shell in shells)
+    return {"x": round(x0, 2), "y": round(y0, 2), "w": round(x1 - x0, 2), "h": round(y1 - y0, 2)}
+
+
 def _sprites(room: Room) -> list[dict[str, Any]]:
     """One figure per role that works in this room, at a workstation.
 
@@ -1099,11 +1176,17 @@ def _cards(
         # pitch cannot sit above its own room without touching its neighbour's,
         # and the search then walks it along the row until the label for
         # Screening is hanging over Registry.
+        # A name too long for the widest allowed card is set smaller rather than
+        # cut: DEVELOPMENT WORKSHOP truncated to DEVELOPMENT WORKSH… is a label
+        # that is wrong about the name of the room it points at, which is the
+        # one thing a label may not be.
+        room_for_name = CARD_MAX - BADGE - 2 * CARD_PAD - STATUS_W
+        name_size = max(13.0, min(NAME_SIZE, room_for_name / max(1, len(name)) / EM_ADVANCE))
         width = min(
             CARD_MAX,
             max(
                 320.0,
-                BADGE + _measure(name, NAME_SIZE) + 2 * CARD_PAD + STATUS_W,
+                BADGE + _measure(name, name_size) + 2 * CARD_PAD + STATUS_W,
                 _measure(" ".join(chips_text), 15.0) + 2 * CARD_PAD + 26.0,
             ),
         )
@@ -1139,7 +1222,7 @@ def _cards(
                 name,
                 x=box.x + CARD_PAD + BADGE + 2.0,
                 y=box.y + 33.0,
-                size=NAME_SIZE,
+                size=name_size,
                 fill="ink",
                 owner=room.room_id,
                 max_width=box.w - 2 * CARD_PAD - BADGE - STATUS_W,
@@ -1373,6 +1456,10 @@ def plan(station: Station) -> dict[str, Any]:
         "labels": [label.as_dict() for label in labels],
         "boxes": [label.box for label in labels],
         "fixtures": {room.room_id: _fixtures(room) for room in ROOMS},
+        "zones": {room.room_id: _zone(room) for room in ROOMS},
+        "decals": {room.room_id: _decals(room) for room in ROOMS},
+        "stars": _stars(),
+        "bounds": _bounds(),
         "sprites": {room.room_id: _sprites(room) for room in ROOMS},
         "lamps": [
             {

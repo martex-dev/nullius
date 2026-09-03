@@ -163,7 +163,7 @@ class Room:
 ROOMS: tuple[Room, ...] = (
     Room(
         room_id="drafting",
-        name="Drafting room",
+        name="Design Room",
         roles=(Role.THEORIST,),
         states=(HypothesisState.DRAFT,),
         wing=Wing.PIPELINE,
@@ -179,7 +179,7 @@ ROOMS: tuple[Room, ...] = (
     ),
     Room(
         room_id="screening",
-        name="Screening",
+        name="Screening Room",
         roles=(Role.DIRECTOR, Role.LITERATURE),
         states=(HypothesisState.SCREENED, HypothesisState.SHELVED),
         wing=Wing.PIPELINE,
@@ -194,7 +194,7 @@ ROOMS: tuple[Room, ...] = (
     ),
     Room(
         room_id="registry",
-        name="Registry",
+        name="Registry Room",
         roles=(Role.DESIGNER, Role.SYSTEM),
         states=(HypothesisState.REGISTERED,),
         wing=Wing.PIPELINE,
@@ -211,7 +211,7 @@ ROOMS: tuple[Room, ...] = (
     ),
     Room(
         room_id="workshop",
-        name="Workshop",
+        name="Development Workshop",
         roles=(Role.BUILDER,),
         states=(HypothesisState.BUILT,),
         wing=Wing.PIPELINE,
@@ -227,7 +227,7 @@ ROOMS: tuple[Room, ...] = (
     ),
     Room(
         room_id="execution",
-        name="Execution floor",
+        name="Experiment Floor",
         roles=(Role.SYSTEM,),
         states=(HypothesisState.EXECUTED,),
         wing=Wing.PIPELINE,
@@ -244,7 +244,7 @@ ROOMS: tuple[Room, ...] = (
     ),
     Room(
         room_id="analysis",
-        name="Analysis",
+        name="Analysis Room",
         roles=(Role.ANALYST,),
         states=(HypothesisState.ANALYZED,),
         wing=Wing.PIPELINE,
@@ -260,7 +260,7 @@ ROOMS: tuple[Room, ...] = (
     ),
     Room(
         room_id="challenge",
-        name="Challenge",
+        name="Challenge Chamber",
         roles=(Role.SKEPTIC,),
         states=(HypothesisState.CHALLENGED,),
         wing=Wing.PIPELINE,
@@ -276,7 +276,7 @@ ROOMS: tuple[Room, ...] = (
     ),
     Room(
         room_id="blind",
-        name="Blind room",
+        name="Blind Testing Room",
         roles=(Role.REPLICATOR,),
         states=(HypothesisState.REPLICATED,),
         wing=Wing.PIPELINE,
@@ -292,7 +292,7 @@ ROOMS: tuple[Room, ...] = (
     ),
     Room(
         room_id="review",
-        name="Review",
+        name="Review Room",
         roles=(Role.REVIEWER,),
         states=(HypothesisState.REVIEWED,),
         wing=Wing.PIPELINE,
@@ -313,7 +313,7 @@ ROOMS: tuple[Room, ...] = (
     ),
     Room(
         room_id="record",
-        name="The record",
+        name="Records Room",
         roles=(),
         states=(
             HypothesisState.INSTITUTIONAL,
@@ -351,7 +351,7 @@ ROOMS: tuple[Room, ...] = (
     ),
     Room(
         room_id="treasury",
-        name="Treasury",
+        name="Resource Room",
         roles=(Role.DIRECTOR,),
         states=(HypothesisState.ABANDONED_BUDGET,),
         wing=Wing.OFF_PIPELINE,
@@ -368,7 +368,7 @@ ROOMS: tuple[Room, ...] = (
     ),
     Room(
         room_id="archive",
-        name="Archive",
+        name="Archive Room",
         roles=(),
         states=(),
         wing=Wing.OFF_PIPELINE,

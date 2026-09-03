@@ -73,8 +73,10 @@ Not a chatbot, not an AutoGPT descendant, not a paper generator, not a RAG appli
 laid out from `db/enums.py` rather than beside it, so every role is stationed somewhere and every
 state of the research machine is owned by exactly one room. Rooms have floors, furniture and the
 people who work in them, lit in the department's own colour, with the recorded passes moving
-between them. Drag to pan, scroll to zoom, and click a room to open what that department actually
-did — every figure naming the artifact it was read out of.
+between them. At rest there is no writing on it at all: hover a room to find out which it is,
+click it to open what that department actually did — every figure naming the artifact it was read
+out of — and press `labels` to put the callouts, the captions and the roster back on. Drag to pan,
+scroll to zoom.
 
 The two rooms with no corridor into them are the two you genuinely cannot walk into — the Vault,
 where the Custodian holds the evaluation split in its own process, and the Oracle, which holds the

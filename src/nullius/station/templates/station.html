@@ -10,18 +10,19 @@
     --panel:#ffffff; --sunk:#eef1f6;
     --plate:#070b12; --plate-2:#0d1420; --plate-line:#22304a; --plate-ink:#e8effa;
     --plate-dim:#9aa9c2; --plate-faint:#63728e;
-    --floor:#111a29; --floor-2:#0b1220; --wallo:#1d293e; --walli:#33455f;
-    --fix:#182437; --fix-2:#0e1725;
+    --floor:#16202f; --floor-2:#0d1523; --wallo:#222f45; --wallm:#182338;
+    --walli:#3d5273; --wallcap:#2d3d58;
+    --fix:#1b2739; --fix-2:#0e1725;
     /* What things are made of. The map is lit the same way whichever theme the
        page is in, so these are defined once and never swapped: a brass valve
        wheel is brass in both. */
-    --m-steel:#54687f; --m-steel-2:#2e3d52;
-    --m-enamel:#c3cfdd; --m-enamel-2:#7d8ea4;
-    --m-wood:#8a5c39; --m-wood-2:#553520;
+    --m-steel:#4a5d74; --m-steel-2:#28364a;
+    --m-enamel:#aebdcf; --m-enamel-2:#6c7d94;
+    --m-wood:#7d5130; --m-wood-2:#482c19;
     --m-brass:#c69440; --m-brass-2:#7d5a1e;
     --m-glass:#20495c; --m-glass-2:#0f2b39;
     --m-rubber:#3a3f4a; --m-rubber-2:#20242c;
-    --m-paint:#b8483c; --m-paint-2:#77281f;
+    --m-paint:#ad3a2e; --m-paint-2:#6b2118;
     --m-hazard:#e0a52a;
     --fig-dark:#0a1120; --fig-skin:#f0d9c2; --fig-skin-2:#c9a684;
     --fig-hair:#2a1f18;
@@ -92,6 +93,53 @@
   .selectring { opacity:0; transition:opacity .2s ease; pointer-events:none; }
   .card { cursor:pointer; }
   .card:hover .cardplate { filter:brightness(1.35); }
+
+  /* At rest the map is the map: rooms, fittings, people. Everything that
+     names a thing is a second drawing on top of the first, and it goes on
+     when it is asked for -- by hovering a room, or by turning the whole
+     annotated layer back on. */
+  #cards, #exits { opacity:0; pointer-events:none; transition:opacity .22s ease; }
+  .annotated #cards, .annotated #exits { opacity:1; }
+  /* The number painted on the floor is not writing about the room, it is
+     something painted on the room, so it stays when the writing goes. */
+  #labels text { opacity:0; transition:opacity .22s ease; }
+  .annotated #labels text, #labels text[data-kind="stencil"] { opacity:1; }
+  .annotated #cards { pointer-events:auto; }
+  .roster, .hud-tl, .hud-bl { opacity:0; pointer-events:none;
+                              transition:opacity .22s ease; }
+  .annotated .roster, .annotated .hud-tl, .annotated .hud-bl { opacity:1; }
+  .annotated .roster, .annotated .hud-tl > *, .annotated .hud-bl > * {
+    pointer-events:auto; }
+  .hud button.on { border-color:var(--plate-ink); color:var(--plate-ink);
+                   box-shadow:inset 0 0 0 1px var(--plate-line); }
+  .room .shell { transition:filter .18s ease; }
+  .room:hover .selectring { opacity:.55; }
+
+  /* --------------------------------------------------------------- the peek */
+  .peek { position:absolute; z-index:5; pointer-events:none; opacity:0;
+          transform:translateY(6px); transition:opacity .13s ease, transform .13s ease;
+          min-width:13.5rem; max-width:19rem; padding:.62rem .75rem .58rem;
+          border-radius:11px; border:1px solid var(--plate-line);
+          border-top:2px solid var(--peek-hue, var(--plate-line));
+          background:color-mix(in srgb, var(--plate-2) 92%, transparent);
+          backdrop-filter:blur(9px); box-shadow:0 14px 34px rgba(0,0,0,.6);
+          color:var(--plate-dim); font:600 .74rem/1.45 var(--sans); }
+  .peek.on { opacity:1; transform:translateY(0); }
+  .peek-head { display:flex; align-items:baseline; gap:.45rem; margin-bottom:.3rem; }
+  .peek-no { font-family:var(--mono); font-size:.68rem; color:var(--peek-hue);
+             letter-spacing:.06em; }
+  .peek-name { color:var(--plate-ink); font-size:.94rem; letter-spacing:-.01em;
+               font-weight:700; }
+  .peek-roles { display:flex; flex-wrap:wrap; gap:.24rem; margin:0 0 .34rem; }
+  .peek-roles span { font-family:var(--mono); font-size:.6rem; letter-spacing:.07em;
+                     text-transform:uppercase; padding:.1rem .36rem; border-radius:999px;
+                     border:1px solid var(--plate-line); color:var(--plate-dim); }
+  .peek-line { display:flex; align-items:center; gap:.4rem; font-family:var(--mono);
+               font-size:.66rem; color:var(--plate-faint); }
+  .peek-line i { width:.42rem; height:.42rem; border-radius:50%;
+                 box-shadow:0 0 6px currentColor; }
+  .peek-cue { margin-top:.4rem; padding-top:.36rem; border-top:1px solid var(--plate-line);
+              font-size:.64rem; font-weight:500; color:var(--plate-faint); }
 
   /* ------------------------------------------------------------------- HUD */
   .hud { position:absolute; z-index:3; pointer-events:none;
@@ -338,10 +386,73 @@
          aria-label="Floor plan of the research station, one room per department">
       <defs>
         <pattern id="plating" width="48" height="48" patternUnits="userSpaceOnUse">
+          <rect width="48" height="48" fill="none"/>
+          <rect width="24" height="24" fill="#fff" opacity=".012"/>
+          <rect x="24" y="24" width="24" height="24" fill="#fff" opacity=".012"/>
           <path d="M48 0H0V48" fill="none" stroke="var(--walli)" stroke-width="1"
-                stroke-opacity=".34"/>
-          <circle cx="4" cy="4" r="1.1" fill="var(--walli)" opacity=".5"/>
+                stroke-opacity=".3"/>
+          <path d="M48 0H0V48" fill="none" stroke="#000" stroke-width="2.4"
+                stroke-opacity=".18" transform="translate(0 1.4)"/>
+          <circle cx="4" cy="4" r="1.2" fill="var(--walli)" opacity=".55"/>
+          <circle cx="4" cy="4.9" r="1.2" fill="#000" opacity=".3"/>
+          <circle cx="44" cy="44" r="1.2" fill="var(--walli)" opacity=".4"/>
         </pattern>
+
+        {# An object is lit from above and to the left. The bevel comes off the
+           shape's own alpha, so every fixture in the station is shaded without
+           any of the fifty macros knowing about it, and the same pass casts the
+           shadow. Flat fills were the whole of what made the drawing look
+           printed rather than built. #}
+        <filter id="relief" x="-14%" y="-14%" width="132%" height="146%">
+          <feDropShadow dx="2" dy="6" stdDeviation="4.2" flood-color="#000"
+                        flood-opacity=".66" result="grounded"/>
+          <feGaussianBlur in="SourceAlpha" stdDeviation="1.1" result="bump"/>
+          <feSpecularLighting in="bump" surfaceScale="2.4" specularConstant=".46"
+                              specularExponent="30" lighting-color="#eaf3ff" result="hit">
+            <feDistantLight azimuth="228" elevation="62"/>
+          </feSpecularLighting>
+          <feComposite in="hit" in2="SourceAlpha" operator="in" result="sheen"/>
+          <feComposite in="grounded" in2="sheen" operator="arithmetic" k1="0" k2="1"
+                       k3=".4" k4="0"/>
+        </filter>
+        <filter id="reliefsoft" x="-14%" y="-14%" width="132%" height="146%">
+          <feDropShadow dx="1" dy="3" stdDeviation="2.4" flood-color="#000"
+                        flood-opacity=".55" result="grounded"/>
+          <feGaussianBlur in="SourceAlpha" stdDeviation="1.8" result="bump"/>
+          <feSpecularLighting in="bump" surfaceScale="2.6" specularConstant=".5"
+                              specularExponent="15" lighting-color="#cfe0f8" result="hit">
+            <feDistantLight azimuth="228" elevation="60"/>
+          </feSpecularLighting>
+          <feComposite in="hit" in2="SourceAlpha" operator="in" result="sheen"/>
+          <feComposite in="grounded" in2="sheen" operator="arithmetic" k1="0" k2="1"
+                       k3="1" k4="0"/>
+        </filter>
+        <linearGradient id="sheenV" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#fff" stop-opacity=".17"/>
+          <stop offset=".38" stop-color="#fff" stop-opacity=".035"/>
+          <stop offset="1" stop-color="#000" stop-opacity=".34"/>
+        </linearGradient>
+        <linearGradient id="wallshade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#000" stop-opacity=".62"/>
+          <stop offset="1" stop-color="#000" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="wallshadeL" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#000" stop-opacity=".45"/>
+          <stop offset="1" stop-color="#000" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="wallshadeR" x1="1" y1="0" x2="0" y2="0">
+          <stop offset="0" stop-color="#000" stop-opacity=".45"/>
+          <stop offset="1" stop-color="#000" stop-opacity="0"/>
+        </linearGradient>
+        <radialGradient id="vignette" cx=".5" cy=".5" r=".76">
+          <stop offset=".4" stop-color="#000" stop-opacity="0"/>
+          <stop offset="1" stop-color="#000" stop-opacity=".5"/>
+        </radialGradient>
+        <radialGradient id="void" cx=".5" cy=".34" r=".92">
+          <stop offset="0" stop-color="#0d1524"/>
+          <stop offset=".55" stop-color="#070c15"/>
+          <stop offset="1" stop-color="#03060b"/>
+        </radialGradient>
         <pattern id="deck" width="96" height="96" patternUnits="userSpaceOnUse">
           <path d="M96 0H0V96" fill="none" stroke="var(--plate-line)" stroke-width="1.2"
                 stroke-opacity=".55"/>
@@ -390,9 +501,15 @@
 
       <g id="camera">
         <rect x="{{ world.x }}" y="{{ world.y }}" width="{{ world.w }}" height="{{ world.h }}"
-              fill="var(--plate)"/>
+              fill="url(#void)"/>
+        <g id="stars" pointer-events="none">
+          {% for star in plan.stars %}
+          <circle cx="{{ star.x }}" cy="{{ star.y }}" r="{{ star.r }}" fill="#cfe0ff"
+                  opacity="{{ star.o }}"/>
+          {% endfor %}
+        </g>
         <rect x="{{ world.x }}" y="{{ world.y }}" width="{{ world.w }}" height="{{ world.h }}"
-              fill="url(#deck)" opacity=".5"/>
+              fill="url(#deck)" opacity=".36"/>
 
         <g filter="url(#soft)">
           {% for lamp in plan.lamps %}
@@ -419,21 +536,45 @@
         <g class="room" data-room="{{ room.room_id }}" tabindex="0" role="button"
            aria-label="{{ room.name }}, {{ occupied.backing }}"
            opacity="{{ '1' if occupied.engaged else '.78' }}">
+          {# the wall drawn as a solid with a top face and an inner face, so the
+             floor is sunk into the building rather than painted on it #}
           <g filter="url(#drop)">
             <rect class="shell" x="{{ shell.x }}" y="{{ shell.y }}" width="{{ shell.w }}"
-                  height="{{ shell.h }}" rx="10" fill="var(--wallo)" stroke="{{ hue }}"
-                  stroke-width="{{ '2.8' if occupied.engaged else '1.4' }}"
-                  stroke-opacity="{{ '.92' if occupied.engaged else '.45' }}"/>
+                  height="{{ shell.h }}" rx="12" fill="var(--wallo)"/>
           </g>
-          <rect x="{{ shell.x + 3.5 }}" y="{{ shell.y + 3.5 }}" width="{{ shell.w - 7 }}"
-                height="{{ shell.h - 7 }}" rx="8" fill="none" stroke="var(--walli)"
-                stroke-width="2"/>
+          <rect x="{{ shell.x }}" y="{{ shell.y }}" width="{{ shell.w }}" height="{{ shell.h }}"
+                rx="12" fill="url(#sheenV)"/>
+          <rect x="{{ shell.x + 1.2 }}" y="{{ shell.y + 1.2 }}" width="{{ shell.w - 2.4 }}"
+                height="{{ shell.h - 2.4 }}" rx="11" fill="none" stroke="{{ hue }}"
+                stroke-width="{{ '2.6' if occupied.engaged else '1.3' }}"
+                stroke-opacity="{{ '.85' if occupied.engaged else '.4' }}"/>
+          <rect x="{{ shell.x + 3.2 }}" y="{{ shell.y + 3.2 }}" width="{{ shell.w - 6.4 }}"
+                height="{{ shell.h - 6.4 }}" rx="10" fill="var(--wallcap)"/>
+          <rect x="{{ shell.x + 3.2 }}" y="{{ shell.y + 3.2 }}" width="{{ shell.w - 6.4 }}"
+                height="{{ shell.h - 6.4 }}" rx="10" fill="url(#sheenV)" opacity=".7"/>
+          <rect x="{{ shell.x + 5 }}" y="{{ shell.y + 5 }}" width="{{ shell.w - 10 }}"
+                height="{{ shell.h - 10 }}" rx="9" fill="var(--wallm)"/>
+          {% for i in range(2) %}
+          <circle cx="{{ shell.x + 12 + i * (shell.w - 24) }}" cy="{{ shell.y + 12 }}" r="2.4"
+                  fill="var(--walli)" opacity=".7"/>
+          <circle cx="{{ shell.x + 12 + i * (shell.w - 24) }}" cy="{{ shell.y + shell.h - 12 }}"
+                  r="2.4" fill="var(--walli)" opacity=".7"/>
+          {% endfor %}
           <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
                 rx="4" fill="var(--floor)"/>
           <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
-                rx="4" fill="url(#plating)" opacity=".5"/>
+                rx="4" fill="url(#plating)" opacity=".7"/>
           <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
-                rx="4" fill="{{ hue }}" opacity="{{ '.08' if occupied.engaged else '.03' }}"/>
+                rx="4" fill="{{ hue }}" opacity="{{ '.045' if occupied.engaged else '.018' }}"/>
+          {% set zone = plan.zones[room.room_id] %}
+          <rect x="{{ zone.x }}" y="{{ zone.y }}" width="{{ zone.w }}" height="{{ zone.h }}"
+                rx="7" fill="{{ hue }}" opacity=".055"/>
+          <rect x="{{ zone.x }}" y="{{ zone.y }}" width="{{ zone.w }}" height="{{ zone.h }}"
+                rx="7" fill="none" stroke="{{ hue }}" stroke-width="2" stroke-opacity=".22"
+                stroke-dasharray="18 12"/>
+          {% for mark in plan.decals[room.room_id] %}
+          {{ parts.decal(mark, hue) }}
+          {% endfor %}
           {% if room.wing == 'sealed' %}
           <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
                 rx="4" fill="url(#sealedhatch)" opacity=".5"/>
@@ -447,6 +588,15 @@
                 stroke-dasharray="11 13"/>
           {% endif %}
           {{ parts.ceiling(floor, hue) }}
+          {# what the walls do to the light in the corners #}
+          <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="{{ floor.h }}"
+                rx="4" fill="url(#vignette)"/>
+          <rect x="{{ floor.x }}" y="{{ floor.y }}" width="{{ floor.w }}" height="26"
+                fill="url(#wallshade)"/>
+          <rect x="{{ floor.x }}" y="{{ floor.y }}" width="18" height="{{ floor.h }}"
+                fill="url(#wallshadeL)"/>
+          <rect x="{{ floor.x + floor.w - 18 }}" y="{{ floor.y }}" width="18"
+                height="{{ floor.h }}" fill="url(#wallshadeR)"/>
 
           {% for gap in plan.doorways[room.room_id] %}
           {{ parts.threshold(gap, shell, wall, hue) }}
@@ -483,7 +633,7 @@
           </g>
           {% endif %}
 
-          <g filter="url(#fixdrop)">
+          <g filter="url(#relief)">
             {% for fixture in plan.fixtures[room.room_id] if fixture.depth == 'back' %}
             {{ parts.fixture(fixture, hue, room.locked) }}
             {% endfor %}
@@ -523,7 +673,7 @@
         {% set hue = accent(room.accent) %}
         <g class="roomfront" data-room="{{ room.room_id }}" pointer-events="none"
            opacity="{{ '1' if occupied.engaged else '.78' }}">
-          <g filter="url(#fixdrop)">
+          <g filter="url(#relief)">
             {% for fixture in plan.fixtures[room.room_id] if fixture.depth == 'front' %}
             {{ parts.fixture(fixture, hue, room.locked) }}
             {% endfor %}
@@ -619,6 +769,7 @@
       <button type="button" id="zoom-out" aria-label="zoom out">&minus;</button>
       <button type="button" id="zoom-in" aria-label="zoom in">+</button>
       <button type="button" id="fit">fit</button>
+      <button type="button" id="annot" aria-pressed="false">labels</button>
       <button type="button" id="motion">pause</button>
     </div>
 
@@ -633,6 +784,14 @@
         <span class="st">{{ card.status }}</span>
       </button>
       {% endfor %}
+    </div>
+
+    <div class="peek" id="peek" aria-hidden="true">
+      <div class="peek-head"><span class="peek-no"></span><span class="peek-name"></span></div>
+      <div class="peek-roles"></div>
+      <div class="peek-line"><i></i><span class="peek-backing"></span></div>
+      <div class="peek-line"><span class="peek-status"></span></div>
+      <div class="peek-cue">click to open the dossier</div>
     </div>
 
     <div class="hud hud-bl">
@@ -832,6 +991,7 @@
   var svg = document.getElementById('map');
   var camera = document.getElementById('camera');
   var viewport = document.getElementById('viewport');
+  var stage = viewport.parentNode;
   var dossier = document.getElementById('dossier');
   var roster = document.getElementById('roster');
   var route = document.getElementById('route');
@@ -861,12 +1021,25 @@
     camera.setAttribute('transform', 'translate(' + view.x.toFixed(2) + ' ' +
       view.y.toFixed(2) + ') scale(' + view.k.toFixed(4) + ')');
   }
+  // The world is sized for the callouts and the counter plates that live in
+  // its margins. With those off it is mostly empty ground, so the bare map is
+  // framed to the building and the annotated one to the world.
+  var BOUNDS = { x: {{ plan.bounds.x }}, y: {{ plan.bounds.y }},
+                 w: {{ plan.bounds.w }}, h: {{ plan.bounds.h }} };
   function fit(animated) {
     var vb = svg.viewBox.baseVal;
-    var clear = viewport.clientWidth - (roster.offsetWidth + 34);
-    var s = viewport.clientWidth > 0 ? Math.max(0.5, clear / viewport.clientWidth) : 1;
-    if (window.matchMedia('(max-width: 900px)').matches) { s = 1; }
-    view = { x: vb.x * (1 - s), y: vb.y * (1 - s), k: s };
+    if (stage.classList.contains('annotated')) {
+      var clear = viewport.clientWidth - (roster.offsetWidth + 34);
+      var s = viewport.clientWidth > 0 ? Math.max(0.5, clear / viewport.clientWidth) : 1;
+      if (window.matchMedia('(max-width: 900px)').matches) { s = 1; }
+      view = { x: vb.x * (1 - s), y: vb.y * (1 - s), k: s };
+    } else {
+      var pad = 54;
+      var k = Math.min(MAX, Math.max(MIN, Math.min(
+        vb.width / (BOUNDS.w + pad * 2), vb.height / (BOUNDS.h + pad * 2))));
+      view = { x: vb.x + vb.width / 2 - k * (BOUNDS.x + BOUNDS.w / 2),
+               y: vb.y + vb.height / 2 - k * (BOUNDS.y + BOUNDS.h / 2), k: k };
+    }
     apply(animated === true);
   }
   function point(event) {
@@ -959,6 +1132,7 @@
     apply(true);
   }
   function open(id) {
+    hidePeek();
     if (!document.getElementById('panel-' + id)) { return; }
     room = id;
     tab = 'overview'; filter = 'all'; search = ''; sortBy = 0; sortDown = false;
@@ -1254,6 +1428,73 @@
     zoomAt(1 / 1.4, { x: vb0.x + vb0.width / 2, y: vb0.y + vb0.height / 2 });
   });
   document.getElementById('fit').addEventListener('click', function () { fit(true); });
+
+  /* ------------------------------------------------- what a room says on hover
+
+     At rest the map carries no writing at all. Hovering a room is the question
+     and this is the answer: which department it is, who is stationed in it,
+     what is behind the number, and what it is doing on the arm on display.
+     Everything here comes out of the same embedded record the dossier reads,
+     so the label and the sheet cannot disagree. */
+  var peek = document.getElementById('peek');
+  var peekOn = null;
+  var BY_ID = {};
+  ROOMS.forEach(function (r) { BY_ID[r.room_id] = r; });
+
+  function backingColour(backing) {
+    return backing === 'live' ? 'var(--good)'
+      : (backing === 'unbuilt' ? 'var(--bad)' : 'var(--warn)');
+  }
+  function showPeek(id, cx, cy) {
+    var meta = BY_ID[id];
+    if (!meta) { return; }
+    if (peekOn !== id) {
+      peekOn = id;
+      var live = ARMS[arm].rooms[id] || {};
+      peek.style.setProperty('--peek-hue', meta.accent_hex);
+      peek.querySelector('.peek-no').textContent = meta.index;
+      peek.querySelector('.peek-name').textContent = meta.name;
+      var roles = peek.querySelector('.peek-roles');
+      while (roles.firstChild) { roles.removeChild(roles.firstChild); }
+      (meta.roles.length ? meta.roles : ['no actor stationed']).forEach(function (role) {
+        var chip = document.createElement('span');
+        chip.textContent = role;
+        roles.appendChild(chip);
+      });
+      var pip = peek.querySelector('.peek-line i');
+      pip.style.background = backingColour(live.backing);
+      pip.style.color = backingColour(live.backing);
+      peek.querySelector('.peek-backing').textContent = live.backing || '';
+      peek.querySelector('.peek-status').textContent = live.status || '';
+    }
+    peek.classList.add('on');
+    peek.setAttribute('aria-hidden', 'false');
+    var box = viewport.getBoundingClientRect();
+    var w = peek.offsetWidth, h = peek.offsetHeight;
+    peek.style.left = Math.min(Math.max(cx - box.left + 20, 10), box.width - w - 10) + 'px';
+    peek.style.top = Math.min(Math.max(cy - box.top - h - 18, 10), box.height - h - 10) + 'px';
+  }
+  function hidePeek() {
+    peekOn = null;
+    peek.classList.remove('on');
+    peek.setAttribute('aria-hidden', 'true');
+  }
+  viewport.addEventListener('pointermove', function (event) {
+    if (drag) { hidePeek(); return; }
+    var hit = event.target.closest('.room');
+    if (hit && hit.dataset.room) { showPeek(hit.dataset.room, event.clientX, event.clientY); }
+    else { hidePeek(); }
+  });
+  viewport.addEventListener('pointerleave', hidePeek);
+  viewport.addEventListener('pointerdown', hidePeek);
+
+  var annot = document.getElementById('annot');
+  annot.addEventListener('click', function () {
+    var on = stage.classList.toggle('annotated');
+    annot.classList.toggle('on', on);
+    annot.setAttribute('aria-pressed', on ? 'true' : 'false');
+    fit(true);
+  });
 
   var button = document.getElementById('motion');
   var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

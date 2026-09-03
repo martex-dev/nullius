@@ -997,3 +997,83 @@ def test_each_run_of_corridor_knows_which_run_it_is() -> None:
     halls = plan(assemble())["halls"]
     assert len(halls) >= 8
     assert [hall["index"] for hall in halls] == list(range(1, len(halls) + 1))
+
+
+# ------------------------------------------- M29: a map with nothing written on it
+
+
+def test_the_map_carries_no_writing_until_it_is_asked_for(tmp_path: Path) -> None:
+    """At rest the drawing is the drawing: rooms, fittings, people. The callouts,
+    the captions, the counter plates and the roster are a second drawing on top
+    of the first, and they go on when they are asked for."""
+    page = _built(tmp_path)
+    style = page[page.index("<style>") : page.index("</style>")]
+    for rule in (
+        "#cards, #exits { opacity:0;",
+        "#labels text { opacity:0;",
+        ".roster, .hud-tl, .hud-bl { opacity:0;",
+    ):
+        assert rule in style, rule
+    for rule in (
+        ".annotated #cards, .annotated #exits { opacity:1; }",
+        ".annotated #labels text, #labels text[data-kind=\"stencil\"] { opacity:1; }",
+        ".annotated .roster, .annotated .hud-tl, .annotated .hud-bl { opacity:1; }",
+    ):
+        assert rule in style, rule
+    # the number painted on the floor is part of the room, not writing about it
+    assert 'data-kind="stencil"' in page
+
+
+def test_hovering_a_room_is_what_names_it(tmp_path: Path) -> None:
+    """With the callouts off, the only thing that says which room this is is the
+    peek — so every hook the script fills has to be in the markup, and it has to
+    be fed from the same record the dossier reads."""
+    page = _built(tmp_path)
+    assert 'id="peek"' in page
+    for hook in (
+        "peek-no",
+        "peek-name",
+        "peek-roles",
+        "peek-backing",
+        "peek-status",
+        "peek-cue",
+    ):
+        assert f'"{hook}"' in page, hook
+    script = page[page.rindex("<script>") : page.rindex("</script>")]
+    assert "function showPeek(" in script
+    assert "ARMS[arm].rooms[id]" in script, "the peek is not reading the arm on display"
+
+
+def test_the_bare_map_is_framed_to_the_building(tmp_path: Path) -> None:
+    """The world is sized for the callouts and the counter plates in its margins.
+    Fitting to it with those hidden frames a great deal of empty ground."""
+    layout = plan(assemble())
+    bounds, world = layout["bounds"], layout["world"]
+    assert bounds["w"] < world["w"] and bounds["h"] < world["h"]
+    assert bounds["x"] >= world["x"] and bounds["y"] >= world["y"]
+    assert bounds["x"] + bounds["w"] <= world["x"] + world["w"]
+    for shell in layout["shells"].values():
+        assert shell["x"] >= bounds["x"] - 0.01
+        assert shell["x"] + shell["w"] <= bounds["x"] + bounds["w"] + 0.01
+        assert shell["y"] >= bounds["y"] - 0.01
+        assert shell["y"] + shell["h"] <= bounds["y"] + bounds["h"] + 0.01
+    script = _built(tmp_path)
+    assert "BOUNDS = { x:" in script
+
+
+def test_every_room_is_named_as_a_place(tmp_path: Path) -> None:
+    """The map is a building. A department called Analysis is an activity; a
+    room called the Analysis Room is somewhere you can stand."""
+    keep = {"vault", "oracle"}
+    for room in ROOMS:
+        if room.room_id in keep:
+            continue
+        assert room.name.split()[-1] in {
+            "Room",
+            "Workshop",
+            "Floor",
+            "Chamber",
+        }, f"{room.room_id} is not named for a place: {room.name}"
+    page = _built(tmp_path)
+    for room in ROOMS:
+        assert room.name in page, room.name

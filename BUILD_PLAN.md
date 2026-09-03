@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M28 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M29 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -1112,6 +1112,61 @@ lose. Arms now go on after the body and before whatever the figure is carrying.
 - No two rooms are furnished the same way; each owns at least one thing nobody else has. Tested.
 - Every room is drawn in at least three materials and lit by at least two colours. Tested.
 - Each run of corridor knows which run it is. Tested.
+- Still one self-contained file; still refuses to build on input that does not verify.
+
+---
+
+### M29 · A map with nothing written on it ✅
+Presentation, plus twelve room names. `model.py` and `ledger.py` untouched; `map.py` changed only
+where it holds the string a room is called.
+
+**The map was a diagram wearing a drawing.** Fourteen callout cards, a roster, a header, a legend,
+counter plates and every caption on the station were on screen at once, and under all of it was
+the thing worth looking at. At rest the map now carries no writing at all — rooms, fittings,
+people, and the number painted on each floor, which is something painted on the room rather than
+writing about it. Hovering a room is the question and a peek is the answer: which department, who
+is stationed there, what is behind the number, what it is doing on the arm on display. Clicking
+opens the dossier as before. `labels` puts the whole annotated layer back, and the fit follows —
+bare, the view frames the building; annotated, it frames the world the callouts live in.
+
+**And everything in it was flat.** Objects were filled and stroked and that was all, which is why
+the station read as printed rather than built. Every fixture now goes through one lighting pass:
+a bevel taken off the shape's own alpha, a specular hit from up and to the left, and the shadow it
+casts on the floor — so all fifty kinds are lit without any of them knowing about it. The walls
+are drawn as walls: an outer face, a cap, an inner face and bolts, with the floor sunk inside them
+and the shade they throw falling across it. Floors gained a painted work zone, wear, bolts and
+drains; the ground the station stands on gained a depth gradient and a hundred and fifty stars.
+
+**Twelve rooms are named for places rather than for activities.** Analysis is what you do; the
+Analysis Room is where you stand. Design Room, Screening Room, Registry Room, Development
+Workshop, Experiment Floor, Analysis Room, Challenge Chamber, Blind Testing Room, Review Room,
+Records Room, Resource Room, Archive Room. The Vault and the Oracle keep their names, because
+those two are not rooms you work in.
+
+#### What building it revealed was wrong
+
+**1. A specular pass that is correct is still a specular pass that is wrong.** The first relief
+filter had a wide blur and a low exponent, which spreads the highlight across the whole of a
+shape instead of hugging its edge. Every material went milky: the workbench stopped being wood
+and the parts bins went pastel. The fix is not less light, it is a tighter light — a small blur
+and a high specular exponent — and the material colours had to come down half a step anyway,
+because a surface that is now lit does not also need to be bright.
+
+**2. A label that does not fit is not allowed to lie about the name.** `DEVELOPMENT WORKSHOP` is
+wider than the widest card the room pitch allows, and the label system's answer to that was to
+truncate, so the card beside the Development Workshop said `DEVELOPMENT WORKSH…`. Every other
+string on the map may be clipped; the name of the room the card points at may not. Names are now
+set smaller until they fit, and the test that caught it is the one that asks each card to carry
+its room's name in full.
+
+**Acceptance**
+- Every test from M22 through M28 still passes.
+- The callouts, the captions, the counter plates and the roster are hidden at rest and shown by
+  `labels`; the floor stencil is not. Tested against the stylesheet.
+- Hovering a room names it, from the same record the dossier reads. Tested.
+- The bare map is framed to the building, and every room is inside that frame. Tested.
+- Every room but the Vault and the Oracle is named for a place, and the page carries every name
+  in full. Tested.
 - Still one self-contained file; still refuses to build on input that does not verify.
 
 ---
