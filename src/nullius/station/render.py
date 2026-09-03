@@ -196,7 +196,7 @@ TONES: dict[str, str] = {
     "sealpress": "brass",
     "filewall": "enamel",
     "workbench": "wood",
-    "partsbin": "paint",
+    "partsbin": "steel",
     "reactor": "steel",
     "coolant": "steel",
     "plotwall": "enamel",
@@ -221,6 +221,76 @@ TONES: dict[str, str] = {
     "stool": "steel",
     "pipes": "steel",
     "poster": "paint",
+}
+
+#: How tall a thing stands, as a fraction of the band it was given.
+#:
+#: Until M30 nothing in the station had a height. Every fixture was an
+#: axis-aligned rectangle lying flat on the floor, which is why fourteen rooms
+#: of equipment read as coloured squares inside a bigger square: there was no
+#: information in the drawing about what was a cabinet and what was a painted
+#: mark. A thing with a height is drawn as a solid -- a top face you look down
+#: on and a front face you look at -- and the two together are what make it an
+#: object standing in a room rather than a shape on a plan.
+#:
+#: The fraction is of the fixture's own box, so the solid still fits exactly
+#: inside the space the row gave it: top face on top, front face below it, base
+#: line where the floor is.
+HEIGHTS: dict[str, float] = {
+    "rack": 0.6,
+    "cabinet": 0.58,
+    "locker": 0.62,
+    "filewall": 0.72,
+    "shelf": 0.6,
+    "stacks": 0.58,
+    "catalogue": 0.62,
+    "maskcase": 0.68,
+    "keysafe": 0.66,
+    "vaultdoor": 0.72,
+    "plotwall": 0.74,
+    "board": 0.74,
+    "pinboard": 0.74,
+    "screen": 0.72,
+    "targetboard": 0.74,
+    "poster": 0.8,
+    "sign": 0.74,
+    "vent": 0.72,
+    "conduit": 0.55,
+    "pipes": 0.5,
+    "workbench": 0.42,
+    "bench": 0.42,
+    "desk": 0.4,
+    "console": 0.46,
+    "table": 0.34,
+    "counter": 0.5,
+    "readingdesk": 0.4,
+    "drawingtable": 0.45,
+    "printer": 0.48,
+    "press": 0.5,
+    "scanner": 0.6,
+    "sealpress": 0.5,
+    "partsbin": 0.66,
+    "binbank": 0.5,
+    "spool": 0.5,
+    "coolant": 0.5,
+    "scope": 0.5,
+    "reactor": 0.62,
+    "dish": 0.55,
+    "orb": 0.5,
+    "podium": 0.5,
+    "plinth": 0.5,
+    "terminal": 0.55,
+    "bullion": 0.38,
+    "scales": 0.55,
+    "dummy": 0.55,
+    "crate": 0.5,
+    "barrel": 0.55,
+    "cart": 0.4,
+    "chair": 0.45,
+    "stool": 0.42,
+    "plant": 0.55,
+    "hatch": 0.05,
+    "cables": 0.14,
 }
 
 #: Things that light up in a colour of their own rather than the room's. A
@@ -640,10 +710,15 @@ def _finish(fixture: dict[str, Any], accent: str) -> dict[str, Any]:
     The glow is the room's own accent unless the thing means something the room
     does not get to decide: a pass bin is green in every room that has one.
     """
-    body, shade = MATERIALS[TONES.get(str(fixture["kind"]), "steel")]
+    kind = str(fixture["kind"])
+    body, shade = MATERIALS[TONES.get(kind, "steel")]
     fixture["body"] = body
     fixture["shade"] = shade
-    fixture["glow"] = ACCENTS[GLOWS.get(str(fixture["kind"]), accent)]
+    fixture["glow"] = ACCENTS[GLOWS.get(kind, accent)]
+    # How much of the box is the front of the solid rather than the top of it.
+    # Kept inside the box the row allotted, so a thing that stands up does not
+    # stand into the row behind it.
+    fixture["z"] = round(float(fixture["h"]) * HEIGHTS.get(kind, 0.42), 2)
     return fixture
 
 

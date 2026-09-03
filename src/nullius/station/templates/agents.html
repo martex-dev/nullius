@@ -651,7 +651,7 @@
                  calcMode="linear" path="{{ s.d }}"/>
   <ellipse cx="0" cy="1.5" rx="{{ h * 0.27 }}" ry="{{ h * 0.08 }}" fill="#000" opacity=".5"/>
   <ellipse cx="0" cy="1.5" rx="{{ h * 0.17 }}" ry="{{ h * 0.05 }}" fill="#000" opacity=".35"/>
-  <g class="walk">{{ build(s.role, h, hue) }}</g>
+  <g class="walk" filter="url(#ink)">{{ build(s.role, h, hue) }}</g>
   <title>{{ s.role }}</title>
 </g>
 {% endmacro %}

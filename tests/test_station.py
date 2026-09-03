@@ -41,6 +41,7 @@ from nullius.station.render import (
     CANNOT_SHOW,
     DEFAULT_KIT,
     FURNITURE,
+    HEIGHTS,
     ITEM_COLUMNS,
     PRINCIPLES,
     TONES,
@@ -1077,3 +1078,55 @@ def test_every_room_is_named_as_a_place(tmp_path: Path) -> None:
     page = _built(tmp_path)
     for room in ROOMS:
         assert room.name in page, room.name
+
+
+# ------------------------------------------- M30: things that stand on the floor
+
+
+def test_everything_in_a_room_is_a_solid_standing_on_the_floor() -> None:
+    """Until M30 every fixture was an axis-aligned rectangle lying flat, which
+    is why fourteen rooms of equipment read as coloured squares inside a bigger
+    square: nothing in the drawing said what was a cabinet and what was a mark
+    painted on the deck. Each one now has a height -- the part of its box that
+    is the face you look at rather than the top you look down on."""
+    layout = plan(assemble())
+    for room in ROOMS:
+        for fixture in layout["fixtures"][room.room_id]:
+            kind = str(fixture["kind"])
+            assert kind in HEIGHTS, f"{kind} has no height"
+            assert 0.0 < fixture["z"] < fixture["h"], fixture
+            expected = round(float(fixture["h"]) * HEIGHTS[kind], 2)
+            assert fixture["z"] == expected, fixture
+    # anything flat on the deck is flat on purpose, and nothing else is
+    flat = {kind for kind, share in HEIGHTS.items() if share < 0.2}
+    assert flat == {"hatch", "cables"}
+
+
+def test_a_solid_is_drawn_inside_the_box_it_was_given() -> None:
+    """A thing that stands up must not stand into the row behind it. The top
+    face sits on top of the front face and the two together are the box the row
+    allotted, so the height costs the drawing nothing in floor space."""
+    layout = plan(assemble())
+    for room in ROOMS:
+        floor = layout["floors"][room.room_id]
+        for fixture in layout["fixtures"][room.room_id]:
+            top_face = fixture["h"] - fixture["z"]
+            assert top_face > 0, fixture
+            assert fixture["y"] + top_face + fixture["z"] <= floor["y"] + floor["h"] + 0.01
+
+
+def test_the_light_falls_the_same_way_on_everything(tmp_path: Path) -> None:
+    """One lighting language, applied once: a top face lit from above, a front
+    face in its own shadow, and a shadow on the floor. If a fixture stops going
+    through it the room goes back to being a plan of a room."""
+    source = Path("src/nullius/station/templates/parts.html").read_text(encoding="utf-8")
+    for helper in ("macro topface(", "macro frontface(", "macro solid(", "macro drum("):
+        assert helper in source, helper
+    assert source.count("url(#topV)") >= 2
+    assert source.count("url(#faceV)") >= 2
+    page = _built(tmp_path)
+    for gradient in ('id="topV"', 'id="faceV"', 'id="ink"'):
+        assert gradient in page, gradient
+    # the specular pass that used to stand in for shading is gone: the faces do
+    # it now, and doing both turned every material milky
+    assert "feSpecularLighting" not in page

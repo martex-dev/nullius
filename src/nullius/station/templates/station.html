@@ -403,30 +403,33 @@
            any of the fifty macros knowing about it, and the same pass casts the
            shadow. Flat fills were the whole of what made the drawing look
            printed rather than built. #}
-        <filter id="relief" x="-14%" y="-14%" width="132%" height="146%">
-          <feDropShadow dx="2" dy="6" stdDeviation="4.2" flood-color="#000"
-                        flood-opacity=".66" result="grounded"/>
-          <feGaussianBlur in="SourceAlpha" stdDeviation="1.1" result="bump"/>
-          <feSpecularLighting in="bump" surfaceScale="2.4" specularConstant=".46"
-                              specularExponent="30" lighting-color="#eaf3ff" result="hit">
-            <feDistantLight azimuth="228" elevation="62"/>
-          </feSpecularLighting>
-          <feComposite in="hit" in2="SourceAlpha" operator="in" result="sheen"/>
-          <feComposite in="grounded" in2="sheen" operator="arithmetic" k1="0" k2="1"
-                       k3=".4" k4="0"/>
+        {# Each fixture now draws its own top and front face, so the light comes
+           out of the drawing rather than out of a filter. All this does is put
+           the object on the floor. #}
+        <filter id="relief" x="-14%" y="-14%" width="132%" height="150%">
+          <feDropShadow dx="3" dy="9" stdDeviation="6" flood-color="#000" flood-opacity=".6"/>
         </filter>
-        <filter id="reliefsoft" x="-14%" y="-14%" width="132%" height="146%">
-          <feDropShadow dx="1" dy="3" stdDeviation="2.4" flood-color="#000"
-                        flood-opacity=".55" result="grounded"/>
-          <feGaussianBlur in="SourceAlpha" stdDeviation="1.8" result="bump"/>
-          <feSpecularLighting in="bump" surfaceScale="2.6" specularConstant=".5"
-                              specularExponent="15" lighting-color="#cfe0f8" result="hit">
-            <feDistantLight azimuth="228" elevation="60"/>
-          </feSpecularLighting>
-          <feComposite in="hit" in2="SourceAlpha" operator="in" result="sheen"/>
-          <feComposite in="grounded" in2="sheen" operator="arithmetic" k1="0" k2="1"
-                       k3="1" k4="0"/>
+        {# The two faces of every solid: light falls on the top, and the front
+           is in its own shadow and darkens towards the floor. #}
+        {# The people are drawn from smaller parts than the furniture is, so
+           they lose their edge against a busy floor. This puts a dark contour
+           round whatever silhouette a figure happens to have. #}
+        <filter id="ink" x="-25%" y="-25%" width="150%" height="150%">
+          <feMorphology in="SourceAlpha" operator="dilate" radius="1.5" result="fat"/>
+          <feFlood flood-color="#04070d" flood-opacity=".92" result="line"/>
+          <feComposite in="line" in2="fat" operator="in" result="contour"/>
+          <feMerge><feMergeNode in="contour"/><feMergeNode in="SourceGraphic"/></feMerge>
         </filter>
+        <linearGradient id="topV" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#fff" stop-opacity=".15"/>
+          <stop offset=".55" stop-color="#fff" stop-opacity=".04"/>
+          <stop offset="1" stop-color="#000" stop-opacity=".1"/>
+        </linearGradient>
+        <linearGradient id="faceV" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#000" stop-opacity=".14"/>
+          <stop offset=".45" stop-color="#000" stop-opacity=".3"/>
+          <stop offset="1" stop-color="#000" stop-opacity=".46"/>
+        </linearGradient>
         <linearGradient id="sheenV" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="#fff" stop-opacity=".17"/>
           <stop offset=".38" stop-color="#fff" stop-opacity=".035"/>

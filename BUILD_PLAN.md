@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M29 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M30 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -1167,6 +1167,54 @@ its room's name in full.
 - The bare map is framed to the building, and every room is inside that frame. Tested.
 - Every room but the Vault and the Oracle is named for a place, and the page carries every name
   in full. Tested.
+- Still one self-contained file; still refuses to build on input that does not verify.
+
+---
+
+### M30 · Things that stand on the floor ✅
+Presentation only. `model.py`, `map.py` and `ledger.py` untouched.
+
+**Every object in the station was an axis-aligned rectangle lying flat.** Three milestones went
+into the kit — thematic equipment in M28, materials and lighting in M29 — and the map still read
+as coloured squares inside a bigger square, because none of that addressed the thing that was
+actually wrong. Nothing in the drawing distinguished a cabinet from a mark painted on the deck.
+Detail added to a flat rectangle makes a busier flat rectangle.
+
+**Every fixture now has a height, and is drawn as a solid.** It arrives with `f.z`, which is how
+much of its box is the face you look at rather than the top you look down on, and one shared
+`solid()` draws it: a cast shadow, a front face in its own shadow darkening towards the floor, a
+top face in the light, a bright seam where the two meet and a dark contour all the way round.
+Cylinders — barrels, the reactor core — go through `drum()` and get a lid and a curved body.
+Detail then goes on the two faces, which is what makes an object legible rather than merely
+present: a rack has a vented lid and blade units with lights in its face; the sorting bins are
+tubs with coloured lids; the parts wall is bins tilted towards you; the file walls are drawers
+with brass pulls and one left open; the press has a wheel and a sheet coming off it; a stool is a
+seat on a post with legs under it.
+
+The height is a fraction of the box the row already allotted, so standing up costs the drawing no
+floor space and nothing can stand into the row behind it.
+
+#### What building it revealed was wrong
+
+**1. A specular filter and hand-drawn faces are the same job done twice.** M29's relief pass
+existed to fake shading on flat shapes. Applied over faces that are already lit it did what it
+always does to a lit surface — added light — and every material went milky again, exactly as it
+had at the start of M29. The specular came off; the filter now does only the part that is still
+needed, which is putting the object on the floor.
+
+**2. The figures became the flat thing.** They were fine while the furniture was flat too. The
+moment the furniture had volume, the people were the only cut-outs left in the room, and because
+a figure is drawn from many small parts it has no single silhouette to stroke. The contour is
+taken from whatever silhouette each one happens to have, by dilating its own alpha — which is
+also the only way to outline a shape that changes as it walks.
+
+**Acceptance**
+- Every test from M22 through M29 still passes.
+- Every fixture has a height, and the height is the one the table says. Tested.
+- A solid is drawn inside the box its row allotted. Tested — a thing that stands up must not
+  stand into the row behind it.
+- The lighting language goes through the shared helpers, and the specular pass it replaced is
+  gone from the page. Tested.
 - Still one self-contained file; still refuses to build on input that does not verify.
 
 ---
