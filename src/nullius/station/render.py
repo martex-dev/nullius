@@ -1453,7 +1453,8 @@ def _sprites(room: Room) -> list[dict[str, Any]]:
             {
                 "role": role.value,
                 "label": role.value.upper(),
-                "tag_w": round(_measure(role.value.upper(), 11.0) + 18.0, 2),
+                "no": f"{[r.room_id for r in ROOMS].index(room.room_id) + 1:02d}",
+                "tag_w": round(_measure(role.value.upper(), 11.0) + 44.0, 2),
                 "turns": len(stations),
                 "x": round(base, 2),
                 "y": round(feet, 2),
@@ -1647,6 +1648,65 @@ def _status(occupied: Occupancy) -> str:
     if occupied.backing.value == "empty":
         return "NO DATA"
     return "WORKING"
+
+
+def _boards(station: Station) -> dict[str, dict[str, Any]]:
+    """The status plate on each room's own wall.
+
+    The map has always known what every room is doing -- it was on the callout
+    card, which M29 took off the map along with everything else that was
+    writing. A facility where the only sign of trouble is a card you have to
+    turn on is a facility that looks like it is going well. This puts the room's
+    own state back inside the room, where a red plate is visible from across the
+    floor, and it is the same word the dossier uses because it comes from the
+    same call.
+    """
+    out: dict[str, dict[str, Any]] = {}
+    for occupied in station.occupancy:
+        chamber = _chamber(occupied.room)
+        out[occupied.room.room_id] = {
+            "text": _status(occupied),
+            "backing": occupied.backing.value,
+            "x": round(chamber.x + chamber.w - 118.0, 2),
+            "y": round(chamber.y + chamber.h * 0.06, 2),
+            "w": 104.0,
+            "h": 30.0,
+        }
+    return out
+
+
+def _pipeline(station: Station) -> list[dict[str, Any]]:
+    """The ten stages of the walk, as a strip for the Control Room's own wall.
+
+    The hub reports on a pipeline and did not show one. This is that pipeline:
+    one block per stage in the order a hypothesis meets them, lit by what the
+    stage is actually doing on the arm on display.
+    """
+    hub = _chamber(room_named("control"))
+    walk = [*corridor(), room_named("record")]
+    left = hub.x + 26.0
+    span = hub.w - 52.0
+    cell = span / len(walk)
+    out: list[dict[str, Any]] = []
+    for index, room in enumerate(walk):
+        occupied = station.occupancy_of(room.room_id)
+        out.append(
+            {
+                "room_id": room.room_id,
+                "no": f"{[r.room_id for r in ROOMS].index(room.room_id) + 1:02d}",
+                "accent": ACCENTS[room.accent],
+                "backing": occupied.backing.value,
+                "engaged": room.room_id in {o.room.room_id for o in station.occupancy if o.engaged},
+                "x": round(left + index * cell, 2),
+                # The band between the boards fixed to the wall and the tops of
+                # the consoles standing on the floor. Anywhere lower and the
+                # walk is drawn behind the furniture it is describing.
+                "y": round(hub.y + hub.h * 0.55, 2),
+                "w": round(cell - 8.0, 2),
+                "h": 22.0,
+            }
+        )
+    return out
 
 
 def _chip_row(
@@ -2066,6 +2126,8 @@ def plan(station: Station) -> dict[str, Any]:
         "shells": shells,
         "floors": floors,
         "cards": cards,
+        "boards": _boards(station),
+        "pipeline": _pipeline(station),
         "labels": [label.as_dict() for label in labels],
         "boxes": [label.box for label in labels],
         "fixtures": {room.room_id: _fixtures(room) for room in ROOMS},

@@ -1469,3 +1469,97 @@ def test_the_hub_reports_on_the_whole_institution() -> None:
     # only the hub carries them
     assert page.count('<div class="grid" data-hub>') == 1
     assert page.count('<div class="jump" data-jump>') == 1
+
+
+# ------------------------------------ M35: the facility does something, and says what
+
+
+def test_every_room_says_what_it_is_doing_on_its_own_wall() -> None:
+    """The map has always known what each room was doing -- it was on the callout
+    card, which M29 took off the map along with all the other writing. A facility
+    whose only sign of trouble is a card you have to switch on is a facility that
+    always looks like it is going well."""
+    station = assemble()
+    layout = plan(station)
+    boards = layout["boards"]
+    assert set(boards) == {room.room_id for room in ROOMS}
+    words = set()
+    for occupied in station.occupancy:
+        room_id = occupied.room.room_id
+        board = boards[room_id]
+        chamber = layout["chambers"][room_id]
+        assert board["x"] >= chamber["x"] - 0.01
+        assert board["x"] + board["w"] <= chamber["x"] + chamber["w"] + 0.01
+        assert board["y"] >= chamber["y"] - 0.01
+        assert board["backing"] == occupied.backing.value
+        words.add(board["text"])
+    # the facility is not uniformly fine, and the wall says so
+    assert {"WORKING", "LOCKED"} <= words, words
+    assert len(words) >= 4, words
+
+
+def test_the_wall_plates_and_the_dossier_never_disagree(tmp_path: Path) -> None:
+    """One call decides what a room is doing. The plate on the wall and the word
+    in the dossier are the same string from the same place, and the arm switch
+    moves both."""
+    page = _built()
+    script = page[page.rindex("<script>") : page.rindex("</script>")]
+    assert "querySelectorAll('[data-board]')" in script
+    assert "t.textContent = r.status" in script
+    assert "data-boardlamp" in script and "data-stagelamp" in script
+    layout = plan(assemble())
+    for room in ROOMS:
+        if room.room_id == "control":
+            continue
+        assert f'data-board="{room.room_id}"' in page, room.room_id
+        assert layout["boards"][room.room_id]["text"] in page
+
+
+def test_the_hub_shows_the_walk_it_reports_on() -> None:
+    """It reports on a pipeline and did not show one. One block per stage, in the
+    order a hypothesis meets them, numbered as the rooms are numbered."""
+    layout = plan(assemble())
+    stages = layout["pipeline"]
+    walk = [*corridor(), room_named("record")]
+    assert [stage["room_id"] for stage in stages] == [room.room_id for room in walk]
+    order = [room.room_id for room in ROOMS]
+    for stage in stages:
+        assert stage["no"] == f"{order.index(stage['room_id']) + 1:02d}"
+    # it sits in the band between the boards on the wall and the tops of the
+    # things standing on the floor, or it is drawn behind what it describes
+    fixtures = layout["fixtures"]["control"]
+    mounted = max(f["y"] + f["h"] for f in fixtures if str(f["kind"]) in MOUNTED)
+    standing = min(f["y"] for f in fixtures if str(f["kind"]) not in MOUNTED)
+    for stage in stages:
+        assert stage["y"] >= mounted, "the walk is drawn over the wall boards"
+        assert stage["y"] + stage["h"] <= standing, "the walk is drawn behind the furniture"
+
+
+def test_an_actor_wears_the_number_of_the_room_it_works_in() -> None:
+    """An actor and its department are one fact seen twice, not two things to
+    remember."""
+    layout = plan(assemble())
+    order = [room.room_id for room in ROOMS]
+    for room in ROOMS:
+        for sprite in layout["sprites"][room.room_id]:
+            assert sprite["no"] == f"{order.index(room.room_id) + 1:02d}"
+
+
+def test_the_facility_moves_and_can_be_told_to_stop(tmp_path: Path) -> None:
+    """Decoration is what a still picture has. A car in the shaft, packets in the
+    corridors and screens that change are the building running -- and every one
+    of them stops for the pause button and for a reader who has asked their
+    machine for less motion."""
+    page = _built()
+    for moving in ('class="lift"', 'class="packet', 'class="cycle'):
+        assert moving in page, moving
+    style = page[page.index("<style>") : page.index("</style>")]
+    for frames in ("@keyframes ride", "@keyframes send", "@keyframes sendx", "@keyframes flick"):
+        assert frames in style, frames
+    stopped = style[style.index(".stopped .agent .walk") :]
+    stopped = stopped[: stopped.index("}")]
+    for moving in (".stopped .lift", ".stopped .packet", ".stopped .cycle"):
+        assert moving in stopped, moving
+    reduced = style[style.index("prefers-reduced-motion") :]
+    for moving in (".lift", ".packet", ".cycle"):
+        assert moving in reduced[: reduced.index("animation:none !important")], moving

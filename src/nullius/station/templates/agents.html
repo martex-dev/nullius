@@ -669,10 +669,15 @@
         </g>
       </g>
     </g>
+    {# the number is the room's, so an actor and its department are the same
+       fact seen twice rather than two things to remember #}
     <g class="nameplate" transform="translate(0 {{ -h - 15 }})">
       <rect x="{{ -s.tag_w / 2 }}" y="-11" width="{{ s.tag_w }}" height="16" rx="8"
             stroke="{{ hue }}" stroke-width="1.2" stroke-opacity=".45"/>
-      <text x="0" y="1" text-anchor="middle">{{ s.label }}</text>
+      <rect x="{{ -s.tag_w / 2 }}" y="-11" width="26" height="16" rx="8" fill="{{ hue }}"
+            opacity=".25"/>
+      <text class="tagno" x="{{ -s.tag_w / 2 + 13 }}" y="1" text-anchor="middle">{{ s.no }}</text>
+      <text x="{{ 13 }}" y="1" text-anchor="middle">{{ s.label }}</text>
     </g>
   </g>
   <title>{{ s.role }}</title>

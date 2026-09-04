@@ -80,7 +80,10 @@ its people stand on, and between the chambers is the plant that runs the place �
 trunk down the sealed wing, and a hall of tanks and trusses underneath. None of that carries a
 number, because none of it records anything. The recorded passes move between the rooms, and the
 actors walk between the stations of their own rooms and work at them — in the rooms the arm on
-display engages. In the rooms it does not, they stand at their posts. At rest there is no writing on it at all: hover a room to find out which it is,
+display engages. In the rooms it does not, they stand at their posts. The building runs too: a car
+in each shaft, packets in the corridors, screens that change, and a plate on every room's wall
+saying what that room is doing — `WORKING`, `NO DATA`, `LOCKED` — in the same words the dossier
+uses. At rest there is no other writing on it: hover a room to find out which it is,
 click it to open what that department is and what it actually did, on a sheet set in that
 department's own face, hue and layout — each dossier opens on a brief
 written for a reader who has never heard of a preregistration, with the exact wording one click

@@ -4,7 +4,7 @@
 
 This is the executable plan derived from [`docs/`](docs/). The design documents say *what* to build and *why*; this says *in what order*, *with what acceptance test*, and *what changes because of the machine we're actually on*.
 
-**Status:** M0–M34 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
+**Status:** M0–M35 complete; v5 and v6 landed, v7 registered and not yet run. **V6's result does not adjudicate what v6 registered** — its treatment arm did not implement the mechanism it names; see M23. The live path is wired but unspent (mock-driven throughout; the first live run awaits an API key). M12's code-generation half is blocked on both a key and Docker. Nothing below is claimed as done until its acceptance criteria are green in CI.
 
 ---
 
@@ -1451,6 +1451,70 @@ was not to give the hub less.
   Tested.
 - The hub's figures are counted across the map and the record, and it points at the other fourteen.
   Tested.
+- Still one self-contained file; still refuses to build on input that does not verify.
+
+---
+
+### M35 · The facility does something, and says what it is doing ✅
+Presentation only. `model.py`, `map.py` and `ledger.py` untouched.
+
+Worked from a list of outside suggestions, kept the ones that were true and refused the one that
+was not.
+
+**Every room now says what it is doing, on its own wall.** The map has always known — it was on
+the callout card, which M29 took off along with all the other writing, and a facility whose only
+sign of trouble is a card you have to switch on is a facility that always looks like it is going
+well. Fourteen plates, each with a lamp coloured by what is behind the room and a word from the
+same call the dossier uses: `WORKING`, `NO DATA`, `IDLE`, `LOCKED`, `SEALED`. Switching arms moves
+every one of them. The Review Room reads `LOCKED` in red from across the floor, which is the
+honest state of this project and is now visible without opening anything.
+
+**The Control Room shows the walk it reports on.** It described a pipeline and drew none. There is
+now a strip of ten numbered blocks on its wall, in the order a hypothesis meets them, each lit by
+what that stage is doing on the arm on display and joined by the line the hypothesis follows.
+
+**And the building moves.** Not more decoration — the same building, running. A car goes up and
+down each shaft, packets travel every corridor, and the screens change what they are showing.
+Everything new stops for the pause button and for a reader whose machine has asked for less motion,
+which is now tested rather than remembered.
+
+**Actors wear their room's number.** `05 BUILDER` rather than `BUILDER`, so an actor and its
+department are one fact seen twice instead of two things to hold in your head.
+
+#### What was refused, and why
+
+A mission panel — *MISSION 042, discover robust predictors of X, 78% complete, 12 active, 3 review,
+2 failed*. It would look superb and every number in it would be invented. This station shows a
+finished, recorded run; there is no mission in progress, no percentage of anything, and no queue.
+The rule the whole page is built on is that no number reaches it except by being read from a
+verified artifact, and a progress bar is a number. What the idea was really asking for — *the
+building should have a visible current purpose* — is answered by the hub's own brief, which says
+which arm is on display and what it actually scored.
+
+#### What building it revealed was wrong
+
+**1. A patch script that asserts its way down two files leaves the second one untouched.** The
+last substitution in the run targeted `station.html` and the text it wanted was in `agents.html`,
+so it raised — and because the write is at the end, everything the script had already done to
+`station.html` in memory went with it, while `parts.html`, written earlier in the same run, had
+landed. Half the milestone appeared to apply. The same failure was recorded in M27 and it caught
+me again, in the same shape, for the same reason: the write is at the end and the assertion is not.
+
+**2. The pipeline strip was drawn behind the furniture it describes.** Placed at a fraction of the
+chamber that looked like the middle of the wall, it landed on the tops of the consoles standing on
+the floor. In elevation there is exactly one free band — between the boards fixed to the wall and
+the tops of the things standing under them — and the test now asserts the strip is in it rather
+than trusting the fraction.
+
+**Acceptance**
+- Every test from M22 through M34 still passes.
+- Every room carries a plate inside its own chamber whose word comes from the same call the
+  dossier uses, and the set of words on the map is not uniformly cheerful. Tested.
+- The hub's strip is the walk, in order, numbered as the rooms are, and sits clear of both the
+  wall boards and the furniture. Tested.
+- Every actor wears its room's number. Tested.
+- The lift, the packets and the screens all stop for the pause button and for reduced motion.
+  Tested against the stylesheet.
 - Still one self-contained file; still refuses to build on input that does not verify.
 
 ---

@@ -186,13 +186,17 @@
         x2="{{ f.x + 6 + i * (f.w - 12) / 5 }}" y2="{{ by - 4 }}" stroke="{{ g }}"
         stroke-width="1" opacity=".2"/>
   {% endfor %}
-  {% for i in range(15) %}
-  <rect x="{{ f.x + 7 + (i % 5) * (f.w - 14) / 5 }}"
-        y="{{ fy + 5 + (i // 5) * (z - 11) / 3 }}"
-        width="{{ (f.w - 14) / 5 * (0.34 + 0.12 * (i % 4)) }}"
-        height="{{ (z - 11) / 3 - 2.6 }}" rx="1.2"
-        fill="{{ ['#3f8f5c', '#d8a341', '#4f8fbf', '#c0483c'][(i * 3) % 4] }}"
-        opacity=".85"/>
+  {% for pass_ in [0, 1] %}
+  <g class="cycle {{ 'a' if pass_ == 0 else 'b' }}">
+    {% for i in range(15) %}
+    <rect x="{{ f.x + 7 + (i % 5) * (f.w - 14) / 5 }}"
+          y="{{ fy + 5 + (i // 5) * (z - 11) / 3 }}"
+          width="{{ (f.w - 14) / 5 * (0.34 + 0.12 * ((i + pass_ * 2) % 4)) }}"
+          height="{{ (z - 11) / 3 - 2.6 }}" rx="1.2"
+          fill="{{ ['#3f8f5c', '#d8a341', '#4f8fbf', '#c0483c'][((i + pass_) * 3) % 4] }}"
+          opacity=".85"/>
+    {% endfor %}
+  </g>
   {% endfor %}
   <rect x="{{ f.x + 6 }}" y="{{ by - 8 }}" width="{{ (f.w - 12) * 0.62 }}" height="3.4" rx="1.7"
         fill="{{ g }}" opacity=".9"/>
@@ -204,11 +208,20 @@
         fill="{{ b }}"/>
   <rect x="{{ f.x + 3.5 }}" y="{{ fy + 2.5 }}" width="{{ f.w - 7 }}" height="{{ z - 6 }}" rx="2"
         fill="{{ g }}" opacity=".22" class="glowpane"/>
-  {% for i in range(4) %}
-  <rect x="{{ f.x + 8 }}" y="{{ fy + 6 + i * (z - 13) / 4 }}"
-        width="{{ (f.w - 22) * (0.32 + 0.17 * (i % 4)) }}" height="2.4" rx="1.2" fill="{{ g }}"
-        opacity=".9"/>
-  {% endfor %}
+  <g class="cycle a">
+    {% for i in range(4) %}
+    <rect x="{{ f.x + 8 }}" y="{{ fy + 6 + i * (z - 13) / 4 }}"
+          width="{{ (f.w - 22) * (0.32 + 0.17 * (i % 4)) }}" height="2.4" rx="1.2" fill="{{ g }}"
+          opacity=".9"/>
+    {% endfor %}
+  </g>
+  <g class="cycle b">
+    {% for i in range(4) %}
+    <rect x="{{ f.x + 8 }}" y="{{ fy + 6 + i * (z - 13) / 4 }}"
+          width="{{ (f.w - 22) * (0.7 - 0.14 * (i % 4)) }}" height="2.4" rx="1.2" fill="{{ g }}"
+          opacity=".9"/>
+    {% endfor %}
+  </g>
   <rect x="{{ f.x + 3.5 }}" y="{{ fy + 2.5 }}" width="{{ f.w - 7 }}" height="{{ (z - 6) * 0.4 }}"
         rx="2" fill="#fff" opacity=".05"/>
   <rect x="{{ f.x + f.w * 0.3 }}" y="{{ f.y + 2 }}" width="{{ f.w * 0.4 }}" height="{{ th - 4 }}"
@@ -1168,6 +1181,20 @@
         rx="2" fill="var(--m-steel)" stroke="#050912" stroke-width="1.3" stroke-opacity=".6"/>
   <circle cx="{{ hall.x + hall.w + 1.5 }}" cy="{{ hall.y + hall.h * 0.42 + 6 }}" r="1.8"
           fill="var(--m-paint)" class="blink"/>
+  {# a car that actually goes up and down the shaft #}
+  <g class="lift" style="--ride:{{ hall.h - 46 }}px;--ridetime:{{ 9 + n * 2 }}s">
+    <rect x="{{ hall.x + 7 }}" y="{{ hall.y + 4 }}" width="{{ hall.w - 14 }}" height="38" rx="4"
+          fill="var(--wallcap)" stroke="#050912" stroke-width="1.6" stroke-opacity=".65"/>
+    <rect x="{{ hall.x + 11 }}" y="{{ hall.y + 9 }}" width="{{ hall.w - 22 }}" height="14" rx="2"
+          fill="{{ hue }}" opacity=".35"/>
+    <line x1="{{ hall.x + hall.w / 2 }}" y1="{{ hall.y + 27 }}" x2="{{ hall.x + hall.w / 2 }}"
+          y2="{{ hall.y + 38 }}" stroke="#050912" stroke-width="2" stroke-opacity=".6"/>
+  </g>
+  {% for i in range(2) %}
+  <circle class="packet" r="3.4" fill="{{ hue }}" cx="{{ hall.x + hall.w / 2 }}"
+          cy="{{ hall.y }}"
+          style="--ride:{{ hall.h }}px;--ridetime:{{ 5 + n }}s;--ridedelay:-{{ i * 2.4 }}s"/>
+  {% endfor %}
   {% else %}
   {% set cy = hall.y + hall.h / 2 %}
   <rect x="{{ hall.x - 2 }}" y="{{ hall.y - 13 }}" width="{{ hall.w + 4 }}"
@@ -1216,6 +1243,11 @@
         fill="var(--m-steel)" stroke="#050912" stroke-width="1.3" stroke-opacity=".6"/>
   <circle cx="{{ hall.x + hall.w * 0.5 + 6 }}" cy="{{ hall.y - 6.5 }}" r="1.8"
           fill="var(--m-paint)" class="blink"/>
+  {% for i in range(2) %}
+  <circle class="packet flat" r="3.4" fill="{{ hue }}" cx="{{ hall.x }}"
+          cy="{{ hall.y + hall.h / 2 }}"
+          style="--ride:{{ hall.w }}px;--ridetime:{{ 4 + n }}s;--ridedelay:-{{ i * 2 }}s"/>
+  {% endfor %}
   {% endif %}
   <text x="{{ hall.x + hall.w / 2 }}" y="{{ hall.y + hall.h / 2 + 5 }}" text-anchor="middle"
         font-family="var(--mono)" font-size="15" font-weight="700" fill="{{ hue }}"
@@ -1517,5 +1549,74 @@
   <circle cx="{{ w.x + w.w * 0.72 }}" cy="{{ w.y + w.h * 0.5 }}" r="12" fill="none"
           stroke="var(--m-paint)" stroke-width="3.4" opacity=".7"/>
 {% endif %}
+</g>
+{% endmacro %}
+
+
+{# ------------------------------------------------------------ status plate
+
+   What a room is doing, on the room's own wall. This was on the callout card
+   until M29 took the writing off the map, and a facility whose only sign of
+   trouble is a card you have to switch on is a facility that always looks like
+   it is going well. The word is the same word the dossier uses, because it
+   comes from the same call. #}
+
+{% macro plate(room_id, board, hue) %}
+<g class="statplate">
+  <rect x="{{ board.x + 2 }}" y="{{ board.y + 3 }}" width="{{ board.w }}"
+        height="{{ board.h }}" rx="5" fill="#000" opacity=".45"/>
+  <rect x="{{ board.x }}" y="{{ board.y }}" width="{{ board.w }}" height="{{ board.h }}" rx="5"
+        fill="var(--plate-2)" stroke="#050912" stroke-width="1.6" stroke-opacity=".7"/>
+  <rect x="{{ board.x }}" y="{{ board.y }}" width="{{ board.w }}" height="{{ board.h * 0.24 }}"
+        rx="5" fill="#fff" opacity=".05"/>
+  <rect x="{{ board.x + 3 }}" y="{{ board.y + 3 }}" width="{{ board.w - 6 }}"
+        height="{{ board.h - 6 }}" rx="3" fill="none" stroke="{{ hue }}" stroke-width="1.2"
+        stroke-opacity=".3"/>
+  <circle class="lamp" data-boardlamp="{{ room_id }}" cx="{{ board.x + 13 }}"
+          cy="{{ board.y + board.h / 2 }}" r="5.5"
+          fill="{{ backing_colour(board.backing) }}"/>
+  <circle cx="{{ board.x + 13 }}" cy="{{ board.y + board.h / 2 }}" r="9" fill="none"
+          stroke="{{ backing_colour(board.backing) }}" stroke-width="1.2" stroke-opacity=".3"/>
+  <text class="platetext" data-board="{{ room_id }}" x="{{ board.x + 26 }}"
+        y="{{ board.y + board.h / 2 + 4 }}">{{ board.text }}</text>
+</g>
+{% endmacro %}
+
+
+{# ---------------------------------------------------- the pipeline, in the hub
+
+   The Control Room reports on a walk and did not show one. One block per stage,
+   in the order a hypothesis meets them, lit by what that stage is doing on the
+   arm on display -- and joined by the same line the hypothesis follows. #}
+
+{% macro pipestrip(stages, hue) %}
+<g class="pipestrip">
+  {% set first = stages[0] %}
+  {% set last = stages[-1] %}
+  <line x1="{{ first.x }}" y1="{{ first.y + first.h / 2 }}"
+        x2="{{ last.x + last.w }}" y2="{{ last.y + last.h / 2 }}" stroke="#050912"
+        stroke-width="7" stroke-opacity=".55"/>
+  <line x1="{{ first.x }}" y1="{{ first.y + first.h / 2 }}"
+        x2="{{ last.x + last.w }}" y2="{{ last.y + last.h / 2 }}" stroke="{{ hue }}"
+        stroke-width="2" stroke-opacity=".3" stroke-dasharray="9 7"/>
+  {% for stage in stages %}
+  <g class="stage">
+    <rect x="{{ stage.x + 1.5 }}" y="{{ stage.y + 2.5 }}" width="{{ stage.w }}"
+          height="{{ stage.h }}" rx="4" fill="#000" opacity=".45"/>
+    <rect x="{{ stage.x }}" y="{{ stage.y }}" width="{{ stage.w }}" height="{{ stage.h }}"
+          rx="4" fill="var(--plate-2)" stroke="{{ stage.accent }}" stroke-width="1.6"
+          stroke-opacity="{{ '.9' if stage.engaged else '.35' }}"/>
+    <rect x="{{ stage.x }}" y="{{ stage.y }}" width="{{ stage.w }}" height="4" rx="2"
+          fill="{{ stage.accent }}" opacity="{{ '.95' if stage.engaged else '.3' }}"/>
+    <rect x="{{ stage.x + 4 }}" y="{{ stage.y + stage.h - 8 }}"
+          width="{{ (stage.w - 8) * 0.62 }}" height="3" rx="1.5" fill="{{ stage.accent }}"
+          opacity=".35"/>
+    <circle class="lamp" data-stagelamp="{{ stage.room_id }}" cx="{{ stage.x + stage.w - 8 }}"
+            cy="{{ stage.y + stage.h - 7 }}" r="3.2"
+            fill="{{ backing_colour(stage.backing) }}"/>
+    <text class="stageno" x="{{ stage.x + stage.w / 2 }}" y="{{ stage.y + stage.h / 2 + 4 }}"
+          text-anchor="middle">{{ stage.no }}</text>
+  </g>
+  {% endfor %}
 </g>
 {% endmacro %}

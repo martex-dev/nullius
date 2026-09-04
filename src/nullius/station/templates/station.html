@@ -449,6 +449,28 @@
                      64.01%,100% { transform:scaleX(-1); } }
   /* Leaning into whatever is in front of them. */
   @keyframes work { 0%,100% { transform:rotate(0deg); } 50% { transform:rotate(5.5deg); } }
+  /* A facility that never moves is a photograph of a facility. Below is the
+     building running: a car in the shaft, packets in the corridors, and screens
+     that change what they are showing. */
+  @keyframes ride { 0%,6% { transform:translateY(0); }
+                    46%,54% { transform:translateY(var(--ride,100px)); }
+                    94%,100% { transform:translateY(0); } }
+  @keyframes send { 0% { transform:translateY(0); opacity:0; }
+                    12%,88% { opacity:.95; }
+                    100% { transform:translateY(var(--ride,100px)); opacity:0; } }
+  @keyframes sendx { 0% { transform:translateX(0); opacity:0; }
+                     12%,88% { opacity:.95; }
+                     100% { transform:translateX(var(--ride,100px)); opacity:0; } }
+  @keyframes flick { 0%,46% { opacity:1; } 54%,100% { opacity:0; } }
+  .lift { animation:ride var(--ridetime,11s) cubic-bezier(.5,0,.5,1) infinite; }
+  .packet { animation:send var(--ridetime,6s) linear infinite var(--ridedelay,0s); }
+  .packet.flat { animation-name:sendx; }
+  .cycle.a { animation:flick var(--flick,7s) steps(1,end) infinite; }
+  .cycle.b { animation:flick var(--flick,7s) steps(1,end) infinite;
+             animation-direction:reverse; }
+  .platetext { font:700 12px/1 var(--mono); letter-spacing:.1em; fill:var(--plate-ink); }
+  .stageno { font:700 11px/1 var(--mono); fill:var(--plate-dim); }
+  .tagno { font-family:var(--mono); font-size:10px; font-weight:700; fill:var(--plate-ink); }
   @keyframes blink { 0%,72%,100% { opacity:.3; } 80%,92% { opacity:1; } }
   @keyframes breathe { 0%,100% { opacity:.42; } 50% { opacity:1; } }
   @keyframes hum { 0%,100% { opacity:.7; } 50% { opacity:1; } }
@@ -472,10 +494,12 @@
   .lamp { animation:breathe 3.6s ease-in-out infinite; }
   .stopped .agent .walk, .stopped .agent .pace, .stopped .agent .turn,
   .stopped .agent .pose, .stopped .blink, .stopped .glowpane, .stopped .lamp,
+  .stopped .lift, .stopped .packet, .stopped .cycle,
   .stopped .doorlamp { animation:none; }
   @media (prefers-reduced-motion: reduce) {
     .agent .walk, .agent .pace, .agent .turn, .agent .pose,
-    .blink, .glowpane, .lamp, .doorlamp { animation:none !important; }
+    .lift, .packet, .cycle, .blink, .glowpane, .lamp, .doorlamp {
+      animation:none !important; }
     #camera { transition:none; }
   }
 </style>
@@ -781,6 +805,11 @@
                 y2="{{ floor.y + CEIL }}" stroke="#000" stroke-width="2.4" stroke-opacity=".5"/>
           {{ parts.ceiling(ch, hue) }}
           {{ parts.wallrun(ch, hue) }}
+          {% if room.room_id == 'control' %}
+          {{ parts.pipestrip(plan.pipeline, hue) }}
+          {% else %}
+          {{ parts.plate(room.room_id, plan.boards[room.room_id], hue) }}
+          {% endif %}
 
           {# the floor slab: a lit top edge is what says where the ground is #}
           <rect x="{{ floor.x }}" y="{{ slab.y - 22 }}" width="{{ floor.w }}" height="22"
@@ -1468,6 +1497,24 @@
       c.setAttribute('fill', r.backing === 'live' ? 'var(--good)'
         : (r.backing === 'unbuilt' ? 'var(--bad)' : 'var(--warn)'));
       c.style.animation = r.engaged ? '' : 'none';
+    });
+    Array.prototype.forEach.call(svg.querySelectorAll('[data-board]'), function (t) {
+      var r = a.rooms[t.dataset.board];
+      if (r) { t.textContent = r.status; }
+    });
+    Array.prototype.forEach.call(svg.querySelectorAll('[data-boardlamp],[data-stagelamp]'),
+      function (c) {
+        var id = c.dataset.boardlamp || c.dataset.stagelamp;
+        var r = a.rooms[id];
+        if (!r) { return; }
+        c.setAttribute('fill', r.backing === 'live' ? 'var(--good)'
+          : (r.backing === 'unbuilt' ? 'var(--bad)' : 'var(--warn)'));
+        c.style.animation = r.engaged ? '' : 'none';
+      });
+    Array.prototype.forEach.call(svg.querySelectorAll('.pipestrip .stage'), function (g) {
+      var lamp = g.querySelector('[data-stagelamp]');
+      var r = lamp && a.rooms[lamp.dataset.stagelamp];
+      if (r) { g.setAttribute('opacity', r.engaged ? '1' : '.45'); }
     });
     Array.prototype.forEach.call(svg.querySelectorAll('text[data-kind="status"]'), function (t) {
       var r = a.rooms[t.dataset.room];
